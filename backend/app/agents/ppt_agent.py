@@ -18,7 +18,9 @@ from pathlib import Path
 from app.agents.groq_client import chat_with_tools
 from app.agents.pptx_tools import TOOL_SCHEMAS, PptxBuilder
 from app.config import REPORTS_DIR
+from app.services import ingestion
 from app.services.report_template import PROGRAM_TITLE, SLIDE_SEQUENCE
+from app.services.trip_analytics import FLAG_INFO
 
 SYSTEM_PROMPT = f"""You are the report composer for the {PROGRAM_TITLE}. You assemble a \
 PowerPoint deck by calling the tools you've been given -- you never write PPTX content \
@@ -33,55 +35,66 @@ Rules:
   differently, or invent any number or row. You may only choose the slide heading text.
 - For add_title_slide, add_narrative_slide and add_recommendations_slide: base the \
   content on the "ANALYST_INSIGHTS" section -- you may tighten the prose for a slide \
-  (concise, presentation-appropriate) but must preserve every factual claim, shipment ID, \
-  facility name, and causal mechanism mentioned there. Do not add generic filler.
+  (concise, presentation-appropriate) but must preserve every factual claim, trip ID, \
+  product, and causal mechanism mentioned there. Do not add generic filler.
 - Call the 7 tools in order and then stop.
 """
 
 
-def _format_kpi_cards(kpis: dict) -> list[dict]:
-    targets = kpis.get("targets", {})
-    temp_target = targets.get("Temperature Compliance Rate", 95)
-    spoil_target = targets.get("Maximum Acceptable Spoilage", 8)
-    life_target = targets.get("Minimum Green Life Retention", 70)
+def _format_kpi_cards(kpis: dict, bloom_risk: list[dict], business_rules: dict | None) -> list[dict]:
+    standard = {k["name"]: k for k in (business_rules or {}).get("standard_kpis", [])}
+    customer_kpis = {k["name"]: k for k in (business_rules or {}).get("customer_kpis", [])}
+    temp_target = standard.get("% Time In Spec", {}).get("target_pct", 95)
+    bloom_target = customer_kpis.get("Bloom Risk Score", {}).get("target_max", 15)
 
-    return [
-        dict(label="Temperature Compliance", value=f"{kpis['avg_temperature_compliance_pct']}%",
-             target=f"{temp_target}%",
-             status="on_target" if kpis["avg_temperature_compliance_pct"] >= temp_target else "at_risk"),
-        dict(label="Avg Arrival Spoilage", value=f"{kpis['avg_spoilage_pct']}%",
-             target=f"<= {spoil_target}%",
-             status="at_risk" if kpis["avg_spoilage_pct"] > spoil_target else "on_target"),
-        dict(label="Avg Green Life Retention", value=f"{kpis['avg_green_life_retention_pct']}%",
-             target=f">= {life_target}%",
-             status="at_risk" if kpis["avg_green_life_retention_pct"] < life_target else "on_target"),
-        dict(label="At-Risk Shipments", value=str(kpis["at_risk_shipment_count"]), target="0",
-             status="at_risk" if kpis["at_risk_shipment_count"] > 0 else "on_target"),
-        dict(label="Shipments Assessed", value=str(kpis["shipments_assessed"]), target="-", status="on_target"),
+    compliance = kpis.get("avg_compliance_pct")
+    avg_bloom = round(sum(b["BloomRiskScore"] for b in bloom_risk) / len(bloom_risk), 1) if bloom_risk else None
+
+    cards = [
+        dict(label="Trips Loaded", value=str(kpis["trips_loaded"]), target="-", status="on_target"),
+        dict(label="Avg % Time In Spec", value=f"{compliance}%" if compliance is not None else "-",
+             target=f">= {temp_target}%",
+             status="at_risk" if compliance is not None and compliance < temp_target else "on_target"),
+        dict(label="Flagged Trips", value=str(kpis["flagged_trip_count"]), target="0",
+             status="at_risk" if kpis["flagged_trip_count"] > 0 else "on_target"),
+        dict(label="Should Be Closed", value=str(kpis["likely_arrived_count"]), target="0",
+             status="at_risk" if kpis["likely_arrived_count"] > 0 else "on_target"),
+        dict(label="Stuck - Needs Investigation", value=str(kpis["stuck_trip_count"]), target="0",
+             status="at_risk" if kpis["stuck_trip_count"] > 0 else "on_target"),
     ]
+    if avg_bloom is not None:
+        cards.append(dict(label="Avg Bloom Risk Score", value=str(avg_bloom), target=f"<= {bloom_target}",
+                           status="at_risk" if avg_bloom > bloom_target else "on_target"))
+    return cards
 
 
-def _top_risk_table(records: list[dict]):
-    # the add_table_slide tool schema requires string cells -- stringify here so the
-    # exact values in the prompt already match what the model is allowed to pass back
-    columns = ["Shipment", "Commodity", "Facility", "Spoilage %", "Green Life Left (d)", "Excursion (deg-hrs)"]
-    rows = [[str(r["ShipmentID"]), str(r["Commodity"]), str(r["DestinationFacility"]), str(r["SpoilagePct"]),
-             str(r["GreenLifeRemainingDays"]), str(r["ExcursionDegHours"])] for r in records]
+def _flagged_trips_table(records: list[dict]):
+    columns = ["Trip", "Source", "Product", "Destination", "Issue", "% In Spec"]
+    rows = [[
+        str(r["TripID"]), str(r["Source"]), str(r["Product"]), str(r["Destination"]),
+        FLAG_INFO.get(r["Flag"], {}).get("label", r["Flag"]),
+        str(r["CompliancePct"]) if r["CompliancePct"] is not None else "-",
+    ] for r in records]
     return columns, rows
 
 
-def _facility_table(records: list[dict]):
-    columns = ["Facility", "Type", "Refrigeration", "Install Yr", "Avg Compliance %", "Avg Spoilage %"]
-    rows = [[str(r["DestinationFacility"]), str(r["FacilityType"]), str(r["RefrigerationSystemType"]), str(r["InstallYear"]),
-             str(r["AvgCompliancePct"]), str(r["AvgSpoilagePct"])] for r in records]
+def _product_bloom_table(product_risk: list[dict], bloom_risk: list[dict]):
+    bloom_by_product = {b["Product"]: b for b in bloom_risk}
+    columns = ["Product", "Trips", "Avg % In Spec", "Flagged", "Bloom Risk Score"]
+    rows = []
+    for p in product_risk:
+        bloom = bloom_by_product.get(p["Product"], {})
+        rows.append([str(p["Product"]), str(p["TripCount"]), str(p["AvgCompliancePct"]), str(p["FlaggedCount"]),
+                     str(bloom.get("BloomRiskScore", "-"))])
     return columns, rows
 
 
-def compose_report(insights: dict) -> Path:
+def compose_report(insights: dict) -> tuple[Path, list]:
     data = insights["_data"]
-    kpi_cards = _format_kpi_cards(data["program_kpis"])
-    top_risk_cols, top_risk_rows = _top_risk_table(data["top_risk_shipments"])
-    facility_cols, facility_rows = _facility_table(data["facility_ranking"])
+    business_rules = ingestion.store.business_rules
+    kpi_cards = _format_kpi_cards(data["program_kpis"], data["bloom_risk_by_product"], business_rules)
+    flagged_cols, flagged_rows = _flagged_trips_table(data["flagged_trips"])
+    product_cols, product_rows = _product_bloom_table(data["product_risk"], data["bloom_risk_by_product"])
 
     builder = PptxBuilder()
 
@@ -98,9 +111,9 @@ def compose_report(insights: dict) -> Path:
         "ANALYST_INSIGHTS (from Agent 1, use for narrative/recommendation slides):\n"
         f"{json.dumps({k: v for k, v in insights.items() if k != '_data'}, indent=2)}\n\n"
         "EXACT_DATA_FOR_NUMERIC_SLIDES (use verbatim for add_kpi_slide / add_table_slide):\n"
-        f"{json.dumps({'kpi_cards': kpi_cards, 'top_risk_table': {'columns': top_risk_cols, 'rows': top_risk_rows}, 'facility_table': {'columns': facility_cols, 'rows': facility_rows}}, indent=2, default=str)}\n\n"
-        f"Reporting period context: report generated {datetime.now():%d %B %Y}, "
-        "covering shipments dispatched over the preceding 30 days.\n\n"
+        f"{json.dumps({'kpi_cards': kpi_cards, 'flagged_trips_table': {'columns': flagged_cols, 'rows': flagged_rows}, 'product_bloom_table': {'columns': product_cols, 'rows': product_rows}}, indent=2, default=str)}\n\n"
+        f"Reporting period context: report generated {datetime.now():%d %B %Y} for {data['customer']}, "
+        "covering all SensiWatch and ColdStream trips currently loaded.\n\n"
         "Now call the 7 tools in order as instructed."
     )
 
@@ -109,7 +122,7 @@ def compose_report(insights: dict) -> Path:
     if builder.slide_count == 0:
         raise RuntimeError("Report Composer agent made no tool calls -- no slides were generated.")
 
-    filename = f"cold_chain_report_{datetime.now():%Y%m%d_%H%M%S}.pptx"
+    filename = f"belvoire_cold_chain_report_{datetime.now():%Y%m%d_%H%M%S}.pptx"
     output_path = REPORTS_DIR / filename
     builder.save(output_path)
     return output_path, calls

@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import dashboard, report
+from app.routers import dashboard, ingestion, report, trips
 from app.services.live_feed import run_live_feed_loop
 
 
@@ -28,6 +28,8 @@ app.add_middleware(
 
 app.include_router(dashboard.router)
 app.include_router(report.router)
+app.include_router(ingestion.router)
+app.include_router(trips.router)
 
 
 @app.get("/api/health")

@@ -1,0 +1,53 @@
+# Customer Profile & Shipment Configuration — Belvoire Chocolatier
+
+## Business Overview
+Belvoire Chocolatier is a confectionery supplier shipping temperature-sensitive
+finished goods from two production sites (Turin, Antwerp) to regional
+distribution centers across Western/Central Europe. Business type: **supplier**
+-- primary interest is product quality on arrival, secondary interest in
+carrier performance on the legs they arrange directly.
+
+## Product Catalog & Specifications
+- **Dark Chocolate Couverture 70%** — target 15-18C, max 55% RH. Risk: fat
+  bloom (greyish surface film) if held above ~24C for sustained periods.
+- **Milk Chocolate Pralines** — target 16-18C, max 50% RH. Filled product,
+  narrower tolerance than plain couverture; also prone to sugar bloom if
+  humidity exceeds spec for more than a few hours (condensation on cooling).
+- **Cocoa Butter Blocks** — target 16-20C, max 60% RH. Most heat-tolerant of
+  the three, but softens and can partially melt above ~28C.
+
+## Branding Preferences (for customer-facing reports)
+- Primary color: deep cocoa brown (#4A2C1D). Accent: warm gold (#C89B3C).
+- Font: Georgia for headings, Calibri for body text.
+- Belvoire is a conservative, repeat customer -- prefers the same report
+  structure year over year rather than a redesigned layout.
+
+## Known Shipping Lanes
+Turin Production Facility and Antwerp Cocoa Processing Plant to: Rotterdam
+Distribution Hub, Frankfurt Regional DC, Lyon Cold Storage, Milan Distribution
+Center, Vienna Regional DC.
+
+## Confirmed Delivery Log
+Entries below come from Belvoire's own logistics team (email/portal
+confirmation), independent of what SensiWatch shows as the trip status. Use
+this to resolve trips SensiWatch still shows as "In Transit."
+
+- **SW-2026-0012** (Cocoa Butter Blocks, Turin -> Frankfurt Regional DC):
+  Belvoire confirms this arrived and was received into the Frankfurt DC over
+  a month ago. SensiWatch trip was never closed on our end -- please mark
+  arrived and close.
+- **SW-2026-0013** (Dark Chocolate Couverture 70%, Antwerp -> Milan
+  Distribution Center): Confirmed received by Milan DC receiving team.
+  SensiWatch trip is still showing "In Transit" -- same closure issue as
+  above.
+- **SW-2026-0014** (Milk Chocolate Pralines, Turin -> Lyon Cold Storage):
+  Belvoire's logistics team confirms this shipment has **NOT** been received
+  at Lyon Cold Storage. Last known monitor position does not match the
+  destination. This looks like a genuine in-transit problem (route deviation
+  or carrier delay) rather than a data entry issue -- flag for follow-up with
+  the carrier, not an auto-close.
+
+## Known Data Issues (reported by Belvoire, not yet cleaned up)
+- **CS-2026-0007** (ColdStream): device was left running well past delivery
+  on a prior shipment; the ~85-day duration on file is not a real transit
+  time. Safe to disregard / needs a corrected end date.

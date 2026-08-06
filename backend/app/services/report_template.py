@@ -15,24 +15,24 @@ BRAND = dict(
     font_body="Calibri",
 )
 
-PROGRAM_TITLE = "Cold Chain Post-Harvest Assessment Report"
+PROGRAM_TITLE = "Cold Chain Program Performance Report"
 
 # The fixed slide sequence. Agent 2 (Report Composer) must call exactly one
 # pptx_tools function per entry, in this order, using content sourced from
 # Agent 1's insight JSON -- it cannot reorder, skip, or invent extra slides.
 SLIDE_SEQUENCE = [
     dict(slide_type="title", tool="add_title_slide",
-         purpose="Program name, reporting period, subtitle"),
+         purpose="Customer name, reporting period, subtitle"),
     dict(slide_type="kpi", tool="add_kpi_slide",
          purpose="Executive summary KPI cards vs. program targets"),
     dict(slide_type="narrative", tool="add_narrative_slide",
-         purpose="Cold chain performance overview narrative"),
+         purpose="Cold chain performance overview narrative -- % time in spec, humidity compliance, bloom risk score vs targets"),
     dict(slide_type="narrative", tool="add_narrative_slide",
-         purpose="Root-cause / deductive analysis: correlate temperature excursions to green-life loss, name specific commodities/facilities"),
+         purpose="Root-cause / deductive analysis: correlate triage flags (trip closure gaps, stalled trips, ColdStream data-quality issues) and temperature/humidity excursions to bloom risk, name specific trips/products/lanes"),
     dict(slide_type="table", tool="add_table_slide",
-         purpose="Top at-risk shipments deep-dive table"),
+         purpose="Flagged trips deep-dive table"),
     dict(slide_type="table", tool="add_table_slide",
-         purpose="Facility performance ranking table"),
+         purpose="Product / bloom risk ranking table"),
     dict(slide_type="recommendations", tool="add_recommendations_slide",
          purpose="Prioritized, root-cause-matched corrective actions"),
 ]

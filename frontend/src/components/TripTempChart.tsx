@@ -10,32 +10,33 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { fetchSensorSeries, type SensorSeries, type ShipmentSummary } from "../api/client";
+import { fetchTripSensorSeries, type TripSensorSeries, type TripSummary } from "../api/client";
 
 interface Props {
-  shipments: ShipmentSummary[];
+  trips: TripSummary[];
+  selected?: string;
+  onSelectChange?: (tripId: string) => void;
 }
 
-export default function TempHumidityChart({ shipments }: Props) {
-  const [selected, setSelected] = useState<string>("");
-  const [series, setSeries] = useState<SensorSeries | null>(null);
+export default function TripTempChart({ trips, selected: controlledSelected, onSelectChange }: Props) {
+  const [internalSelected, setInternalSelected] = useState<string>("");
+  const selected = controlledSelected ?? internalSelected;
+  const setSelected = onSelectChange ?? setInternalSelected;
+  const [series, setSeries] = useState<TripSensorSeries | null>(null);
 
   useEffect(() => {
-    if (!selected && shipments.length > 0) {
-      const inTransit = shipments.find((s) => s.TransitStatus === "In Transit");
-      setSelected((inTransit ?? shipments[0]).ShipmentID);
+    if (!selected && trips.length > 0) {
+      const flagged = trips.find((t) => t.Flag !== "closed" && t.Flag !== "clean" && t.Flag !== "active");
+      setSelected((flagged ?? trips[0]).TripID);
     }
-  }, [shipments, selected]);
+  }, [trips, selected]);
 
   useEffect(() => {
     if (!selected) return;
     let cancelled = false;
-    const load = () => fetchSensorSeries(selected).then((data) => !cancelled && setSeries(data));
-    load();
-    const interval = setInterval(load, 15000);
+    fetchTripSensorSeries(selected).then((data) => !cancelled && setSeries(data));
     return () => {
       cancelled = true;
-      clearInterval(interval);
     };
   }, [selected]);
 
@@ -48,20 +49,18 @@ export default function TempHumidityChart({ shipments }: Props) {
         minute: "2-digit",
       }),
       Temperature: r.TemperatureC,
-      Humidity: r.HumidityPct,
-      door: r.DoorOpenEvent,
     })) ?? [];
 
   return (
     <div className="panel">
       <h2>
-        Temperature Trend
-        <span className="hint">per-shipment sensor trace vs. target band</span>
+        Trip Temperature Trend
+        <span className="hint">per-trip sensor trace vs. product target band</span>
       </h2>
       <select value={selected} onChange={(e) => setSelected(e.target.value)} style={{ marginBottom: 12 }}>
-        {shipments.map((s) => (
-          <option key={s.ShipmentID} value={s.ShipmentID}>
-            {s.ShipmentID} - {s.Commodity} {s.TransitStatus === "In Transit" ? "(live)" : ""}
+        {trips.map((t) => (
+          <option key={t.TripID} value={t.TripID}>
+            {t.TripID} - {t.Product} ({t.Source})
           </option>
         ))}
       </select>
@@ -84,7 +83,7 @@ export default function TempHumidityChart({ shipments }: Props) {
           </LineChart>
         </ResponsiveContainer>
       ) : (
-        <div className="empty-state">No sensor readings yet for this shipment.</div>
+        <div className="empty-state">No sensor readings yet for this trip.</div>
       )}
     </div>
   );
