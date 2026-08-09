@@ -1,0 +1,22 @@
+# Python
+backend/.venv/
+backend/venv/
+__pycache__/
+*.pyc
+backend/.env
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+*.local
+
+# Generated output (not source)
+backend/generated_reports/
+
+# Editor/OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+~$*
