@@ -1,0 +1,109 @@
+.audit-report {
+  margin-top: 4px;
+  border: 1px solid var(--carrier-blue-tint-2);
+  border-radius: var(--radius-md);
+  background: var(--carrier-blue-tint);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.audit-report__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.audit-report__label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--carrier-blue);
+}
+
+.audit-report__status {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+.audit-report__status--pending {
+  background: #fbf0dc;
+  color: #8a5a10;
+}
+
+.audit-report__status--reviewed {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.audit-report__overview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.audit-report__tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 68px;
+  padding: 8px 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--carrier-blue-tint-2);
+  border-radius: var(--radius-sm);
+}
+
+.audit-report__tile-value {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--carrier-blue);
+  line-height: 1.2;
+}
+
+.audit-report__tile-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.audit-report__tile--critical {
+  border-color: var(--color-error);
+  background: var(--color-error-bg);
+}
+
+.audit-report__tile--critical .audit-report__tile-value {
+  color: var(--color-error);
+}
+
+.audit-report__tile--warning {
+  border-color: #e0b357;
+  background: #fbf0dc;
+}
+
+.audit-report__tile--warning .audit-report__tile-value {
+  color: #8a5a10;
+}
+
+.audit-report__summary {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--color-text-muted);
+  font-style: italic;
+  border-left: 2px solid var(--carrier-blue-tint-2);
+  padding-left: 10px;
+}
+
+.audit-report__issues {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}

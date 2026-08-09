@@ -1,0 +1,234 @@
+.audit-issue {
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  background: var(--color-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.audit-issue--info {
+  border-left-color: var(--carrier-light-blue);
+}
+
+.audit-issue--warning {
+  border-left-color: #c98a1b;
+}
+
+.audit-issue--critical {
+  border-left-color: var(--color-error);
+}
+
+.audit-issue--resolved {
+  opacity: 0.65;
+}
+
+.audit-issue__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.audit-issue__severity {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--carrier-blue-tint);
+  color: var(--carrier-blue);
+}
+
+.audit-issue__severity--critical {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.audit-issue__severity--warning {
+  background: #fbf0dc;
+  color: #8a5a10;
+}
+
+.audit-issue__title {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--color-text);
+  flex: 1;
+}
+
+.audit-issue__affected {
+  font-size: 11.5px;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.audit-issue__description {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.audit-issue__sample-toggle {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: var(--carrier-light-blue);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.audit-issue__sample-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.audit-issue__sample-table {
+  border-collapse: collapse;
+  font-size: 11px;
+  width: 100%;
+}
+
+.audit-issue__sample-table th,
+.audit-issue__sample-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.audit-issue__sample-table th {
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.audit-issue__resolution {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+.audit-issue__checklist-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.audit-issue__checklist-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.audit-issue__checklist-count {
+  font-size: 11.5px;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.audit-issue__checklist-links {
+  display: flex;
+  gap: 10px;
+}
+
+.audit-issue__link {
+  background: none;
+  border: none;
+  color: var(--carrier-light-blue);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.audit-issue__checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 4px 12px;
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  background: var(--color-bg);
+}
+
+.audit-issue__checklist-item label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text);
+  cursor: pointer;
+  padding: 3px 0;
+}
+
+.audit-issue__checklist-item input[type="checkbox"] {
+  accent-color: var(--carrier-blue);
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.audit-issue__checklist-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audit-issue__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.audit-issue__btn {
+  border-radius: var(--radius-sm);
+  padding: 6px 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.audit-issue__btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.audit-issue__btn--primary {
+  background: var(--carrier-blue);
+  border: 1px solid var(--carrier-blue);
+  color: #fff;
+}
+
+.audit-issue__btn--primary:hover:not(:disabled) {
+  background: var(--carrier-light-blue);
+  border-color: var(--carrier-light-blue);
+}
+
+.audit-issue__btn--secondary {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.audit-issue__btn--secondary:hover:not(:disabled) {
+  border-color: var(--color-text-muted);
+  color: var(--color-text);
+}
