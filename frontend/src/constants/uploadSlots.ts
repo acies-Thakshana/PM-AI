@@ -34,6 +34,15 @@ export const UPLOAD_SLOTS: UploadSlotConfig[] = [
     accept: ".json",
     acceptLabel: "JSON",
   },
+  {
+    id: "analysisProfile",
+    title: "Analysis Profile",
+    description:
+      "JSON pivot table definitions used in the Analysis step (group-by + aggregation logic, e.g. performance by Country of Origin, carrier reliability). Nothing is computed there without this file -- see backend/data/samples/analysis_profile_example.json for the format.",
+    required: false,
+    accept: ".json",
+    acceptLabel: "JSON",
+  },
 ];
 
 // Only the tabular data sources get audited -- duplicate/outlier checks aren't

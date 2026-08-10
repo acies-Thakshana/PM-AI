@@ -79,7 +79,7 @@ export default function UploadPage({ files, onSelect, onRemove, onClearAll }: Up
         </div>
 
         <div className="upload-page__actions">
-          <span className="upload-page__count">{selectedCount} of 4 files selected</span>
+          <span className="upload-page__count">{selectedCount} of {UPLOAD_SLOTS.length} files selected</span>
           <div className="upload-page__buttons">
             <button type="button" className="upload-page__btn upload-page__btn--secondary" onClick={onClearAll}>
               Clear All

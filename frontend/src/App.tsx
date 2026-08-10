@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import UploadPage from "./pages/UploadPage";
 import AuditPage from "./pages/AuditPage";
 import FeaturesPage from "./pages/FeaturesPage";
+import AnalysisPage from "./pages/AnalysisPage";
 import { AuditApiError, resolveIssue, revertIssue, uploadForAudit } from "./api/audit";
 import type { AuditReport as AuditReportData } from "./api/audit";
 import { isAudited } from "./constants/uploadSlots";
@@ -19,6 +20,7 @@ const EMPTY_FILES: FilesState = {
   coldstream: null,
   thresholds: null,
   customerKpis: null,
+  analysisProfile: null,
 };
 
 function App() {
@@ -129,6 +131,7 @@ function App() {
           }
         />
         <Route path="/features" element={<FeaturesPage files={files} auditReports={auditReports} />} />
+        <Route path="/analysis" element={<AnalysisPage files={files} auditReports={auditReports} />} />
         <Route path="*" element={<Navigate to="/upload" replace />} />
       </Routes>
     </BrowserRouter>

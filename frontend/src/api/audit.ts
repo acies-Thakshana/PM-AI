@@ -94,6 +94,80 @@ export interface FeatureSuggestionsResponse {
   suggestions: FeatureSuggestion[];
 }
 
+export type PivotAgg = "sum" | "mean" | "count" | "min" | "max" | "median" | "distinct_count" | "pct_of_total";
+
+export interface PivotMetric {
+  column: string;
+  agg: PivotAgg;
+  output_label: string;
+}
+
+export interface PivotFilter {
+  column: string;
+  op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in";
+  value: string | number | (string | number)[];
+}
+
+export interface PivotSort {
+  metric: string;
+  direction: "asc" | "desc";
+}
+
+export interface PivotSuggestion {
+  id: string;
+  name: string;
+  description: string;
+  group_by: string[];
+  metrics: PivotMetric[];
+  filters: PivotFilter[];
+  sort_by: PivotSort | null;
+  top_n: number | null;
+}
+
+export interface PivotResult {
+  id: string;
+  name: string;
+  description: string;
+  group_by: string[];
+  metric_labels: string[];
+  rows: Record<string, unknown>[];
+  row_count: number;
+  filterable_columns: string[];
+  filter_options: Record<string, string[]>;
+}
+
+export interface PivotReport {
+  session_id: string;
+  row_count: number;
+  column_count: number;
+  columns: string[];
+  pivots: PivotResult[];
+  skipped_notes: string[];
+}
+
+export interface PivotDefinitionsSummary {
+  filename: string;
+  pivot_count: number;
+  pivot_names: string[];
+}
+
+export interface PivotSuggestionsResponse {
+  session_id: string;
+  suggestions: PivotSuggestion[];
+}
+
+export interface OverallHighlight {
+  label: string;
+  value: string;
+}
+
+export interface OverallAnalysisReport {
+  session_id: string;
+  row_count: number;
+  highlights: OverallHighlight[];
+  narrative: string;
+}
+
 export class AuditApiError extends Error {}
 
 async function parseErrorDetail(response: Response): Promise<string> {
@@ -166,6 +240,14 @@ export async function applyFeatures(sessionId: string, extraFeatures: FeatureSug
   return response.json();
 }
 
+export async function fetchFeatureReport(sessionId: string): Promise<FeatureReport> {
+  const response = await fetch(`${API_BASE_URL}/api/audit/${sessionId}/features`);
+  if (!response.ok) {
+    throw new AuditApiError(await parseErrorDetail(response));
+  }
+  return response.json();
+}
+
 export async function suggestFeatures(sessionId: string): Promise<FeatureSuggestionsResponse> {
   const response = await fetch(`${API_BASE_URL}/api/features/suggest`, {
     method: "POST",
@@ -195,6 +277,57 @@ export async function uploadFeatureDefinitions(file: File): Promise<FeatureDefin
     body: formData,
   });
 
+  if (!response.ok) {
+    throw new AuditApiError(await parseErrorDetail(response));
+  }
+  return response.json();
+}
+
+export async function uploadPivotDefinitions(file: File): Promise<PivotDefinitionsSummary> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`${API_BASE_URL}/api/analysis/definitions`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new AuditApiError(await parseErrorDetail(response));
+  }
+  return response.json();
+}
+
+export async function suggestPivots(sessionId: string): Promise<PivotSuggestionsResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/analysis/suggest`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_id: sessionId }),
+  });
+  if (!response.ok) {
+    throw new AuditApiError(await parseErrorDetail(response));
+  }
+  return response.json();
+}
+
+export async function applyPivots(
+  sessionId: string,
+  extraPivots: PivotSuggestion[] = [],
+  pivotFilters: Record<string, PivotFilter[]> = {}
+): Promise<PivotReport> {
+  const response = await fetch(`${API_BASE_URL}/api/analysis/${sessionId}/pivots`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ extra_pivots: extraPivots, pivot_filters: pivotFilters }),
+  });
+  if (!response.ok) {
+    throw new AuditApiError(await parseErrorDetail(response));
+  }
+  return response.json();
+}
+
+export async function fetchOverallAnalysis(sessionId: string): Promise<OverallAnalysisReport> {
+  const response = await fetch(`${API_BASE_URL}/api/analysis/${sessionId}/overall`);
   if (!response.ok) {
     throw new AuditApiError(await parseErrorDetail(response));
   }

@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
-from app.schemas import AuditIssue, FeatureResult
+from app.schemas import AuditIssue, FeatureResult, PivotResult
 
 
 @dataclass
@@ -35,6 +35,11 @@ class AuditSession:
     # re-runs from this snapshot rather than layering on top of `df`, so
     # re-applying the same definitions twice can't double up or drift.
     pre_feature_df: pd.DataFrame | None = None
+    # Last-computed pivot tables for the Analysis step (see routers/analysis.py).
+    # Pivots only ever READ `df` (post-feature-engineering) -- they never
+    # mutate it, so there's no snapshot/undo bookkeeping needed here.
+    pivots: list[PivotResult] = field(default_factory=list)
+    pivot_skipped_notes: list[str] = field(default_factory=list)
 
 
 class AuditStore:

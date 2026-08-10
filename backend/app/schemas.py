@@ -109,3 +109,96 @@ class FeatureSuggestionsResponse(BaseModel):
 
 class ApplyFeaturesRequest(BaseModel):
     extra_features: list[dict[str, Any]] = []
+
+
+AggType = Literal["sum", "mean", "count", "min", "max", "median", "distinct_count", "pct_of_total"]
+
+
+class PivotMetricSpec(BaseModel):
+    column: str
+    agg: AggType
+    output_label: str
+
+
+class PivotFilterSpec(BaseModel):
+    column: str
+    op: Literal["eq", "neq", "gt", "gte", "lt", "lte", "in"]
+    value: Any
+
+
+class PivotSortSpec(BaseModel):
+    metric: str
+    direction: Literal["asc", "desc"] = "desc"
+
+
+class PivotResult(BaseModel):
+    id: str
+    name: str
+    description: str
+    group_by: list[str]
+    metric_labels: list[str]
+    rows: list[dict[str, Any]]
+    row_count: int
+    # Columns this pivot can be sliced by at runtime, and the distinct
+    # values available for each -- lets the frontend render a slicer/filter
+    # picker per column instead of baking one fixed value into the JSON spec.
+    filterable_columns: list[str] = []
+    filter_options: dict[str, list[str]] = {}
+
+
+class PivotReport(BaseModel):
+    session_id: str
+    row_count: int
+    column_count: int
+    columns: list[str]
+    pivots: list[PivotResult]
+    skipped_notes: list[str] = []
+
+
+class PivotDefinitionsSummary(BaseModel):
+    filename: str
+    pivot_count: int
+    pivot_names: list[str]
+
+
+class PivotSuggestion(BaseModel):
+    """One AI-proposed pivot table -- shaped so the frontend can echo it
+    straight back as an `extra_pivots` entry when the user accepts it."""
+    id: str
+    name: str
+    description: str
+    group_by: list[str]
+    metrics: list[PivotMetricSpec]
+    filters: list[PivotFilterSpec] = []
+    sort_by: PivotSortSpec | None = None
+    top_n: int | None = None
+
+
+class SuggestPivotsRequest(BaseModel):
+    session_id: str
+
+
+class SuggestPivotsResponse(BaseModel):
+    session_id: str
+    suggestions: list[PivotSuggestion]
+
+
+class ApplyPivotsRequest(BaseModel):
+    extra_pivots: list[dict[str, Any]] = []
+    # Runtime slicer selections, keyed by pivot id -- each value is a list of
+    # filter dicts (same shape as a JSON-defined filter, typically {"column":
+    # ..., "op": "in", "value": [...]}) applied IN ADDITION to that pivot's
+    # own declared filters, without needing to edit/re-upload the profile.
+    pivot_filters: dict[str, list[dict[str, Any]]] = {}
+
+
+class OverallHighlight(BaseModel):
+    label: str
+    value: str
+
+
+class OverallAnalysisReport(BaseModel):
+    session_id: str
+    row_count: int
+    highlights: list[OverallHighlight]
+    narrative: str

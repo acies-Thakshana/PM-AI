@@ -1,13 +1,14 @@
 import "./StepIndicator.css";
 
 interface StepIndicatorProps {
-  current: 1 | 2 | 3;
+  current: 1 | 2 | 3 | 4;
 }
 
 const STEPS = [
   { step: 1, label: "Upload" },
   { step: 2, label: "Audit" },
   { step: 3, label: "Features" },
+  { step: 4, label: "Analysis" },
 ] as const;
 
 export default function StepIndicator({ current }: StepIndicatorProps) {

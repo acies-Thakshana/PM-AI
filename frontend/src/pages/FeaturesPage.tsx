@@ -425,6 +425,9 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
           <button type="button" className="features-page__btn features-page__btn--secondary" onClick={() => navigate("/audit")}>
             Back to Audit
           </button>
+          <button type="button" className="features-page__btn features-page__btn--primary" onClick={() => navigate("/analysis")}>
+            Continue to Analysis
+          </button>
         </div>
       </main>
     </div>

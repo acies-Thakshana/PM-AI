@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import CORS_ORIGINS
-from app.routers import audit, features
+from app.routers import analysis, audit, features
 
 app = FastAPI(title="Cold Chain Data Audit API")
 
@@ -16,6 +16,7 @@ app.add_middleware(
 
 app.include_router(audit.router)
 app.include_router(features.router)
+app.include_router(analysis.router)
 
 
 @app.get("/health")
