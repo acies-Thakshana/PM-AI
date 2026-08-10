@@ -8,7 +8,7 @@ export default function Header() {
           <img src="/carrier-logo.svg" alt="Carrier Global" className="app-header__logo" />
           <div className="app-header__divider" />
           <div className="app-header__title">
-            <span className="app-header__product">Cold Chain Program Manager</span>
+            <span className="app-header__product">Program Manager AI</span>
             <span className="app-header__subtitle">Data Upload</span>
           </div>
         </div>
