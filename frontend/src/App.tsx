@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import WelcomePage from "./pages/WelcomePage";
 import UploadPage from "./pages/UploadPage";
 import AuditPage from "./pages/AuditPage";
 import FeaturesPage from "./pages/FeaturesPage";
 import AnalysisPage from "./pages/AnalysisPage";
+import ReportPage from "./pages/ReportPage";
 import { AuditApiError, resolveIssue, revertIssue, uploadForAudit } from "./api/audit";
 import type { AuditReport as AuditReportData } from "./api/audit";
 import { isAudited } from "./constants/uploadSlots";
@@ -110,7 +112,7 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/upload" replace />} />
+        <Route path="/" element={<WelcomePage />} />
         <Route
           path="/upload"
           element={<UploadPage files={files} onSelect={handleSelect} onRemove={handleRemove} onClearAll={handleClearAll} />}
@@ -132,7 +134,8 @@ function App() {
         />
         <Route path="/features" element={<FeaturesPage files={files} auditReports={auditReports} />} />
         <Route path="/analysis" element={<AnalysisPage files={files} auditReports={auditReports} />} />
-        <Route path="*" element={<Navigate to="/upload" replace />} />
+        <Route path="/report" element={<ReportPage files={files} auditReports={auditReports} />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

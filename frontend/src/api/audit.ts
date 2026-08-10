@@ -228,6 +228,10 @@ export function downloadCleansedFileUrl(sessionId: string): string {
   return `${API_BASE_URL}/api/audit/${sessionId}/download`;
 }
 
+export function downloadReportUrl(sessionId: string): string {
+  return `${API_BASE_URL}/api/analysis/${sessionId}/report`;
+}
+
 export async function applyFeatures(sessionId: string, extraFeatures: FeatureSuggestion[] = []): Promise<FeatureReport> {
   const response = await fetch(`${API_BASE_URL}/api/audit/${sessionId}/features`, {
     method: "POST",
@@ -320,6 +324,14 @@ export async function applyPivots(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ extra_pivots: extraPivots, pivot_filters: pivotFilters }),
   });
+  if (!response.ok) {
+    throw new AuditApiError(await parseErrorDetail(response));
+  }
+  return response.json();
+}
+
+export async function fetchPivotReport(sessionId: string): Promise<PivotReport> {
+  const response = await fetch(`${API_BASE_URL}/api/analysis/${sessionId}/pivots`);
   if (!response.ok) {
     throw new AuditApiError(await parseErrorDetail(response));
   }

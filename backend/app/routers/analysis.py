@@ -1,6 +1,7 @@
 import json
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi.responses import Response
 
 from app.schemas import (
     ApplyPivotsRequest,
@@ -10,7 +11,7 @@ from app.schemas import (
     SuggestPivotsRequest,
     SuggestPivotsResponse,
 )
-from app.services import overall_analysis, overall_analysis_agent, pivot_engine, pivot_suggester
+from app.services import overall_analysis, overall_analysis_agent, pivot_engine, pivot_suggester, report_generator
 from app.services import pivot_definitions_store as pivot_defs_store
 from app.services.audit_store import AuditSession, store
 
@@ -116,6 +117,34 @@ def get_overall_analysis(session_id: str) -> OverallAnalysisReport:
         raise HTTPException(
             status_code=502, detail=f"Overall analysis narrative agent (Groq) is unavailable: {exc}"
         ) from exc
-    return OverallAnalysisReport(
+    report = OverallAnalysisReport(
         session_id=session_id, row_count=len(session.df), highlights=highlights, narrative=narrative
+    )
+    session.overall_analysis = report
+    return report
+
+
+@router.get("/{session_id}/report")
+def download_report(session_id: str):
+    """Streams a .pptx built from whatever pivots are CURRENTLY computed for
+    this session (with whatever slicer filters are active) and the
+    last-generated overall analysis -- every chart is native, built fresh
+    from that data, never a picture."""
+    session = _get_session_or_404(session_id)
+    if not session.pivots:
+        raise HTTPException(
+            status_code=422,
+            detail="No pivot tables have been computed yet -- run the Analysis step before downloading a report.",
+        )
+
+    pptx_bytes = report_generator.build_report(
+        source_label=session.filename, df=session.df, pivots=session.pivots, overall=session.overall_analysis
+    )
+
+    stem = session.filename.rsplit(".", 1)[0] if "." in session.filename else session.filename
+    filename = f"{stem}_report.pptx"
+    return Response(
+        content=pptx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

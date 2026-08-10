@@ -7,6 +7,7 @@ interface FileUploadCardProps {
   config: UploadSlotConfig;
   file: File | null;
   error?: string;
+  highlighted?: boolean;
   onSelect: (file: File) => void;
   onRemove: () => void;
 }
@@ -17,7 +18,7 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function FileUploadCard({ config, file, error, onSelect, onRemove }: FileUploadCardProps) {
+export default function FileUploadCard({ config, file, error, highlighted, onSelect, onRemove }: FileUploadCardProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -33,7 +34,7 @@ export default function FileUploadCard({ config, file, error, onSelect, onRemove
   const status: "empty" | "selected" | "error" = error ? "error" : file ? "selected" : "empty";
 
   return (
-    <div className={`upload-card upload-card--${status}`}>
+    <div className={`upload-card upload-card--${status} ${highlighted ? "upload-card--highlighted" : ""}`}>
       <div className="upload-card__header">
         <h3 className="upload-card__title">
           {config.title}

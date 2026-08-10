@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
-import SearchBar from "../components/SearchBar";
+import SourceSelect from "../components/SourceSelect";
 import FileUploadCard from "../components/FileUploadCard";
 import StepIndicator from "../components/StepIndicator";
 import { UPLOAD_SLOTS } from "../constants/uploadSlots";
@@ -21,6 +21,8 @@ interface UploadPageProps {
 export default function UploadPage({ files, onSelect, onRemove, onClearAll }: UploadPageProps) {
   const navigate = useNavigate();
   const [errors, setErrors] = useState<ErrorsState>({});
+  const [highlighted, setHighlighted] = useState<UploadSlotId | null>(null);
+  const cardRefs = useRef<Partial<Record<UploadSlotId, HTMLDivElement | null>>>({});
 
   const handleSelect = (id: UploadSlotId, file: File) => {
     onSelect(id, file);
@@ -40,8 +42,10 @@ export default function UploadPage({ files, onSelect, onRemove, onClearAll }: Up
     }
   };
 
-  const handleSearch = (query: string) => {
-    console.log("Search:", query);
+  const handleJumpTo = (id: UploadSlotId) => {
+    cardRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlighted(id);
+    setTimeout(() => setHighlighted((prev) => (prev === id ? null : prev)), 1600);
   };
 
   const selectedCount = Object.values(files).filter(Boolean).length;
@@ -53,7 +57,7 @@ export default function UploadPage({ files, onSelect, onRemove, onClearAll }: Up
         <StepIndicator current={1} />
 
         <div className="upload-page__search-row">
-          <SearchBar onSearch={handleSearch} />
+          <SourceSelect files={files} onSelect={handleJumpTo} />
         </div>
 
         <div className="upload-page__intro">
@@ -67,14 +71,21 @@ export default function UploadPage({ files, onSelect, onRemove, onClearAll }: Up
 
         <div className="upload-page__grid">
           {UPLOAD_SLOTS.map((slot) => (
-            <FileUploadCard
+            <div
               key={slot.id}
-              config={slot}
-              file={files[slot.id]}
-              error={errors[slot.id]}
-              onSelect={(file) => handleSelect(slot.id, file)}
-              onRemove={() => onRemove(slot.id)}
-            />
+              ref={(el) => {
+                cardRefs.current[slot.id] = el;
+              }}
+            >
+              <FileUploadCard
+                config={slot}
+                file={files[slot.id]}
+                error={errors[slot.id]}
+                highlighted={highlighted === slot.id}
+                onSelect={(file) => handleSelect(slot.id, file)}
+                onRemove={() => onRemove(slot.id)}
+              />
+            </div>
           ))}
         </div>
 

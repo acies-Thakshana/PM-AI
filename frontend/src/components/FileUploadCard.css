@@ -18,6 +18,23 @@
   border-color: var(--color-error);
 }
 
+.upload-card--highlighted {
+  border-color: var(--carrier-blue);
+  animation: upload-card-pulse 0.8s ease-out;
+}
+
+@keyframes upload-card-pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--carrier-blue-tint-2);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(21, 44, 115, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(21, 44, 115, 0);
+  }
+}
+
 .upload-card__header {
   display: flex;
   flex-direction: column;

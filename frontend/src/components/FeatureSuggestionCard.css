@@ -68,21 +68,23 @@
 .feature-suggestion__formula-toggle svg {
   width: 12px;
   height: 12px;
-  transition: transform 0.15s ease;
-}
-
-.feature-suggestion__formula-toggle--open svg {
-  transform: rotate(180deg);
 }
 
 .feature-suggestion__formula {
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   color: var(--color-text);
   background: var(--color-bg);
   border-radius: var(--radius-sm);
-  padding: 6px 9px;
+  padding: 10px 12px;
+}
+
+.feature-suggestion__modal-description {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  line-height: 1.6;
 }
 
 .feature-suggestion__description {

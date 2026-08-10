@@ -1,6 +1,10 @@
 import "./Header.css";
 
-export default function Header() {
+interface HeaderProps {
+  subtitle?: string;
+}
+
+export default function Header({ subtitle = "Data Upload" }: HeaderProps) {
   return (
     <header className="app-header">
       <div className="app-header__inner">
@@ -9,7 +13,7 @@ export default function Header() {
           <div className="app-header__divider" />
           <div className="app-header__title">
             <span className="app-header__product">Program Manager AI</span>
-            <span className="app-header__subtitle">Data Upload</span>
+            <span className="app-header__subtitle">{subtitle}</span>
           </div>
         </div>
       </div>

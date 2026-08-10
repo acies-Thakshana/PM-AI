@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { PivotSuggestion } from "../api/audit";
-import { IconChevronDown } from "./icons";
+import { IconExpand } from "./icons";
+import Modal from "./Modal";
 import "./PivotSuggestionCard.css";
 
 interface PivotSuggestionCardProps {
@@ -19,28 +20,32 @@ export default function PivotSuggestionCard({ suggestion, added, busy, onAdd }: 
   const [showFormula, setShowFormula] = useState(false);
 
   return (
-    <div className={`pivot-suggestion ${added ? "pivot-suggestion--added" : ""}`}>
-      <div className="pivot-suggestion__body">
-        <div className="pivot-suggestion__top">
-          <h4 className="pivot-suggestion__name">{suggestion.name}</h4>
-          <span className="pivot-suggestion__group">{suggestion.group_by.join(" / ")}</span>
-        </div>
-        <p className="pivot-suggestion__description">{suggestion.description}</p>
+    <>
+      <div className={`pivot-suggestion ${added ? "pivot-suggestion--added" : ""}`}>
+        <div className="pivot-suggestion__body">
+          <div className="pivot-suggestion__top">
+            <h4 className="pivot-suggestion__name">{suggestion.name}</h4>
+            <span className="pivot-suggestion__group">{suggestion.group_by.join(" / ")}</span>
+          </div>
+          <p className="pivot-suggestion__description">{suggestion.description}</p>
 
-        <button
-          type="button"
-          className={`pivot-suggestion__formula-toggle ${showFormula ? "pivot-suggestion__formula-toggle--open" : ""}`}
-          onClick={() => setShowFormula((s) => !s)}
-        >
-          <IconChevronDown />
-          {showFormula ? "Hide logic" : "Show logic"}
+          <button type="button" className="pivot-suggestion__formula-toggle" onClick={() => setShowFormula(true)}>
+            <IconExpand />
+            View logic
+          </button>
+        </div>
+
+        <button type="button" className="pivot-suggestion__btn" disabled={added || busy} onClick={onAdd}>
+          {added ? "Added" : busy ? "Adding…" : "Add this pivot"}
         </button>
-        {showFormula && <p className="pivot-suggestion__formula">ƒ {formulaText(suggestion)}</p>}
       </div>
 
-      <button type="button" className="pivot-suggestion__btn" disabled={added || busy} onClick={onAdd}>
-        {added ? "Added" : busy ? "Adding…" : "Add this pivot"}
-      </button>
-    </div>
+      {showFormula && (
+        <Modal title={suggestion.name} onClose={() => setShowFormula(false)}>
+          <p className="pivot-suggestion__modal-description">{suggestion.description}</p>
+          <p className="pivot-suggestion__formula">ƒ {formulaText(suggestion)}</p>
+        </Modal>
+      )}
+    </>
   );
 }

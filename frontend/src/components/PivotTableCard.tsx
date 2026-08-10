@@ -8,6 +8,7 @@ interface PivotTableCardProps {
   pivot: PivotResult;
   filterSelections: Record<string, string[] | undefined>;
   onFilterChange: (column: string, values: string[] | undefined) => void;
+  hideHeader?: boolean;
 }
 
 function formatCell(value: unknown): string {
@@ -16,7 +17,7 @@ function formatCell(value: unknown): string {
   return String(value);
 }
 
-export default function PivotTableCard({ pivot, filterSelections, onFilterChange }: PivotTableCardProps) {
+export default function PivotTableCard({ pivot, filterSelections, onFilterChange, hideHeader }: PivotTableCardProps) {
   const [sort, setSort] = useState<{ column: string; direction: "asc" | "desc" } | null>(null);
   const columns = [...pivot.group_by, ...pivot.metric_labels];
 
@@ -42,14 +43,16 @@ export default function PivotTableCard({ pivot, filterSelections, onFilterChange
 
   return (
     <div className="pivot-table-card">
-      <div className="pivot-table-card__head">
-        <div>
-          <h3 className="pivot-table-card__name">{pivot.name}</h3>
-          <p className="pivot-table-card__description">{pivot.description}</p>
+      {!hideHeader && (
+        <div className="pivot-table-card__head">
+          <div>
+            <h3 className="pivot-table-card__name">{pivot.name}</h3>
+            <p className="pivot-table-card__description">{pivot.description}</p>
+          </div>
+          {pivot.id.startsWith("ai_pivot_") && <span className="pivot-table-card__ai-badge">AI</span>}
+          {pivot.id.startsWith("custom_pivot_") && <span className="pivot-table-card__custom-badge">Custom</span>}
         </div>
-        {pivot.id.startsWith("ai_pivot_") && <span className="pivot-table-card__ai-badge">AI</span>}
-        {pivot.id.startsWith("custom_pivot_") && <span className="pivot-table-card__custom-badge">Custom</span>}
-      </div>
+      )}
 
       <PivotFilterBar
         filterableColumns={pivot.filterable_columns}

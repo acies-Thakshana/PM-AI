@@ -1,0 +1,187 @@
+.welcome-page {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.welcome-page__main {
+  max-width: 1080px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 20px 24px 24px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* -- hero ---------------------------------------------------------- */
+
+.welcome-page__hero {
+  text-align: center;
+  max-width: 620px;
+  margin: 0 auto 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.welcome-page__title {
+  margin: 0;
+  font-size: 27px;
+  font-weight: 800;
+  color: var(--carrier-blue);
+}
+
+.welcome-page__lede {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.welcome-page__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  background: var(--carrier-blue);
+  border: 1px solid var(--carrier-blue);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 700;
+  border-radius: var(--radius-md);
+  padding: 10px 22px;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+}
+
+.welcome-page__cta svg {
+  width: 15px;
+  height: 15px;
+}
+
+.welcome-page__cta:hover {
+  background: var(--carrier-light-blue);
+  border-color: var(--carrier-light-blue);
+}
+
+/* -- process flow ---------------------------------------------------- */
+
+.welcome-page__flow-title {
+  text-align: center;
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.welcome-page__steps {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 960px) {
+  .welcome-page__steps {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .welcome-page__steps {
+    grid-template-columns: 1fr;
+  }
+}
+
+.welcome-page__step {
+  position: relative;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 12px 13px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.welcome-page__step-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.welcome-page__step-icon {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.welcome-page__step-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.welcome-page__step-icon--blue {
+  background: var(--carrier-blue);
+  color: #fff;
+}
+
+.welcome-page__step-icon--teal {
+  background: var(--accent-teal);
+  color: #fff;
+}
+
+.welcome-page__step-icon--purple {
+  background: var(--accent-purple);
+  color: #fff;
+}
+
+.welcome-page__step-icon--amber {
+  background: var(--accent-amber);
+  color: #fff;
+}
+
+.welcome-page__step-number {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.welcome-page__step-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--carrier-blue);
+}
+
+.welcome-page__step-description {
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+}
+
+.welcome-page__step-connector {
+  display: none;
+}
+
+@media (min-width: 961px) {
+  .welcome-page__step-connector {
+    display: block;
+    position: absolute;
+    top: 27px;
+    right: -18px;
+    width: 16px;
+    height: 2px;
+    background: var(--carrier-blue-tint-2);
+  }
+}

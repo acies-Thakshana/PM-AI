@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
-from app.schemas import AuditIssue, FeatureResult, PivotResult
+from app.schemas import AuditIssue, FeatureResult, OverallAnalysisReport, PivotResult
 
 
 @dataclass
@@ -40,6 +40,11 @@ class AuditSession:
     # mutate it, so there's no snapshot/undo bookkeeping needed here.
     pivots: list[PivotResult] = field(default_factory=list)
     pivot_skipped_notes: list[str] = field(default_factory=list)
+    # Last-computed overall analysis (see routers/analysis.py's /overall
+    # endpoint) -- kept here so the report generator can reuse the exact
+    # highlights/narrative the user already saw on screen instead of
+    # triggering another Groq call at export time.
+    overall_analysis: OverallAnalysisReport | None = None
 
 
 class AuditStore:

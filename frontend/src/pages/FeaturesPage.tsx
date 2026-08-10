@@ -5,10 +5,12 @@ import StepIndicator from "../components/StepIndicator";
 import PageHeader from "../components/PageHeader";
 import StatTile from "../components/StatTile";
 import FeatureCard from "../components/FeatureCard";
+import FeatureDetailModal from "../components/FeatureDetailModal";
+import Modal from "../components/Modal";
 import FeatureSuggestionCard from "../components/FeatureSuggestionCard";
 import AddKpiForm from "../components/AddKpiForm";
 import DataPreviewTable from "../components/DataPreviewTable";
-import { IconDoc, IconGrid, IconSparkle, IconWarnTriangle, IconShieldCheck, IconDownload, IconClipboard } from "../components/icons";
+import { IconDoc, IconGrid, IconSparkle, IconWarnTriangle, IconShieldCheck, IconDownload, IconClipboard, IconChevronLeft, IconChevronRight } from "../components/icons";
 import {
   applyFeatures,
   downloadCleansedFileUrl,
@@ -40,12 +42,6 @@ type SuggestionsState = Partial<Record<UploadSlotId, FeatureSuggestion[]>>;
 type AcceptedState = Partial<Record<UploadSlotId, FeatureSuggestion[]>>;
 type BusyIdState = Partial<Record<UploadSlotId, string>>;
 
-function joinClauses(clauses: string[]): string {
-  if (clauses.length === 0) return "";
-  if (clauses.length === 1) return `${clauses[0]}.`;
-  return `${clauses.slice(0, -1).join(", ")}, and ${clauses[clauses.length - 1]}.`;
-}
-
 export default function FeaturesPage({ files, auditReports }: FeaturesPageProps) {
   const navigate = useNavigate();
   const [reports, setReports] = useState<FeatureReportsState>({});
@@ -61,10 +57,13 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
   const [applyingSuggestionId, setApplyingSuggestionId] = useState<BusyIdState>({});
   const [showAddKpiForm, setShowAddKpiForm] = useState<LoadingState>({});
   const [addingKpi, setAddingKpi] = useState<LoadingState>({});
+  const [showSuggestionsModal, setShowSuggestionsModal] = useState<LoadingState>({});
 
   const [defsSummary, setDefsSummary] = useState<FeatureDefinitionsSummary | null>(null);
   const [defsLoading, setDefsLoading] = useState(false);
   const [defsError, setDefsError] = useState<string | null>(null);
+
+  const [openFeature, setOpenFeature] = useState<{ slotId: UploadSlotId; featureId: string } | null>(null);
 
   const slotsReady = AUDITED_SLOTS.filter((id) => files[id] && auditReports[id]?.status === "reviewed");
   const hasKpiFile = !!files.customerKpis;
@@ -248,20 +247,123 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
           const aiFeatureCount = report ? report.features.filter((f) => f.id.startsWith("ai_")).length : 0;
           const customFeatureCount = report ? report.features.filter((f) => f.id.startsWith("custom_")).length : 0;
 
-          const bannerClauses: string[] = [];
-          if (report) {
-            if (report.features.length > 0) bannerClauses.push(`computed ${report.features.length} feature(s)`);
-            if (aiFeatureCount > 0) bannerClauses.push(`${aiFeatureCount} of them AI-suggested`);
-            if (customFeatureCount > 0) bannerClauses.push(`${customFeatureCount} added manually`);
-            if (report.skipped_notes.length > 0) bannerClauses.push(`${report.skipped_notes.length} skipped`);
-          }
+          const panelsSection = report && (
+            <div className="features-page__panels-grid">
+              <div className="features-page__ai-panel">
+                <div className="features-page__ai-panel-head">
+                  <div className="features-page__panel-head-text">
+                    <span className="features-page__panel-icon features-page__panel-icon--purple">
+                      <IconSparkle />
+                    </span>
+                    <div>
+                      <h3 className="features-page__ai-panel-title">AI Feature Suggestions</h3>
+                      <p className="features-page__ai-panel-hint">
+                        The agent looks at this data's column names and proposes new fields it can
+                        compute -- you choose which ones to add.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="features-page__btn features-page__btn--primary features-page__panel-btn"
+                  disabled={suggestLoading[id]}
+                  onClick={() => {
+                    if (slotSuggestions.length === 0) runSuggest(id);
+                    setShowSuggestionsModal((prev) => ({ ...prev, [id]: true }));
+                  }}
+                >
+                  <IconSparkle />{" "}
+                  {suggestLoading[id]
+                    ? "Thinking…"
+                    : slotSuggestions.length > 0
+                      ? `View Suggestions (${slotSuggestions.length})`
+                      : "Suggest Features"}
+                </button>
+
+                {suggestError[id] && <p className="features-page__error">{suggestError[id]}</p>}
+
+                {showSuggestionsModal[id] && (
+                  <Modal
+                    title="AI Feature Suggestions"
+                    onClose={() => setShowSuggestionsModal((prev) => ({ ...prev, [id]: false }))}
+                    headerExtra={
+                      <button
+                        type="button"
+                        className="features-page__btn features-page__btn--secondary"
+                        disabled={suggestLoading[id]}
+                        onClick={() => runSuggest(id)}
+                      >
+                        {suggestLoading[id] ? "Thinking…" : "Suggest More"}
+                      </button>
+                    }
+                  >
+                    {slotSuggestions.length === 0 ? (
+                      <p className="features-page__ai-panel-hint">No suggestions yet.</p>
+                    ) : (
+                      <div className="features-page__ai-grid">
+                        {slotSuggestions.map((s) => (
+                          <FeatureSuggestionCard
+                            key={s.id}
+                            suggestion={s}
+                            added={acceptedIds.has(s.id)}
+                            busy={applyingSuggestionId[id] === s.id}
+                            onAdd={() => acceptSuggestion(id, s)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </Modal>
+                )}
+              </div>
+
+              <div className="features-page__custom-kpi">
+                <div className="features-page__custom-kpi-head">
+                  <div className="features-page__panel-head-text">
+                    <span className="features-page__panel-icon features-page__panel-icon--blue">
+                      <IconClipboard />
+                    </span>
+                    <div>
+                      <h3 className="features-page__custom-kpi-title">Add a Custom KPI</h3>
+                      <p className="features-page__custom-kpi-hint">
+                        Define your own duration, ratio, or month-extraction feature straight from this
+                        data's columns -- no need to edit and re-upload the Customer KPI Profile file.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="features-page__btn features-page__btn--secondary features-page__panel-btn"
+                  onClick={() => setShowAddKpiForm((prev) => ({ ...prev, [id]: true }))}
+                >
+                  + Add Custom KPI
+                </button>
+                {showAddKpiForm[id] && (
+                  <Modal title="Add a Custom KPI" onClose={() => setShowAddKpiForm((prev) => ({ ...prev, [id]: false }))}>
+                    <AddKpiForm
+                      columns={report.columns}
+                      busy={!!addingKpi[id]}
+                      onAdd={(kpi) => addCustomKpi(id, kpi)}
+                      onCancel={() => setShowAddKpiForm((prev) => ({ ...prev, [id]: false }))}
+                    />
+                  </Modal>
+                )}
+              </div>
+            </div>
+          );
 
           return (
             <section className="features-page__card" key={id}>
               <div className="features-page__card-head">
                 <div className="features-page__card-head-left">
-                  <h2 className="features-page__slot-title">{slot.title}</h2>
-                  <span className="features-page__pill">FEATURE REPORT</span>
+                  <span className="features-page__header-icon">
+                    <IconDoc />
+                  </span>
+                  <div>
+                    <h2 className="features-page__slot-title">{slot.title}</h2>
+                    <span className="features-page__pill">FEATURE REPORT</span>
+                  </div>
                 </div>
                 <div className="features-page__card-head-right">
                   <span className="features-page__filename">{files[id]!.name}</span>
@@ -289,91 +391,19 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
                     )}
                   </div>
 
-                  {report.features.length > 0 && (
-                    <div className="features-page__banner">
-                      <span className="features-page__banner-icon">✓</span>
-                      <div>
-                        <p className="features-page__banner-title">Feature Engineering Complete</p>
-                        <p className="features-page__banner-text">
-                          {joinClauses(bannerClauses)} Data is ready for reporting and downstream analysis.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="features-page__ai-panel">
-                    <div className="features-page__ai-panel-head">
-                      <div>
-                        <h3 className="features-page__ai-panel-title">
-                          <IconSparkle /> AI Feature Suggestions
-                        </h3>
-                        <p className="features-page__ai-panel-hint">
-                          The agent looks at this data's column names and proposes new fields it can
-                          compute -- you choose which ones to add.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        className="features-page__btn features-page__btn--primary"
-                        disabled={suggestLoading[id]}
-                        onClick={() => runSuggest(id)}
-                      >
-                        {suggestLoading[id] ? "Thinking…" : slotSuggestions.length > 0 ? "Suggest More" : "Suggest Features"}
-                      </button>
-                    </div>
-
-                    {suggestError[id] && <p className="features-page__error">{suggestError[id]}</p>}
-
-                    {slotSuggestions.length > 0 && (
-                      <div className="features-page__ai-grid">
-                        {slotSuggestions.map((s) => (
-                          <FeatureSuggestionCard
-                            key={s.id}
-                            suggestion={s}
-                            added={acceptedIds.has(s.id)}
-                            busy={applyingSuggestionId[id] === s.id}
-                            onAdd={() => acceptSuggestion(id, s)}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="features-page__custom-kpi">
-                    <div className="features-page__custom-kpi-head">
-                      <div>
-                        <h3 className="features-page__custom-kpi-title">Add a Custom KPI</h3>
-                        <p className="features-page__custom-kpi-hint">
-                          Define your own duration, ratio, or month-extraction feature straight from this
-                          data's columns -- no need to edit and re-upload the Customer KPI Profile file.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        className="features-page__btn features-page__btn--secondary"
-                        onClick={() => setShowAddKpiForm((prev) => ({ ...prev, [id]: !prev[id] }))}
-                      >
-                        {showAddKpiForm[id] ? "Cancel" : "+ Add Custom KPI"}
-                      </button>
-                    </div>
-                    {showAddKpiForm[id] && (
-                      <AddKpiForm
-                        columns={report.columns}
-                        busy={!!addingKpi[id]}
-                        onAdd={(kpi) => addCustomKpi(id, kpi)}
-                        onCancel={() => setShowAddKpiForm((prev) => ({ ...prev, [id]: false }))}
-                      />
-                    )}
-                  </div>
-
                   {report.features.length === 0 ? (
                     <p className="features-page__none">
                       None of the uploaded feature definitions could be computed against this data.
                     </p>
                   ) : (
                     <div className="features-page__grid">
-                      {report.features.map((f) => (
-                        <FeatureCard key={f.id} feature={f} />
+                      {report.features.map((f, idx) => (
+                        <FeatureCard
+                          key={f.id}
+                          feature={f}
+                          colorIndex={idx}
+                          onExpand={() => setOpenFeature({ slotId: id, featureId: f.id })}
+                        />
                       ))}
                     </div>
                   )}
@@ -391,18 +421,35 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
                       <p className="features-page__summary-title">
                         ✓ {report.features.length} feature{report.features.length === 1 ? "" : "s"} added in total
                       </p>
-                      <ul className="features-page__summary-list">
-                        {report.features.map((f) => (
-                          <li key={f.id}>
-                            <span className="features-page__summary-name">{f.name}</span>
-                            <code className="features-page__summary-col">{f.output_column}</code>
-                            {f.id.startsWith("ai_") && <span className="features-page__summary-ai-tag">AI</span>}
-                            {f.id.startsWith("custom_") && <span className="features-page__summary-custom-tag">Custom</span>}
-                          </li>
+                      {[
+                        { label: "Defined", tag: null, items: report.features.filter((f) => !f.id.startsWith("ai_") && !f.id.startsWith("custom_")) },
+                        { label: "AI Suggested", tag: "ai", items: report.features.filter((f) => f.id.startsWith("ai_")) },
+                        { label: "User Added", tag: "custom", items: report.features.filter((f) => f.id.startsWith("custom_")) },
+                      ]
+                        .filter((group) => group.items.length > 0)
+                        .map((group) => (
+                          <div className="features-page__summary-group" key={group.label}>
+                            <span className="features-page__summary-group-label">{group.label}</span>
+                            <ul className="features-page__summary-list">
+                              {group.items.map((f) => (
+                                <li key={f.id}>
+                                  <button
+                                    type="button"
+                                    className="features-page__summary-item"
+                                    onClick={() => setOpenFeature({ slotId: id, featureId: f.id })}
+                                  >
+                                    <span className="features-page__summary-name">{f.name}</span>
+                                    <code className="features-page__summary-col">{f.output_column}</code>
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
                         ))}
-                      </ul>
                     </div>
                   )}
+
+                  {panelsSection}
 
                   <div className="features-page__row-actions">
                     <button type="button" className="features-page__link-btn" onClick={() => togglePreview(id)}>
@@ -422,14 +469,21 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
         })}
 
         <div className="features-page__actions">
-          <button type="button" className="features-page__btn features-page__btn--secondary" onClick={() => navigate("/audit")}>
-            Back to Audit
+          <button type="button" className="features-page__btn features-page__btn--secondary features-page__nav-btn" onClick={() => navigate("/audit")}>
+            <IconChevronLeft /> Back to Audit
           </button>
-          <button type="button" className="features-page__btn features-page__btn--primary" onClick={() => navigate("/analysis")}>
-            Continue to Analysis
+          <button type="button" className="features-page__btn features-page__btn--primary features-page__nav-btn" onClick={() => navigate("/analysis")}>
+            Continue to Analysis <IconChevronRight />
           </button>
         </div>
       </main>
+
+      {openFeature &&
+        (() => {
+          const openFeatureData = reports[openFeature.slotId]?.features.find((f) => f.id === openFeature.featureId);
+          if (!openFeatureData) return null;
+          return <FeatureDetailModal feature={openFeatureData} onClose={() => setOpenFeature(null)} />;
+        })()}
     </div>
   );
 }

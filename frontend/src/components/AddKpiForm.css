@@ -2,9 +2,6 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--carrier-blue-tint-2);
 }
 
 .add-kpi-form__row {

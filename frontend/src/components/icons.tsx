@@ -51,6 +51,13 @@ export const IconShieldCheck = () => (
   </svg>
 );
 
+export const IconUpload = () => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M12 20V9m0 0-4 4m4-4 4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M5 16.5V18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+  </svg>
+);
+
 export const IconDownload = () => (
   <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
     <path d="M12 4v11m0 0 4-4m-4 4-4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
@@ -61,6 +68,12 @@ export const IconDownload = () => (
 export const IconChevronDown = () => (
   <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
     <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+export const IconChevronLeft = () => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="m15 6-6 6 6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
@@ -82,6 +95,12 @@ export const IconClipboard = () => (
     <rect x="5" y="4.5" width="14" height="17" rx="2" stroke="currentColor" strokeWidth="1.6" />
     <rect x="9" y="3" width="6" height="3.5" rx="1" stroke="currentColor" strokeWidth="1.6" />
     <path d="M8.5 12h7M8.5 15.5h7M8.5 8.7h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);
+
+export const IconExpand = () => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M9 5H5v4M15 5h4v4M9 19H5v-4M15 19h4v-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
