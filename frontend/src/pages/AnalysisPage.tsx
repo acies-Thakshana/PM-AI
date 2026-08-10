@@ -53,6 +53,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
 
   const [featureReports, setFeatureReports] = useState<FeatureReportsState>({});
   const [featureCheckLoading, setFeatureCheckLoading] = useState<LoadingState>({});
+  const [featureCheckFailed, setFeatureCheckFailed] = useState<LoadingState>({});
 
   const [reports, setReports] = useState<PivotReportsState>({});
   const [loading, setLoading] = useState<LoadingState>({});
@@ -89,12 +90,12 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
   // App, so we ask the backend directly.
   useEffect(() => {
     for (const id of auditedReady) {
-      if (featureReports[id] || featureCheckLoading[id]) continue;
+      if (featureReports[id] || featureCheckLoading[id] || featureCheckFailed[id]) continue;
       const sessionId = auditReports[id]!.session_id;
       setFeatureCheckLoading((prev) => ({ ...prev, [id]: true }));
       fetchFeatureReport(sessionId)
         .then((report) => setFeatureReports((prev) => ({ ...prev, [id]: report })))
-        .catch(() => {})
+        .catch(() => setFeatureCheckFailed((prev) => ({ ...prev, [id]: true })))
         .finally(() => setFeatureCheckLoading((prev) => ({ ...prev, [id]: false })));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -117,7 +118,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
   useEffect(() => {
     if (!defsSummary) return;
     for (const id of slotsReady) {
-      if (reports[id] || loading[id]) continue;
+      if (reports[id] || loading[id] || errors[id]) continue;
       const sessionId = auditReports[id]!.session_id;
       setLoading((prev) => ({ ...prev, [id]: true }));
       applyPivots(sessionId)
@@ -354,12 +355,6 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
 
         {defsLoading && <div className="analysis-page__loading">Reading analysis definitions from {files.analysisProfile!.name}…</div>}
         {defsError && <p className="analysis-page__error">{defsError}</p>}
-        {defsSummary && (
-          <p className="analysis-page__defs-summary">
-            Loaded {defsSummary.pivot_count} analysis definition(s) from <strong>{defsSummary.filename}</strong>:{" "}
-            {defsSummary.pivot_names.join(", ")}.
-          </p>
-        )}
 
         {slotsReady.map((id) => {
           const slot = UPLOAD_SLOTS.find((s) => s.id === id)!;
@@ -521,36 +516,6 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
                     )}
                   </div>
 
-                  {report.pivots.length === 0 ? (
-                    <p className="analysis-page__none">None of the uploaded analysis definitions could be computed against this data.</p>
-                  ) : (
-                    <>
-                      <h3 className="analysis-page__section-title">
-                        <IconTable /> Analysis Tables
-                      </h3>
-                      <div className="analysis-page__pivot-list">
-                        {report.pivots.map((p, idx) => (
-                          <PivotCard key={p.id} pivot={p} colorIndex={idx} onOpen={() => setOpenPivot({ slotId: id, pivotId: p.id })} />
-                        ))}
-                      </div>
-                    </>
-                  )}
-
-                  <OverallAnalysisCard
-                    report={overallReports[id]}
-                    loading={!!overallLoading[id]}
-                    error={overallError[id]}
-                    onRefresh={() => runOverallAnalysis(id)}
-                  />
-
-                  {report.skipped_notes.length > 0 && (
-                    <ul className="analysis-page__skipped">
-                      {report.skipped_notes.map((note, idx) => (
-                        <li key={idx}>{note}</li>
-                      ))}
-                    </ul>
-                  )}
-
                   {report.pivots.length > 0 && (
                     <div className="analysis-page__summary">
                       <p className="analysis-page__summary-title">
@@ -581,6 +546,36 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
                           </div>
                         ))}
                     </div>
+                  )}
+
+                  {report.pivots.length === 0 ? (
+                    <p className="analysis-page__none">None of the uploaded analysis definitions could be computed against this data.</p>
+                  ) : (
+                    <>
+                      <h3 className="analysis-page__section-title">
+                        <IconTable /> Analysis Tables
+                      </h3>
+                      <div className="analysis-page__pivot-list">
+                        {report.pivots.map((p, idx) => (
+                          <PivotCard key={p.id} pivot={p} colorIndex={idx} onOpen={() => setOpenPivot({ slotId: id, pivotId: p.id })} />
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  <OverallAnalysisCard
+                    report={overallReports[id]}
+                    loading={!!overallLoading[id]}
+                    error={overallError[id]}
+                    onRefresh={() => runOverallAnalysis(id)}
+                  />
+
+                  {report.skipped_notes.length > 0 && (
+                    <ul className="analysis-page__skipped">
+                      {report.skipped_notes.map((note, idx) => (
+                        <li key={idx}>{note}</li>
+                      ))}
+                    </ul>
                   )}
 
                   {panelsSection}

@@ -83,7 +83,7 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
   useEffect(() => {
     if (!defsSummary) return;
     for (const id of slotsReady) {
-      if (reports[id] || loading[id]) continue;
+      if (reports[id] || loading[id] || errors[id]) continue;
       const sessionId = auditReports[id]!.session_id;
       setLoading((prev) => ({ ...prev, [id]: true }));
       applyFeatures(sessionId)
@@ -230,12 +230,6 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
 
         {defsLoading && <div className="features-page__loading">Reading feature definitions from {files.customerKpis!.name}…</div>}
         {defsError && <p className="features-page__error">{defsError}</p>}
-        {defsSummary && (
-          <p className="features-page__defs-summary">
-            Loaded {defsSummary.feature_count} feature definition(s) from <strong>{defsSummary.filename}</strong>:{" "}
-            {defsSummary.feature_names.join(", ")}.
-          </p>
-        )}
 
         {slotsReady.map((id) => {
           const slot = UPLOAD_SLOTS.find((s) => s.id === id)!;
