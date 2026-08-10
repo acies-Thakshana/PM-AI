@@ -23,7 +23,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from app.schemas import AuditIssue, IssueOption
+from app.schemas import AuditIssue, IssueOption, OutlierChart
 
 HIGH_NULL_THRESHOLD_PCT = 50.0
 OUTLIER_IQR_MULTIPLIER = 3.0
@@ -164,18 +164,55 @@ def _measurement_columns(df: pd.DataFrame) -> list[str]:
     return [c for c in df.columns if _is_measurement_col(c) and pd.api.types.is_numeric_dtype(df[c])]
 
 
+def _iqr_bounds(series: pd.Series) -> tuple[float, float, float, float] | None:
+    """(q1, q3, lower, upper) for IQR-based outlier detection, or None if the
+    series has no data or zero IQR (nothing to distinguish as an outlier)."""
+    s = series.dropna()
+    if s.empty:
+        return None
+    q1, q3 = float(s.quantile(0.25)), float(s.quantile(0.75))
+    iqr = q3 - q1
+    if iqr == 0:
+        return None
+    lower, upper = q1 - OUTLIER_IQR_MULTIPLIER * iqr, q3 + OUTLIER_IQR_MULTIPLIER * iqr
+    return q1, q3, lower, upper
+
+
 def detect_outlier_mask_for_column(df: pd.DataFrame, col: str) -> pd.Series:
     if col not in df.columns or not pd.api.types.is_numeric_dtype(df[col]):
         return pd.Series(False, index=df.index)
-    series = df[col].dropna()
-    if series.empty:
+    bounds = _iqr_bounds(df[col])
+    if bounds is None:
         return pd.Series(False, index=df.index)
-    q1, q3 = series.quantile(0.25), series.quantile(0.75)
-    iqr = q3 - q1
-    if iqr == 0:
-        return pd.Series(False, index=df.index)
-    lower, upper = q1 - OUTLIER_IQR_MULTIPLIER * iqr, q3 + OUTLIER_IQR_MULTIPLIER * iqr
+    _, _, lower, upper = bounds
     return (df[col] < lower) | (df[col] > upper)
+
+
+def build_outlier_chart(df: pd.DataFrame, col: str) -> OutlierChart | None:
+    """Box-plot data for `col`: quartiles, the 3x-IQR fence the detector used,
+    and the actual value of every row that fence flagged. This is the
+    purpose-built chart for an IQR-based outlier finding -- a histogram
+    buries the handful of outlier bars under the one dominant "normal" bin."""
+    series = df[col].dropna()
+    bounds = _iqr_bounds(series)
+    if bounds is None:
+        return None
+    q1, q3, lower, upper = bounds
+    values = series.astype(float)
+    outlier_values = sorted(values[(values < lower) | (values > upper)].tolist())
+    if not outlier_values:
+        return None
+    return OutlierChart(
+        column=col,
+        min=float(values.min()),
+        max=float(values.max()),
+        q1=q1,
+        median=float(values.median()),
+        q3=q3,
+        lower_bound=lower,
+        upper_bound=upper,
+        outlier_values=outlier_values,
+    )
 
 
 def detect_outlier_columns(df: pd.DataFrame) -> list[tuple[str, int]]:
@@ -198,6 +235,29 @@ def detect_missing_identifier_columns(df: pd.DataFrame, id_col: str | None) -> l
         if n > 0:
             per_col.append((c, n))
     return per_col
+
+
+def detect_mask_for_category(df: pd.DataFrame, category: str) -> pd.Series:
+    """Row mask for any row-level finding category, dispatched the same way
+    apply_decision resolves its target. Used to serve the FULL affected-row
+    table on demand -- the `sample` already on the issue is capped to a
+    handful of rows/columns for the inline card preview, so this re-detects
+    fresh against the current dataframe rather than trusting stale indices."""
+    if category == "exact_duplicate_rows":
+        return detect_exact_duplicates(df)
+    if category == "key_duplicate_rows":
+        key_dup = detect_key_duplicates(df)
+        return key_dup[1] if key_dup else pd.Series(False, index=df.index)
+    if category == "range_violations":
+        mask, _ = detect_range_violations(df)
+        return mask
+    if category.startswith(f"statistical_outliers{NS}"):
+        col = category.split(NS, 1)[1]
+        return detect_outlier_mask_for_column(df, col)
+    if category.startswith(f"missing_identifier{NS}"):
+        col = category.split(NS, 1)[1]
+        return df[col].isna() if col in df.columns else pd.Series(False, index=df.index)
+    return pd.Series(False, index=df.index)
 
 
 # ------------------------------------------------------------- run_audit --
@@ -344,7 +404,7 @@ def run_audit(df: pd.DataFrame) -> list[AuditIssue]:
             id=_new_id(),
             category=f"statistical_outliers{NS}{col}",
             severity="warning",
-            title=f"Statistical outliers in '{col}'",
+            title=col,
             description=(
                 f"{n} row(s) fall far outside the typical range (beyond "
                 f"{OUTLIER_IQR_MULTIPLIER:.0f}x the interquartile range) for '{col}'. Worth a "
@@ -357,6 +417,7 @@ def run_audit(df: pd.DataFrame) -> list[AuditIssue]:
                 IssueOption(id="remove_affected_rows", label="Remove the outlier rows"),
                 IssueOption(id="keep", label="Keep them as-is"),
             ],
+            chart=build_outlier_chart(df, col),
         ))
 
     id_col = detect_id_column(df)

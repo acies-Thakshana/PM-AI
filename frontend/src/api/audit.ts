@@ -9,6 +9,19 @@ export interface IssueOption {
   label: string;
 }
 
+export interface OutlierChart {
+  type: "boxplot";
+  column: string;
+  min: number;
+  max: number;
+  q1: number;
+  median: number;
+  q3: number;
+  lower_bound: number;
+  upper_bound: number;
+  outlier_values: number[];
+}
+
 export interface AuditIssue {
   id: string;
   category: string;
@@ -22,6 +35,9 @@ export interface AuditIssue {
   selectable_items: string[];
   status: IssueStatus;
   resolution: string | null;
+  recommended_action: string | null;
+  recommendation: string | null;
+  chart: OutlierChart | null;
 }
 
 export interface AuditReport {
@@ -258,6 +274,22 @@ export async function suggestFeatures(sessionId: string): Promise<FeatureSuggest
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ session_id: sessionId }),
   });
+  if (!response.ok) {
+    throw new AuditApiError(await parseErrorDetail(response));
+  }
+  return response.json();
+}
+
+export interface IssueRowsResponse {
+  issue_id: string;
+  total_matching: number;
+  returned: number;
+  columns: string[];
+  rows: Record<string, unknown>[];
+}
+
+export async function fetchIssueRows(sessionId: string, issueId: string): Promise<IssueRowsResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/audit/${sessionId}/issues/${issueId}/rows`);
   if (!response.ok) {
     throw new AuditApiError(await parseErrorDetail(response));
   }

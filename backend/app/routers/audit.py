@@ -8,7 +8,7 @@ from fastapi.responses import Response
 from app.schemas import ApplyFeaturesRequest, AuditIssue, AuditReport, FeatureReport, ResolveRequest
 from app.services import data_audit, feature_engineering
 from app.services import feature_definitions_store as defs_store
-from app.services.audit_agent import generate_summary
+from app.services.audit_agent import generate_audit_analysis
 from app.services.audit_store import AuditSession, store
 from app.services.excel_parser import load_spreadsheet
 
@@ -72,9 +72,15 @@ async def upload_for_audit(file: UploadFile = File(...), source: str = Form(...)
 
     issues = data_audit.run_audit(df)
     try:
-        summary = generate_summary(source, file.filename or "upload", len(df), len(df.columns), issues)
+        summary, recommendations = generate_audit_analysis(
+            source, file.filename or "upload", len(df), len(df.columns), issues
+        )
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Data audit agent (Groq) is unavailable: {exc}") from exc
+    for issue in issues:
+        action, note = recommendations.get(issue.id, (None, None))
+        issue.recommended_action = action
+        issue.recommendation = note
     if parse_warnings:
         summary = " ".join(parse_warnings) + " " + summary
 
@@ -171,6 +177,31 @@ def preview_data(session_id: str, rows: int = DEFAULT_PREVIEW_ROWS):
         "row_count": len(session.df),
         "preview_row_count": len(records),
         "columns": [str(c) for c in session.df.columns],
+        "rows": records,
+    }
+
+
+MAX_ISSUE_ROWS = 2000
+
+
+@router.get("/{session_id}/issues/{issue_id}/rows")
+def get_issue_rows(session_id: str, issue_id: str, limit: int = MAX_ISSUE_ROWS):
+    """Every row currently matching this finding, with every column -- unlike
+    the issue's own `sample` (capped to a handful of rows/columns for the
+    inline card preview), this is the full table for the "view all rows"
+    popup. Re-detects fresh against the current dataframe, same as resolve."""
+    session = _get_session_or_404(session_id)
+    issue = _get_issue_or_404(session, issue_id)
+    mask = data_audit.detect_mask_for_category(session.df, issue.category)
+    matching = session.df[mask]
+    n = max(1, min(limit, MAX_ISSUE_ROWS))
+    subset = matching.head(n)
+    records = json.loads(subset.to_json(orient="records"))
+    return {
+        "issue_id": issue.id,
+        "total_matching": int(mask.sum()),
+        "returned": len(records),
+        "columns": [str(c) for c in matching.columns],
         "rows": records,
     }
 

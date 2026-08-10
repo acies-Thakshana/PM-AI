@@ -164,7 +164,7 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
   if (AUDITED_SLOTS.every((id) => !files[id])) {
     return (
       <div className="features-page">
-        <Header />
+        <Header subtitle="Feature Engineering" />
         <main className="features-page__main">
           <StepIndicator current={3} />
           <div className="features-page__empty">
@@ -181,7 +181,7 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
   if (slotsReady.length === 0) {
     return (
       <div className="features-page">
-        <Header />
+        <Header subtitle="Feature Engineering" />
         <main className="features-page__main">
           <StepIndicator current={3} />
           <div className="features-page__empty">
@@ -198,7 +198,7 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
   if (!hasKpiFile) {
     return (
       <div className="features-page">
-        <Header />
+        <Header subtitle="Feature Engineering" />
         <main className="features-page__main">
           <StepIndicator current={3} />
           <div className="features-page__empty">
@@ -218,7 +218,7 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
 
   return (
     <div className="features-page">
-      <Header />
+      <Header subtitle="Feature Engineering" />
       <main className="features-page__main">
         <StepIndicator current={3} />
 
