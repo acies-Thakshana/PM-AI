@@ -41,6 +41,10 @@ class AuditReport(BaseModel):
     summary: str
     issues: list[AuditIssue]
     status: ReportStatus
+    # Id of the one data-mutating resolution (column drop / row removal) that
+    # is currently safe to revert, i.e. the top of the undo stack. "Keep
+    # as-is" resolutions aren't subject to this and can always be reverted.
+    revertible_issue_id: str | None = None
 
 
 class ResolveRequest(BaseModel):
@@ -73,3 +77,35 @@ class FeatureDefinitionsSummary(BaseModel):
     filename: str
     feature_count: int
     feature_names: list[str]
+
+
+class FeatureSuggestion(BaseModel):
+    """One AI-proposed feature -- shaped so the frontend can echo it straight
+    back as an `extra_features` entry when the user accepts it, no
+    reshaping needed. Only the fields relevant to `type` are populated."""
+    id: str
+    name: str
+    description: str
+    output_column: str
+    type: str
+    formula: str
+    summary: str
+    start_column: str | None = None
+    end_column: str | None = None
+    unit: str | None = None
+    numerator_columns: list[str] | None = None
+    denominator_columns: list[str] | None = None
+    source_columns: list[str] | None = None
+
+
+class SuggestFeaturesRequest(BaseModel):
+    session_id: str
+
+
+class FeatureSuggestionsResponse(BaseModel):
+    session_id: str
+    suggestions: list[FeatureSuggestion]
+
+
+class ApplyFeaturesRequest(BaseModel):
+    extra_features: list[dict[str, Any]] = []

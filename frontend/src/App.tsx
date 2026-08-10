@@ -3,7 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import UploadPage from "./pages/UploadPage";
 import AuditPage from "./pages/AuditPage";
 import FeaturesPage from "./pages/FeaturesPage";
-import { AuditApiError, resolveIssue, uploadForAudit } from "./api/audit";
+import { AuditApiError, resolveIssue, revertIssue, uploadForAudit } from "./api/audit";
 import type { AuditReport as AuditReportData } from "./api/audit";
 import { isAudited } from "./constants/uploadSlots";
 import type { UploadSlotId } from "./types/upload";
@@ -88,6 +88,23 @@ function App() {
     }
   };
 
+  const handleRevertIssue = async (id: UploadSlotId, issueId: string) => {
+    const report = auditReports[id];
+    if (!report) return;
+    setResolvingIssueId((prev) => ({ ...prev, [id]: issueId }));
+    try {
+      const updated = await revertIssue(report.session_id, issueId);
+      setAuditReports((prev) => ({ ...prev, [id]: updated }));
+    } catch (err) {
+      setAuditErrors((prev) => ({
+        ...prev,
+        [id]: err instanceof AuditApiError ? err.message : "Could not revert that change.",
+      }));
+    } finally {
+      setResolvingIssueId((prev) => ({ ...prev, [id]: undefined }));
+    }
+  };
+
   return (
     <BrowserRouter>
       <Routes>
@@ -107,6 +124,7 @@ function App() {
               resolvingIssueId={resolvingIssueId}
               onRunAudit={runAudit}
               onResolveIssue={handleResolveIssue}
+              onRevertIssue={handleRevertIssue}
             />
           }
         />

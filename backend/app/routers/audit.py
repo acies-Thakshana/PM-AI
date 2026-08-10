@@ -5,7 +5,7 @@ import pandas as pd
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 
-from app.schemas import AuditReport, FeatureReport, ResolveRequest
+from app.schemas import ApplyFeaturesRequest, AuditIssue, AuditReport, FeatureReport, ResolveRequest
 from app.services import data_audit, feature_engineering
 from app.services import feature_definitions_store as defs_store
 from app.services.audit_agent import generate_summary
@@ -30,7 +30,15 @@ def _to_report(session: AuditSession) -> AuditReport:
         summary=session.summary,
         issues=session.issues,
         status="pending_review" if pending_decisions else "reviewed",
+        revertible_issue_id=session.mutation_stack[-1] if session.mutation_stack else None,
     )
+
+
+def _get_issue_or_404(session: AuditSession, issue_id: str) -> AuditIssue:
+    issue = next((i for i in session.issues if i.id == issue_id), None)
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found in this audit session.")
+    return issue
 
 
 def _to_feature_report(session: AuditSession) -> FeatureReport:
@@ -82,14 +90,14 @@ def get_audit(session_id: str) -> AuditReport:
 @router.post("/{session_id}/resolve", response_model=AuditReport)
 def resolve_issue(session_id: str, body: ResolveRequest) -> AuditReport:
     session = _get_session_or_404(session_id)
-
-    issue = next((i for i in session.issues if i.id == body.issue_id), None)
-    if not issue:
-        raise HTTPException(status_code=404, detail="Issue not found in this audit session.")
+    issue = _get_issue_or_404(session, body.issue_id)
     if issue.status == "resolved":
         raise HTTPException(status_code=400, detail="This issue has already been resolved.")
     if body.decision_id not in {opt.id for opt in issue.options}:
         raise HTTPException(status_code=400, detail=f"'{body.decision_id}' is not a valid decision for this issue.")
+
+    is_mutating = body.decision_id != "keep"
+    pre_mutation_df = session.df.copy() if is_mutating else None
 
     try:
         session.df, resolution_text = data_audit.apply_decision(
@@ -98,8 +106,34 @@ def resolve_issue(session_id: str, body: ResolveRequest) -> AuditReport:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    if is_mutating:
+        session.pre_mutation_snapshots[issue.id] = pre_mutation_df
+        session.mutation_stack.append(issue.id)
+
     issue.status = "resolved"
     issue.resolution = resolution_text
+
+    return _to_report(session)
+
+
+@router.post("/{session_id}/issues/{issue_id}/revert", response_model=AuditReport)
+def revert_issue(session_id: str, issue_id: str) -> AuditReport:
+    session = _get_session_or_404(session_id)
+    issue = _get_issue_or_404(session, issue_id)
+    if issue.status != "resolved":
+        raise HTTPException(status_code=400, detail="This issue has not been resolved yet.")
+
+    if issue_id in session.pre_mutation_snapshots:
+        if not session.mutation_stack or session.mutation_stack[-1] != issue_id:
+            raise HTTPException(
+                status_code=400,
+                detail="This isn't the most recent data change -- revert that one first.",
+            )
+        session.df = session.pre_mutation_snapshots.pop(issue_id)
+        session.mutation_stack.pop()
+
+    issue.status = "pending"
+    issue.resolution = None
 
     return _to_report(session)
 
@@ -142,7 +176,7 @@ def preview_data(session_id: str, rows: int = DEFAULT_PREVIEW_ROWS):
 
 
 @router.post("/{session_id}/features", response_model=FeatureReport)
-def apply_features(session_id: str) -> FeatureReport:
+def apply_features(session_id: str, body: ApplyFeaturesRequest | None = None) -> FeatureReport:
     session = _get_session_or_404(session_id)
     if defs_store.store.definitions is None:
         raise HTTPException(
@@ -150,7 +184,16 @@ def apply_features(session_id: str) -> FeatureReport:
             detail="No Customer KPI Profile has been uploaded yet -- upload one (with your feature "
                    "definitions) before features can be computed. There is no default.",
         )
-    new_df, results, skipped_notes = feature_engineering.apply_features(session.df, defs_store.store.definitions)
+    # Always recompute from the pre-feature snapshot (not the possibly
+    # already-engineered `session.df`) so accepting another AI suggestion
+    # re-runs the full definition set cleanly instead of layering feature
+    # columns on top of feature columns.
+    if session.pre_feature_df is None:
+        session.pre_feature_df = session.df.copy()
+    extra_features = body.extra_features if body else []
+    combined_defs = list(defs_store.store.definitions) + extra_features
+
+    new_df, results, skipped_notes = feature_engineering.apply_features(session.pre_feature_df, combined_defs)
     session.df = new_df
     session.features = results
     session.feature_skipped_notes = skipped_notes

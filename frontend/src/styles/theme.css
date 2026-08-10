@@ -16,6 +16,15 @@
   --color-error-bg: #fdecec;
   --color-required: #c62828;
 
+  /* Icon-badge accents for stat tiles -- amber matches the warning tone
+     already used inline across the audit components. */
+  --accent-purple: #6f42c1;
+  --accent-purple-bg: #f1ebfa;
+  --accent-teal: #0f8b8d;
+  --accent-teal-bg: #e3f4f4;
+  --accent-amber: #8a5a10;
+  --accent-amber-bg: #fbf0dc;
+
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;

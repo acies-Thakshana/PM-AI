@@ -34,6 +34,7 @@ export interface AuditReport {
   summary: string;
   issues: AuditIssue[];
   status: ReportStatus;
+  revertible_issue_id: string | null;
 }
 
 export interface FeatureResult {
@@ -68,6 +69,29 @@ export interface FeatureDefinitionsSummary {
   filename: string;
   feature_count: number;
   feature_names: string[];
+}
+
+export type FeatureSuggestionType = "duration_hours" | "ratio" | "extract_month";
+
+export interface FeatureSuggestion {
+  id: string;
+  name: string;
+  description: string;
+  output_column: string;
+  type: FeatureSuggestionType;
+  formula: string;
+  summary: string;
+  start_column: string | null;
+  end_column: string | null;
+  unit: string | null;
+  numerator_columns: string[] | null;
+  denominator_columns: string[] | null;
+  source_columns: string[] | null;
+}
+
+export interface FeatureSuggestionsResponse {
+  session_id: string;
+  suggestions: FeatureSuggestion[];
 }
 
 export class AuditApiError extends Error {}
@@ -115,12 +139,39 @@ export async function resolveIssue(
   return response.json();
 }
 
+export async function revertIssue(sessionId: string, issueId: string): Promise<AuditReport> {
+  const response = await fetch(`${API_BASE_URL}/api/audit/${sessionId}/issues/${issueId}/revert`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new AuditApiError(await parseErrorDetail(response));
+  }
+  return response.json();
+}
+
 export function downloadCleansedFileUrl(sessionId: string): string {
   return `${API_BASE_URL}/api/audit/${sessionId}/download`;
 }
 
-export async function applyFeatures(sessionId: string): Promise<FeatureReport> {
-  const response = await fetch(`${API_BASE_URL}/api/audit/${sessionId}/features`, { method: "POST" });
+export async function applyFeatures(sessionId: string, extraFeatures: FeatureSuggestion[] = []): Promise<FeatureReport> {
+  const response = await fetch(`${API_BASE_URL}/api/audit/${sessionId}/features`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ extra_features: extraFeatures }),
+  });
+  if (!response.ok) {
+    throw new AuditApiError(await parseErrorDetail(response));
+  }
+  return response.json();
+}
+
+export async function suggestFeatures(sessionId: string): Promise<FeatureSuggestionsResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/features/suggest`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_id: sessionId }),
+  });
   if (!response.ok) {
     throw new AuditApiError(await parseErrorDetail(response));
   }

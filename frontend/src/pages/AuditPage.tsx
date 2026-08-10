@@ -2,7 +2,9 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import StepIndicator from "../components/StepIndicator";
+import PageHeader from "../components/PageHeader";
 import AuditReport from "../components/AuditReport";
+import { IconShieldSearch, IconDownload } from "../components/icons";
 import { downloadCleansedFileUrl } from "../api/audit";
 import { AUDITED_SLOTS, UPLOAD_SLOTS } from "../constants/uploadSlots";
 import type { UploadSlotId } from "../types/upload";
@@ -17,6 +19,7 @@ interface AuditPageProps {
   resolvingIssueId: ResolvingState;
   onRunAudit: (id: UploadSlotId, file: File) => void;
   onResolveIssue: (id: UploadSlotId, issueId: string, decisionId: string, selectedItems?: string[]) => void;
+  onRevertIssue: (id: UploadSlotId, issueId: string) => void;
 }
 
 export default function AuditPage({
@@ -27,6 +30,7 @@ export default function AuditPage({
   resolvingIssueId,
   onRunAudit,
   onResolveIssue,
+  onRevertIssue,
 }: AuditPageProps) {
   const navigate = useNavigate();
 
@@ -73,21 +77,22 @@ export default function AuditPage({
       <main className="audit-page__main">
         <StepIndicator current={2} />
 
-        <div className="audit-page__intro">
-          <h1 className="audit-page__heading">Data Audit</h1>
-          <p className="audit-page__lede">
-            The data audit agent has reviewed your tabular uploads below. Resolve any outstanding
-            questions before continuing.
-          </p>
-        </div>
+        <PageHeader
+          icon={<IconShieldSearch />}
+          title="Data Audit"
+          subtitle="The data audit agent has reviewed your tabular uploads below. Resolve any outstanding questions before continuing."
+        />
 
         {auditedSlotsWithFiles.map((id) => {
           const slot = UPLOAD_SLOTS.find((s) => s.id === id)!;
           const report = auditReports[id];
           return (
-            <section className="audit-page__slot" key={id}>
-              <div className="audit-page__slot-header">
-                <h2 className="audit-page__slot-title">{slot.title}</h2>
+            <section className="audit-page__card" key={id}>
+              <div className="audit-page__card-head">
+                <div className="audit-page__card-head-left">
+                  <h2 className="audit-page__slot-title">{slot.title}</h2>
+                  <span className="audit-page__pill">DATA AUDIT SUMMARY</span>
+                </div>
                 <span className="audit-page__filename">{files[id]!.name}</span>
               </div>
 
@@ -104,15 +109,15 @@ export default function AuditPage({
                     onResolve={(issueId, decisionId, selectedItems) =>
                       onResolveIssue(id, issueId, decisionId, selectedItems)
                     }
+                    onRevert={(issueId) => onRevertIssue(id, issueId)}
                     resolvingIssueId={resolvingIssueId[id] ?? null}
                   />
-                  <a
-                    className="audit-page__download-link"
-                    href={downloadCleansedFileUrl(report.session_id)}
-                    download
-                  >
-                    Download cleansed file
-                  </a>
+                  <div className="audit-page__row-actions">
+                    <a className="audit-page__download-link" href={downloadCleansedFileUrl(report.session_id)} download>
+                      <IconDownload />
+                      Download cleansed file
+                    </a>
+                  </div>
                 </>
               )}
             </section>

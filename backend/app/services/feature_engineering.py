@@ -60,6 +60,18 @@ def _apply_extract_month(df: pd.DataFrame, spec: dict) -> pd.Series | None:
     return combined.dt.month.astype("Int64")
 
 
+def _apply_duration_hours(df: pd.DataFrame, spec: dict) -> pd.Series | None:
+    start_col, end_col = spec["start_column"], spec["end_column"]
+    if start_col not in df.columns or end_col not in df.columns:
+        return None
+    start = pd.to_datetime(df[start_col], errors="coerce")
+    end = pd.to_datetime(df[end_col], errors="coerce")
+    hours = (end - start).dt.total_seconds() / 3600
+    if spec.get("unit") == "days":
+        hours = hours / 24
+    return hours.round(2)
+
+
 def _apply_ratio(df: pd.DataFrame, spec: dict) -> pd.Series | None:
     # require every denominator column to be present -- a partial sum would
     # silently misrepresent the ratio, which is worse than not computing it
@@ -77,6 +89,7 @@ _APPLIERS = {
     "lookup": _apply_lookup,
     "extract_month": _apply_extract_month,
     "ratio": _apply_ratio,
+    "duration_hours": _apply_duration_hours,
 }
 
 

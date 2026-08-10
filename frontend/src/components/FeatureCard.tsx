@@ -21,7 +21,11 @@ export default function FeatureCard({ feature }: FeatureCardProps) {
     <div className="feature-card">
       <div className="feature-card__header">
         <h3 className="feature-card__name">{feature.name}</h3>
-        <span className="feature-card__column">{feature.output_column}</span>
+        <div className="feature-card__badges">
+          {feature.id.startsWith("ai_") && <span className="feature-card__ai-badge">AI</span>}
+          {feature.id.startsWith("custom_") && <span className="feature-card__custom-badge">Custom</span>}
+          <span className="feature-card__column">{feature.output_column}</span>
+        </div>
       </div>
       <p className="feature-card__description">{feature.description}</p>
       <p className="feature-card__coverage">
