@@ -1,6 +1,6 @@
 import type { FeatureResult } from "../api/audit";
 import Modal from "./Modal";
-import { Distribution, STAT_LABELS } from "./FeatureCard";
+import { Distribution, STAT_LABELS, displayStats } from "./FeatureCard";
 import "./FeatureCard.css";
 
 interface FeatureDetailModalProps {
@@ -10,7 +10,7 @@ interface FeatureDetailModalProps {
 
 export default function FeatureDetailModal({ feature, onClose }: FeatureDetailModalProps) {
   const distributionEntries = Object.entries(feature.distribution);
-  const statsEntries = Object.entries(feature.stats);
+  const statsEntries = displayStats(feature.stats);
   const maxCount = distributionEntries.length > 0 ? Math.max(...distributionEntries.map(([, v]) => v)) : 0;
 
   return (

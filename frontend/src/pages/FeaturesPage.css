@@ -131,8 +131,40 @@
   margin-bottom: 16px;
 }
 
+/* Keep these stat tiles at their original compact size -- the shared
+   StatTile got bigger (and gained a decorative flourish) for the
+   Analysis/Report pages, but this row has too many tiles for that. */
 .features-page__stat-row .stat-tile {
+  flex: 1 1 140px;
+  align-items: center;
+  gap: 12px;
+  border-radius: var(--radius-md);
   padding: 10px 12px;
+  min-height: 0;
+}
+
+.features-page__stat-row .stat-tile__icon {
+  width: 38px;
+  height: 38px;
+}
+
+.features-page__stat-row .stat-tile__icon svg {
+  width: 19px;
+  height: 19px;
+}
+
+.features-page__stat-row .stat-tile__value {
+  font-size: 19px;
+  line-height: 1.2;
+}
+
+.features-page__stat-row .stat-tile__label {
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+}
+
+.features-page__stat-row .stat-tile__flourish {
+  display: none;
 }
 
 
@@ -142,6 +174,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 16px;
+  margin-top: 20px;
   margin-bottom: 20px;
   align-items: start;
 }
@@ -285,6 +318,7 @@
 
 .features-page__summary {
   margin-top: 20px;
+  margin-bottom: 20px;
   border: 1px solid var(--carrier-blue-tint-2);
   border-radius: var(--radius-md);
   padding: 14px 16px;
@@ -344,11 +378,14 @@
 
 .features-page__summary-name {
   font-weight: 700;
+  line-height: 1;
 }
 
 .features-page__summary-col {
   color: var(--color-text-muted);
   font-size: 11px;
+  font-family: inherit;
+  line-height: 1;
 }
 
 /* -- row actions / preview / footer buttons ----------------------------- */

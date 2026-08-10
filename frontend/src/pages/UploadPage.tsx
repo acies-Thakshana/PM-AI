@@ -69,6 +69,18 @@ export default function UploadPage({ files, onSelect, onRemove, onClearAll }: Up
           </p>
         </div>
 
+        <div className="upload-page__actions">
+          <span className="upload-page__count">{selectedCount} of {UPLOAD_SLOTS.length} files selected</span>
+          <div className="upload-page__buttons">
+            <button type="button" className="upload-page__btn upload-page__btn--secondary" onClick={onClearAll}>
+              Clear All
+            </button>
+            <button type="button" className="upload-page__btn upload-page__btn--primary" onClick={handleContinue}>
+              Upload &amp; Continue
+            </button>
+          </div>
+        </div>
+
         <div className="upload-page__grid">
           {UPLOAD_SLOTS.map((slot) => (
             <div
@@ -87,18 +99,6 @@ export default function UploadPage({ files, onSelect, onRemove, onClearAll }: Up
               />
             </div>
           ))}
-        </div>
-
-        <div className="upload-page__actions">
-          <span className="upload-page__count">{selectedCount} of {UPLOAD_SLOTS.length} files selected</span>
-          <div className="upload-page__buttons">
-            <button type="button" className="upload-page__btn upload-page__btn--secondary" onClick={onClearAll}>
-              Clear All
-            </button>
-            <button type="button" className="upload-page__btn upload-page__btn--primary" onClick={handleContinue}>
-              Upload &amp; Continue
-            </button>
-          </div>
         </div>
       </main>
     </div>

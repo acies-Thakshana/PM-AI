@@ -28,8 +28,7 @@ export const UPLOAD_SLOTS: UploadSlotConfig[] = [
   {
     id: "customerKpis",
     title: "Customer KPI Profile",
-    description:
-      "JSON feature definitions used in the Features step (e.g. Country of Origin lookup, % In Spec formula). Nothing is computed there without this file -- see backend/data/samples/customer_kpi_profile_example.json for the format.",
+    description: "JSON feature definitions for the Features step (e.g. % In Spec formula).",
     required: false,
     accept: ".json",
     acceptLabel: "JSON",
@@ -37,8 +36,7 @@ export const UPLOAD_SLOTS: UploadSlotConfig[] = [
   {
     id: "analysisProfile",
     title: "Analysis Profile",
-    description:
-      "JSON pivot table definitions used in the Analysis step (group-by + aggregation logic, e.g. performance by Country of Origin, carrier reliability). Nothing is computed there without this file -- see backend/data/samples/analysis_profile_example.json for the format.",
+    description: "JSON pivot definitions for the Analysis step (e.g. carrier reliability).",
     required: false,
     accept: ".json",
     acceptLabel: "JSON",

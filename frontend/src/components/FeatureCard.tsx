@@ -9,11 +9,19 @@ interface FeatureCardProps {
 }
 
 export const STAT_LABELS: Record<string, string> = {
-  mean: "Mean",
+  mean: "Average",
   median: "Median",
   min: "Min",
   max: "Max",
 };
+
+// Only Average and Max are worth showing at a glance -- Median and Min stay
+// in `feature.stats` (the backend still computes them) but aren't displayed.
+const DISPLAY_STAT_KEYS = ["mean", "max"];
+
+export function displayStats(stats: Record<string, number>): [string, number][] {
+  return DISPLAY_STAT_KEYS.filter((key) => key in stats).map((key) => [key, stats[key]]);
+}
 
 const ICON_COLORS = ["blue", "teal", "purple", "amber"] as const;
 
@@ -36,7 +44,7 @@ export function Distribution({ entries, maxCount }: { entries: [string, number][
 export default function FeatureCard({ feature, colorIndex = 0, onExpand }: FeatureCardProps) {
   const total = feature.non_null_count + feature.null_count;
   const distributionEntries = Object.entries(feature.distribution);
-  const statsEntries = Object.entries(feature.stats);
+  const statsEntries = displayStats(feature.stats);
   const isNumeric = statsEntries.length > 0;
   const maxCount = distributionEntries.length > 0 ? Math.max(...distributionEntries.map(([, v]) => v)) : 0;
   const previewEntries = distributionEntries.slice(0, 4);
