@@ -14,10 +14,10 @@ export default function OverallAnalysisCard({ report, loading, error, onRefresh 
     <div className="overall-analysis-card">
       <div className="overall-analysis-card__head">
         <h3 className="overall-analysis-card__title">
-          <IconSparkle /> Overall Analysis
+          <IconSparkle /> Summary
         </h3>
         <button type="button" className="overall-analysis-card__refresh-btn" disabled={loading} onClick={onRefresh}>
-          {loading ? "Analyzing…" : report ? "Refresh" : "Generate Overall Analysis"}
+          {loading ? "Analyzing…" : report ? "Refresh" : "Generate Summary"}
         </button>
       </div>
 

@@ -244,6 +244,7 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
           const slotSuggestions = suggestions[id] ?? [];
           const slotAccepted = accepted[id] ?? [];
           const acceptedIds = new Set(slotAccepted.map((s) => s.id));
+          const slotFormulas = Object.fromEntries(slotAccepted.map((s) => [s.id, s.formula]));
           const aiFeatureCount = report ? report.features.filter((f) => f.id.startsWith("ai_")).length : 0;
           const customFeatureCount = report ? report.features.filter((f) => f.id.startsWith("custom_")).length : 0;
 
@@ -391,31 +392,6 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
                     )}
                   </div>
 
-                  {report.features.length === 0 ? (
-                    <p className="features-page__none">
-                      None of the uploaded feature definitions could be computed against this data.
-                    </p>
-                  ) : (
-                    <div className="features-page__grid">
-                      {report.features.map((f, idx) => (
-                        <FeatureCard
-                          key={f.id}
-                          feature={f}
-                          colorIndex={idx}
-                          onExpand={() => setOpenFeature({ slotId: id, featureId: f.id })}
-                        />
-                      ))}
-                    </div>
-                  )}
-
-                  {report.skipped_notes.length > 0 && (
-                    <ul className="features-page__skipped">
-                      {report.skipped_notes.map((note, idx) => (
-                        <li key={idx}>{note}</li>
-                      ))}
-                    </ul>
-                  )}
-
                   {report.features.length > 0 && (
                     <div className="features-page__summary">
                       <p className="features-page__summary-title">
@@ -447,6 +423,37 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
                           </div>
                         ))}
                     </div>
+                  )}
+
+                  {report.features.length === 0 ? (
+                    <p className="features-page__none">
+                      None of the uploaded feature definitions could be computed against this data.
+                    </p>
+                  ) : (
+                    <>
+                      <h3 className="features-page__section-title">
+                        <IconSparkle /> Computed Features
+                      </h3>
+                      <div className="features-page__grid">
+                        {report.features.map((f, idx) => (
+                          <FeatureCard
+                            key={f.id}
+                            feature={f}
+                            colorIndex={idx}
+                            formula={slotFormulas[f.id]}
+                            onExpand={() => setOpenFeature({ slotId: id, featureId: f.id })}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  {report.skipped_notes.length > 0 && (
+                    <ul className="features-page__skipped">
+                      {report.skipped_notes.map((note, idx) => (
+                        <li key={idx}>{note}</li>
+                      ))}
+                    </ul>
                   )}
 
                   {panelsSection}
@@ -482,7 +489,8 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
         (() => {
           const openFeatureData = reports[openFeature.slotId]?.features.find((f) => f.id === openFeature.featureId);
           if (!openFeatureData) return null;
-          return <FeatureDetailModal feature={openFeatureData} onClose={() => setOpenFeature(null)} />;
+          const openFeatureFormula = (accepted[openFeature.slotId] ?? []).find((s) => s.id === openFeature.featureId)?.formula;
+          return <FeatureDetailModal feature={openFeatureData} formula={openFeatureFormula} onClose={() => setOpenFeature(null)} />;
         })()}
     </div>
   );

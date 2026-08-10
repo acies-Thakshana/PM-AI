@@ -265,6 +265,21 @@
   color: var(--color-text-muted);
 }
 
+.features-page__section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--carrier-blue);
+}
+
+.features-page__section-title svg {
+  width: 17px;
+  height: 17px;
+}
+
 .features-page__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));

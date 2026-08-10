@@ -94,8 +94,8 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
           <div className="report-page__empty">
             <p>
               {stillChecking
-                ? "Checking whether pivot tables have been computed…"
-                : "No pivot tables have been computed yet -- run the Analysis step first, since the report is built from whatever pivots (and slicer filters) are currently in place there."}
+                ? "Checking whether analysis tables have been computed…"
+                : "No analysis tables have been computed yet -- run the Analysis step first, since the report is built from whatever analyses (and slicer filters) are currently in place there."}
             </p>
             <button type="button" className="report-page__btn report-page__btn--primary" onClick={() => navigate("/analysis")}>
               Go to Analysis
@@ -115,7 +115,7 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
         <PageHeader
           icon={<IconClipboard />}
           title="Report"
-          subtitle="A downloadable .pptx built with native, editable charts from whatever pivots and filters are currently set on the Analysis page -- plus the overall analysis summary."
+          subtitle="A downloadable .pptx built with native, editable charts from whatever analyses and filters are currently set on the Analysis page -- plus the summary."
         />
 
         {slotsReady.map((id) => {
@@ -143,9 +143,9 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
 
               <div className="report-page__stat-row">
                 <StatTile icon={<IconDoc />} color="blue" value={report.row_count.toLocaleString()} label="Rows" />
-                <StatTile icon={<IconGrid />} color="teal" value={report.pivots.length} label="Pivot Tables" />
+                <StatTile icon={<IconGrid />} color="teal" value={report.pivots.length} label="Analysis Tables" />
                 {aiPivotCount > 0 && <StatTile icon={<IconSparkle />} color="amber" value={aiPivotCount} label="AI Suggested" />}
-                {customPivotCount > 0 && <StatTile icon={<IconGrid />} color="purple" value={customPivotCount} label="Custom Pivots" />}
+                {customPivotCount > 0 && <StatTile icon={<IconGrid />} color="purple" value={customPivotCount} label="Custom Analyses" />}
                 {report.skipped_notes.length > 0 && (
                   <StatTile icon={<IconWarnTriangle />} color="error" value={report.skipped_notes.length} label="Skipped" />
                 )}

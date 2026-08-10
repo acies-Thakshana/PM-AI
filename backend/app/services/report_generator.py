@@ -320,21 +320,28 @@ def _percent_metric(pivot: PivotResult) -> str | None:
 
 
 def _add_pivot_slides(builder: ReportBuilder, pivot: PivotResult) -> None:
+    """Exactly ONE slide per pivot, whatever its shape -- mirrors the
+    reference GenericReportBuilder, where a pivot maps to a single slide
+    call (add_grouped_bar_slide / add_combo_slide / add_simple_chart_slide),
+    never one slide per metric."""
     if pivot.row_count == 0:
         return
 
     if len(pivot.group_by) == 2:
         level1, level2 = pivot.group_by
-        for metric_label in pivot.metric_labels:
-            categories, series = _grouped_bar_data(pivot.rows, level1, level2, metric_label)
-            if not categories:
-                continue
+        # One metric drives the chart -- a 2-level group-by already spends
+        # its category+series axes on the two dimensions, so the first
+        # metric is the one chart; the table (and the app's Chart tab) still
+        # let a viewer switch metrics interactively.
+        metric_label = pivot.metric_labels[0]
+        categories, series = _grouped_bar_data(pivot.rows, level1, level2, metric_label)
+        if categories:
             builder.add_grouped_bar_slide(
-                heading=f"{pivot.name} — {metric_label}",
+                heading=pivot.name,
                 description=f"{pivot.description}  (grouped by {level2})",
                 categories=categories, series=series, y_axis_title=metric_label,
             )
-        return
+            return
 
     if len(pivot.group_by) == 1 and len(pivot.metric_labels) == 2:
         pct_label = _percent_metric(pivot)
@@ -350,9 +357,11 @@ def _add_pivot_slides(builder: ReportBuilder, pivot: PivotResult) -> None:
             )
             return
 
-    # Fallback: one simple single-series chart per metric -- covers a single
-    # group-by/single-metric pivot, and anything with a shape the two special
-    # cases above don't handle (3+ group-by levels, 3+ metrics).
+    # Fallback: a single simple chart on the first metric that actually has
+    # numeric data -- covers a plain single-group-by/single-metric pivot,
+    # and anything with a shape the two special cases above don't handle
+    # (3+ group-by levels, 3+ metrics, or a 2-level/2-metric case that
+    # produced no rows above).
     for metric_label in pivot.metric_labels:
         rows = _numeric_rows(pivot.rows, metric_label)[:MAX_CHART_ROWS]
         if not rows:
@@ -360,9 +369,10 @@ def _add_pivot_slides(builder: ReportBuilder, pivot: PivotResult) -> None:
         categories = [" / ".join(str(r.get(c, "")) for c in pivot.group_by) for r in rows]
         values = [r[metric_label] for r in rows]
         builder.add_simple_chart_slide(
-            heading=f"{pivot.name} — {metric_label}", description=pivot.description,
+            heading=pivot.name, description=pivot.description,
             categories=categories, metric_label=metric_label, values=values, is_trend=_is_trend_pivot(pivot),
         )
+        return
 
 
 def build_report(

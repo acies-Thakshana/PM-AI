@@ -37,7 +37,7 @@ const STEPS = [
     title: "Report",
     icon: <IconClipboard />,
     color: "blue",
-    description: "Download a PowerPoint report with native, editable charts built fresh from whatever pivots and filters you currently have set.",
+    description: "Download a PowerPoint report with native, editable charts built fresh from whatever analyses and filters you currently have set.",
   },
 ] as const;
 

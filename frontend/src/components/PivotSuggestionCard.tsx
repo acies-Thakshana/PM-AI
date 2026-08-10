@@ -36,7 +36,7 @@ export default function PivotSuggestionCard({ suggestion, added, busy, onAdd }: 
         </div>
 
         <button type="button" className="pivot-suggestion__btn" disabled={added || busy} onClick={onAdd}>
-          {added ? "Added" : busy ? "Adding…" : "Add this pivot"}
+          {added ? "Added" : busy ? "Adding…" : "Add this analysis"}
         </button>
       </div>
 
