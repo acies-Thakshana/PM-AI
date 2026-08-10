@@ -9,28 +9,28 @@ const STEPS = [
     title: "Upload",
     icon: <IconUpload />,
     color: "blue",
-    description: "Provide your SensiWatch/ColdStream exports, threshold references, and any KPI or pivot definition profiles.",
+    description: "Provide your SensiWatch/ColdStream exports, threshold references, and any KPI or analysis definition profiles.",
   },
   {
     step: 2,
     title: "Audit",
     icon: <IconShieldSearch />,
     color: "teal",
-    description: "A deterministic data-quality audit flags empty columns, duplicates, and outliers before anything downstream trusts the numbers.",
+    description: "A deterministic data-quality audit, together with the AI agent, flags empty columns, duplicates, and outliers before anything downstream trusts the numbers.",
   },
   {
     step: 3,
     title: "Features",
     icon: <IconSparkle />,
     color: "purple",
-    description: "Compute KPIs from your Customer KPI Profile, or ask the AI agent to suggest new ones from your data's own columns.",
+    description: "Compute KPIs from your Customer KPI Profile, or build new ones together with the AI agent from your data's own columns.",
   },
   {
     step: 4,
     title: "Analysis",
     icon: <IconGrid />,
     color: "amber",
-    description: "Build pivot tables with interactive slicers, view them as a table or a chart, or ask AI to suggest breakdowns worth looking at.",
+    description: "Build breakdowns with interactive slicers, view them as a table or a chart, or work with the AI agent to surface breakdowns worth looking at.",
   },
   {
     step: 5,
@@ -51,10 +51,9 @@ export default function WelcomePage() {
         <section className="welcome-page__hero">
           <h1 className="welcome-page__title">Program Manager AI</h1>
           <p className="welcome-page__lede">
-            A cold-chain program management tool. Upload your raw shipment exports and this app takes you
-            from messy spreadsheets to a clean, audited dataset, engineered KPIs, interactive pivot analysis,
-            and a downloadable report -- with a data-quality audit and AI assistance along the way, never
-            deciding the numbers for you.
+            A Cold-Chain/Post-Harvest program management tool. Upload your raw shipment data and this
+            application takes you from messy spreadsheets to a clean, audited dataset, engineered KPIs,
+            interactive analysis, and a downloadable report.
           </p>
           <button type="button" className="welcome-page__cta" onClick={() => navigate("/upload")}>
             Get Started <IconChevronRight />
