@@ -1,8 +1,68 @@
 .pivot-filter-bar {
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.pivot-filter-bar__row {
+  display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 12px;
+}
+
+.pivot-filter-bar__save-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pivot-filter-bar__unsaved {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--accent-amber);
+}
+
+.pivot-filter-bar__discard-btn {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.pivot-filter-bar__discard-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.pivot-filter-bar__discard-btn:hover:not(:disabled) {
+  border-color: var(--color-text-muted);
+  color: var(--color-text);
+}
+
+.pivot-filter-bar__save-btn {
+  background: var(--carrier-blue);
+  border: 1px solid var(--carrier-blue);
+  border-radius: var(--radius-sm);
+  padding: 6px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+}
+
+.pivot-filter-bar__save-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.pivot-filter-bar__save-btn:hover:not(:disabled) {
+  background: var(--carrier-light-blue);
+  border-color: var(--carrier-light-blue);
 }
 
 .pivot-filter-bar__item {

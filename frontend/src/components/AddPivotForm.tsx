@@ -60,7 +60,7 @@ export default function AddPivotForm({ columns, busy, onAdd, onCancel }: AddPivo
   const removeMetricRow = (idx: number) => setMetrics((prev) => prev.filter((_, i) => i !== idx));
 
   const handleSubmit = () => {
-    if (!name.trim()) return setError("Give the pivot a name.");
+    if (!name.trim()) return setError("Give the analysis a name.");
     if (groupBy.length === 0) return setError("Pick at least one group-by column.");
     const cleanMetrics = metrics.filter((m) => m.column && m.output_label.trim());
     if (cleanMetrics.length === 0) return setError("Add at least one metric with a label.");
@@ -79,7 +79,7 @@ export default function AddPivotForm({ columns, busy, onAdd, onCancel }: AddPivo
     onAdd({
       id: `custom_pivot_${Date.now().toString(36)}`,
       name: name.trim(),
-      description: description.trim() || "Custom pivot added manually.",
+      description: description.trim() || "Custom analysis added manually.",
       group_by: groupBy,
       metrics: cleanMetrics,
       filters: useFilter ? [{ column: filterColumn, op: filterOp, value: filterValueParsed }] : [],
@@ -92,7 +92,7 @@ export default function AddPivotForm({ columns, busy, onAdd, onCancel }: AddPivo
     <div className="add-pivot-form">
       <div className="add-pivot-form__row">
         <label className="add-pivot-form__field">
-          <span>Pivot name</span>
+          <span>Analysis name</span>
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Performance by Carrier" />
         </label>
       </div>
@@ -103,7 +103,7 @@ export default function AddPivotForm({ columns, busy, onAdd, onCancel }: AddPivo
           type="text"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="What does this pivot show?"
+          placeholder="What does this analysis show?"
         />
       </label>
 
@@ -215,7 +215,7 @@ export default function AddPivotForm({ columns, busy, onAdd, onCancel }: AddPivo
 
       <div className="add-pivot-form__actions">
         <button type="button" className="add-pivot-form__btn add-pivot-form__btn--primary" disabled={busy} onClick={handleSubmit}>
-          {busy ? "Adding…" : "Add Pivot"}
+          {busy ? "Adding…" : "Add Analysis"}
         </button>
         <button type="button" className="add-pivot-form__btn add-pivot-form__btn--secondary" disabled={busy} onClick={onCancel}>
           Cancel

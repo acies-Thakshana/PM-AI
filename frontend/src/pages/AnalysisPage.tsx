@@ -73,6 +73,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
   const [overallError, setOverallError] = useState<ErrorsState>({});
 
   const [filterSelections, setFilterSelections] = useState<FilterSelectionsState>({});
+  const [savingFilters, setSavingFilters] = useState<Record<string, boolean>>({});
   const [openPivot, setOpenPivot] = useState<{ slotId: UploadSlotId; pivotId: string } | null>(null);
 
   const [defsSummary, setDefsSummary] = useState<PivotDefinitionsSummary | null>(null);
@@ -124,7 +125,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
         .catch((err) =>
           setErrors((prev) => ({
             ...prev,
-            [id]: err instanceof AuditApiError ? err.message : "Could not compute pivot tables.",
+            [id]: err instanceof AuditApiError ? err.message : "Could not compute analysis tables.",
           }))
         )
         .finally(() => setLoading((prev) => ({ ...prev, [id]: false })));
@@ -159,7 +160,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
       .catch((err) => {
         setErrors((prev) => ({
           ...prev,
-          [id]: err instanceof AuditApiError ? err.message : "Could not add that pivot.",
+          [id]: err instanceof AuditApiError ? err.message : "Could not add that analysis.",
         }));
         throw err;
       });
@@ -189,7 +190,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
       .catch((err) =>
         setErrors((prev) => ({
           ...prev,
-          [id]: err instanceof AuditApiError ? err.message : "Could not add all pivots.",
+          [id]: err instanceof AuditApiError ? err.message : "Could not add all analyses.",
         }))
       )
       .finally(() => setApplyingAll((prev) => ({ ...prev, [id]: false })));
@@ -241,22 +242,26 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
     return payload;
   };
 
-  const handleFilterChange = (id: UploadSlotId, pivotId: string, column: string, values: string[] | undefined) => {
-    const nextSlotSelections = { ...(filterSelections[id] ?? {}) };
-    nextSlotSelections[pivotId] = { ...(nextSlotSelections[pivotId] ?? {}), [column]: values };
+  // Filters are staged locally in PivotFilterBar and only committed here on
+  // an explicit "Save Filters" click -- once saved, session.pivots on the
+  // backend reflects this exact filter set, which is what both the Report
+  // page's "N pivots" summary and the downloaded .pptx read directly, so
+  // saving here is what "reflects in the report" for that pivot.
+  const handleSaveFilters = (id: UploadSlotId, pivotId: string, nextPivotSelections: PivotFilterSelections) => {
+    const nextSlotSelections = { ...(filterSelections[id] ?? {}), [pivotId]: nextPivotSelections };
     setFilterSelections((prev) => ({ ...prev, [id]: nextSlotSelections }));
 
     const sessionId = auditReports[id]!.session_id;
-    setLoading((prev) => ({ ...prev, [id]: true }));
+    setSavingFilters((prev) => ({ ...prev, [pivotId]: true }));
     applyPivots(sessionId, accepted[id] ?? [], buildPivotFiltersPayload(nextSlotSelections))
       .then((report) => setReports((prev) => ({ ...prev, [id]: report })))
       .catch((err) =>
         setErrors((prev) => ({
           ...prev,
-          [id]: err instanceof AuditApiError ? err.message : "Could not recompute pivot tables.",
+          [id]: err instanceof AuditApiError ? err.message : "Could not save filters.",
         }))
       )
-      .finally(() => setLoading((prev) => ({ ...prev, [id]: false })));
+      .finally(() => setSavingFilters((prev) => ({ ...prev, [pivotId]: false })));
   };
 
   if (AUDITED_SLOTS.every((id) => !files[id])) {
@@ -303,7 +308,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
             <p>
               {Object.values(featureCheckLoading).some(Boolean)
                 ? "Checking whether feature engineering has run…"
-                : "No features have been computed yet -- pivot tables can group by engineered columns (like Country of Origin or % In Spec), so finish the Features step first."}
+                : "No features have been computed yet -- analysis tables can group by engineered columns (like Country of Origin or % In Spec), so finish the Features step first."}
             </p>
             <button type="button" className="analysis-page__btn analysis-page__btn--primary" onClick={() => navigate("/features")}>
               Go to Features
@@ -322,7 +327,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
           <StepIndicator current={4} />
           <div className="analysis-page__empty">
             <p>
-              No Analysis Profile has been uploaded. Pivot table definitions (which columns to group by,
+              No Analysis Profile has been uploaded. Analysis table definitions (which columns to group by,
               which metrics to aggregate) live entirely in that file -- there's no default, so nothing is
               computed until it's uploaded.
             </p>
@@ -344,14 +349,14 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
         <PageHeader
           icon={<IconTable />}
           title="Analysis"
-          subtitle="Pivot tables and an overall analysis rolled up from the audited + feature-engineered data, or ask the AI agent to suggest more pivots from your data's own columns."
+          subtitle="Analysis tables and a summary rolled up from the audited + feature-engineered data, or ask the AI agent to suggest more analyses from your data's own columns."
         />
 
-        {defsLoading && <div className="analysis-page__loading">Reading pivot definitions from {files.analysisProfile!.name}…</div>}
+        {defsLoading && <div className="analysis-page__loading">Reading analysis definitions from {files.analysisProfile!.name}…</div>}
         {defsError && <p className="analysis-page__error">{defsError}</p>}
         {defsSummary && (
           <p className="analysis-page__defs-summary">
-            Loaded {defsSummary.pivot_count} pivot definition(s) from <strong>{defsSummary.filename}</strong>:{" "}
+            Loaded {defsSummary.pivot_count} analysis definition(s) from <strong>{defsSummary.filename}</strong>:{" "}
             {defsSummary.pivot_names.join(", ")}.
           </p>
         )}
@@ -377,10 +382,10 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
                       <IconSparkle />
                     </span>
                     <div>
-                      <h3 className="analysis-page__ai-panel-title">AI Pivot Suggestions</h3>
+                      <h3 className="analysis-page__ai-panel-title">AI Analysis Suggestions</h3>
                       <p className="analysis-page__ai-panel-hint">
                         The agent looks at this data's columns (including engineered ones) and proposes
-                        pivot tables it can compute -- you choose which ones to add.
+                        analysis tables it can compute -- you choose which ones to add.
                       </p>
                     </div>
                   </div>
@@ -399,13 +404,13 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
                     ? "Thinking…"
                     : slotSuggestions.length > 0
                       ? `View Suggestions (${slotSuggestions.length})`
-                      : "Suggest Pivots"}
+                      : "Suggest Analyses"}
                 </button>
 
                 {suggestError[id] && <p className="analysis-page__error">{suggestError[id]}</p>}
 
                 {showSuggestionsModal[id] && (
-                  <Modal title="AI Pivot Suggestions" onClose={() => setShowSuggestionsModal((prev) => ({ ...prev, [id]: false }))}>
+                  <Modal title="AI Analysis Suggestions" onClose={() => setShowSuggestionsModal((prev) => ({ ...prev, [id]: false }))}>
                     <div className="analysis-page__panel-btn-row">
                       {pendingSuggestionCount > 0 && (
                         <button
@@ -453,7 +458,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
                       <IconGrid />
                     </span>
                     <div>
-                      <h3 className="analysis-page__custom-pivot-title">Add a Custom Pivot</h3>
+                      <h3 className="analysis-page__custom-pivot-title">Add a Custom Analysis</h3>
                       <p className="analysis-page__custom-pivot-hint">
                         Define your own group-by + aggregation logic straight from this data's columns --
                         no need to edit and re-upload the Analysis Profile file.
@@ -466,10 +471,10 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
                   className="analysis-page__btn analysis-page__btn--secondary analysis-page__panel-btn"
                   onClick={() => setShowAddPivotForm((prev) => ({ ...prev, [id]: true }))}
                 >
-                  + Add Custom Pivot
+                  + Add Custom Analysis
                 </button>
                 {showAddPivotForm[id] && (
-                  <Modal title="Add a Custom Pivot" onClose={() => setShowAddPivotForm((prev) => ({ ...prev, [id]: false }))}>
+                  <Modal title="Add a Custom Analysis" onClose={() => setShowAddPivotForm((prev) => ({ ...prev, [id]: false }))}>
                     <AddPivotForm
                       columns={featureColumns}
                       busy={!!addingPivot[id]}
@@ -500,7 +505,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
                 </div>
               </div>
 
-              {loading[id] && <div className="analysis-page__loading">Computing pivot tables…</div>}
+              {loading[id] && <div className="analysis-page__loading">Computing analysis tables…</div>}
               {errors[id] && <p className="analysis-page__error">{errors[id]}</p>}
 
               {report && (
@@ -508,27 +513,20 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
                   <div className="analysis-page__stat-row">
                     <StatTile icon={<IconDoc />} color="blue" value={report.row_count.toLocaleString()} label="Rows" />
                     <StatTile icon={<IconGrid />} color="teal" value={report.column_count} label="Columns" />
-                    <StatTile icon={<IconTable />} color="purple" value={report.pivots.length} label="Pivot Tables" />
+                    <StatTile icon={<IconTable />} color="purple" value={report.pivots.length} label="Analysis Tables" />
                     {aiPivotCount > 0 && <StatTile icon={<IconSparkle />} color="amber" value={aiPivotCount} label="AI Suggested" />}
-                    {customPivotCount > 0 && <StatTile icon={<IconGrid />} color="blue" value={customPivotCount} label="Custom Pivots" />}
+                    {customPivotCount > 0 && <StatTile icon={<IconGrid />} color="blue" value={customPivotCount} label="Custom Analyses" />}
                     {report.skipped_notes.length > 0 && (
                       <StatTile icon={<IconWarnTriangle />} color="error" value={report.skipped_notes.length} label="Skipped" />
                     )}
                   </div>
 
-                  <OverallAnalysisCard
-                    report={overallReports[id]}
-                    loading={!!overallLoading[id]}
-                    error={overallError[id]}
-                    onRefresh={() => runOverallAnalysis(id)}
-                  />
-
                   {report.pivots.length === 0 ? (
-                    <p className="analysis-page__none">None of the uploaded pivot definitions could be computed against this data.</p>
+                    <p className="analysis-page__none">None of the uploaded analysis definitions could be computed against this data.</p>
                   ) : (
                     <>
                       <h3 className="analysis-page__section-title">
-                        <IconTable /> Pivot Tables
+                        <IconTable /> Analysis Tables
                       </h3>
                       <div className="analysis-page__pivot-list">
                         {report.pivots.map((p, idx) => (
@@ -537,6 +535,13 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
                       </div>
                     </>
                   )}
+
+                  <OverallAnalysisCard
+                    report={overallReports[id]}
+                    loading={!!overallLoading[id]}
+                    error={overallError[id]}
+                    onRefresh={() => runOverallAnalysis(id)}
+                  />
 
                   {report.skipped_notes.length > 0 && (
                     <ul className="analysis-page__skipped">
@@ -549,7 +554,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
                   {report.pivots.length > 0 && (
                     <div className="analysis-page__summary">
                       <p className="analysis-page__summary-title">
-                        ✓ {report.pivots.length} pivot{report.pivots.length === 1 ? "" : "s"} added in total
+                        ✓ {report.pivots.length} {report.pivots.length === 1 ? "analysis" : "analyses"} added in total
                       </p>
                       {[
                         { label: "Defined", items: report.pivots.filter((p) => !p.id.startsWith("ai_pivot_") && !p.id.startsWith("custom_pivot_")) },
@@ -603,7 +608,8 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
             <PivotModal
               pivot={openPivotData}
               filterSelections={filterSelections[openPivot.slotId]?.[openPivot.pivotId] ?? {}}
-              onFilterChange={(column, values) => handleFilterChange(openPivot.slotId, openPivot.pivotId, column, values)}
+              onSaveFilters={(next) => handleSaveFilters(openPivot.slotId, openPivot.pivotId, next)}
+              savingFilters={!!savingFilters[openPivot.pivotId]}
               onClose={() => setOpenPivot(null)}
             />
           );

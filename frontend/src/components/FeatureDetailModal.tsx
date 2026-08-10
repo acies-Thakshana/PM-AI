@@ -5,16 +5,18 @@ import "./FeatureCard.css";
 
 interface FeatureDetailModalProps {
   feature: FeatureResult;
+  formula?: string;
   onClose: () => void;
 }
 
-export default function FeatureDetailModal({ feature, onClose }: FeatureDetailModalProps) {
+export default function FeatureDetailModal({ feature, formula, onClose }: FeatureDetailModalProps) {
   const distributionEntries = Object.entries(feature.distribution);
   const statsEntries = displayStats(feature.stats);
   const maxCount = distributionEntries.length > 0 ? Math.max(...distributionEntries.map(([, v]) => v)) : 0;
 
   return (
     <Modal title={feature.name} onClose={onClose}>
+      {formula && <p className="feature-card__formula">ƒ {formula}</p>}
       <p className="feature-card__modal-description">{feature.description}</p>
       {statsEntries.length > 0 && (
         <div className="feature-card__stats feature-card__stats--modal">

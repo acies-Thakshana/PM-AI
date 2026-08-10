@@ -8,13 +8,14 @@ import "./PivotModal.css";
 interface PivotModalProps {
   pivot: PivotResult;
   filterSelections: Record<string, string[] | undefined>;
-  onFilterChange: (column: string, values: string[] | undefined) => void;
+  onSaveFilters: (next: Record<string, string[] | undefined>) => void;
+  savingFilters?: boolean;
   onClose: () => void;
 }
 
 type Tab = "table" | "chart";
 
-export default function PivotModal({ pivot, filterSelections, onFilterChange, onClose }: PivotModalProps) {
+export default function PivotModal({ pivot, filterSelections, onSaveFilters, savingFilters, onClose }: PivotModalProps) {
   const [tab, setTab] = useState<Tab>("table");
 
   return (
@@ -42,7 +43,13 @@ export default function PivotModal({ pivot, filterSelections, onFilterChange, on
 
       <div className="pivot-modal__tab-content">
         {tab === "table" ? (
-          <PivotTableCard pivot={pivot} filterSelections={filterSelections} onFilterChange={onFilterChange} hideHeader />
+          <PivotTableCard
+            pivot={pivot}
+            filterSelections={filterSelections}
+            onSaveFilters={onSaveFilters}
+            savingFilters={savingFilters}
+            hideHeader
+          />
         ) : (
           <PivotChart pivot={pivot} />
         )}

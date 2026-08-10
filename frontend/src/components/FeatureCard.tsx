@@ -5,6 +5,8 @@ import "./FeatureCard.css";
 interface FeatureCardProps {
   feature: FeatureResult;
   colorIndex?: number;
+  /** Present for AI-suggested/custom KPIs -- the formula it was built from. */
+  formula?: string;
   onExpand: () => void;
 }
 
@@ -41,7 +43,7 @@ export function Distribution({ entries, maxCount }: { entries: [string, number][
   );
 }
 
-export default function FeatureCard({ feature, colorIndex = 0, onExpand }: FeatureCardProps) {
+export default function FeatureCard({ feature, colorIndex = 0, formula, onExpand }: FeatureCardProps) {
   const total = feature.non_null_count + feature.null_count;
   const distributionEntries = Object.entries(feature.distribution);
   const statsEntries = displayStats(feature.stats);
@@ -56,6 +58,7 @@ export default function FeatureCard({ feature, colorIndex = 0, onExpand }: Featu
         <span className={`feature-card__icon feature-card__icon--${color}`}>{isNumeric ? <IconShieldCheck /> : <IconGrid />}</span>
         <div className="feature-card__header-text">
           <h3 className="feature-card__name">{feature.name}</h3>
+          {formula && <p className="feature-card__formula">ƒ {formula}</p>}
           <span className="feature-card__column">{feature.output_column}</span>
         </div>
         <div className="feature-card__badges">
