@@ -13,6 +13,22 @@ class IssueOption(BaseModel):
     label: str
 
 
+class OutlierChart(BaseModel):
+    """Box-plot data for one numeric column -- the standard chart for an
+    IQR-based outlier finding, built from the exact same quartiles/fence the
+    detector used, plus the real value of every row it flagged."""
+    type: Literal["boxplot"] = "boxplot"
+    column: str
+    min: float
+    max: float
+    q1: float
+    median: float
+    q3: float
+    lower_bound: float
+    upper_bound: float
+    outlier_values: list[float]
+
+
 class AuditIssue(BaseModel):
     id: str
     category: str
@@ -29,6 +45,17 @@ class AuditIssue(BaseModel):
     selectable_items: list[str] = []
     status: IssueStatus = "pending"
     resolution: str | None = None
+    # Box-plot data for the underlying numeric column, for findings where a
+    # chart says more than the description (currently: statistical_outliers).
+    # None for every other category.
+    chart: OutlierChart | None = None
+    # Agent-written, per-finding recommendation -- set by
+    # audit_agent.generate_audit_analysis after the deterministic findings are
+    # computed. `recommended_action` is one of this issue's own `options` ids
+    # (e.g. "drop_selected", "keep"); `recommendation` is the short why. Both
+    # None if the agent didn't return a usable recommendation for this finding.
+    recommended_action: str | None = None
+    recommendation: str | None = None
 
 
 class AuditReport(BaseModel):
