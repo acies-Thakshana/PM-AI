@@ -60,31 +60,8 @@
 .analysis-page__card-head-left {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.analysis-page__header-icon {
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md);
-  background: var(--carrier-blue);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.analysis-page__header-icon svg {
-  width: 20px;
-  height: 20px;
-}
-
-.analysis-page__card-head-right {
-  display: flex;
-  align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .analysis-page__slot-title {

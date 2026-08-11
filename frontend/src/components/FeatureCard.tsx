@@ -1,5 +1,5 @@
 import type { FeatureResult } from "../api/audit";
-import { IconExpand, IconGrid, IconShieldCheck } from "./icons";
+import { IconExpand, IconTag, IconShieldCheck, IconClock, IconPercent, IconCalendar } from "./icons";
 import "./FeatureCard.css";
 
 interface FeatureCardProps {
@@ -27,6 +27,18 @@ export function displayStats(stats: Record<string, number>): [string, number][] 
 
 const ICON_COLORS = ["blue", "teal", "purple", "amber"] as const;
 
+// Pick an icon that hints at what the feature actually is, rather than a
+// generic numeric/categorical split -- durations, percentages, and dates
+// each read very differently even though the backend just returns numbers.
+function iconForFeature(feature: FeatureResult, isNumeric: boolean) {
+  const label = `${feature.name} ${feature.output_column}`;
+  if (/hour|day|duration/i.test(label)) return IconClock;
+  if (/%|percent|ratio|spec/i.test(label)) return IconPercent;
+  if (/month|date|year/i.test(label)) return IconCalendar;
+  if (isNumeric) return IconShieldCheck;
+  return IconTag;
+}
+
 export function Distribution({ entries, maxCount }: { entries: [string, number][]; maxCount: number }) {
   return (
     <ul className="feature-card__distribution">
@@ -51,11 +63,14 @@ export default function FeatureCard({ feature, colorIndex = 0, formula, onExpand
   const maxCount = distributionEntries.length > 0 ? Math.max(...distributionEntries.map(([, v]) => v)) : 0;
   const previewEntries = distributionEntries.slice(0, 4);
   const color = ICON_COLORS[colorIndex % ICON_COLORS.length];
+  const FeatureIcon = iconForFeature(feature, isNumeric);
 
   return (
     <div className="feature-card">
       <div className="feature-card__header">
-        <span className={`feature-card__icon feature-card__icon--${color}`}>{isNumeric ? <IconShieldCheck /> : <IconGrid />}</span>
+        <span className={`feature-card__icon feature-card__icon--${color}`}>
+          <FeatureIcon />
+        </span>
         <div className="feature-card__header-text">
           <h3 className="feature-card__name">{feature.name}</h3>
           {formula && <p className="feature-card__formula">ƒ {formula}</p>}
