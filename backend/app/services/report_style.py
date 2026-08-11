@@ -6,8 +6,12 @@ from pptx.util import Inches
 
 SLIDE_W = Inches(10)
 SLIDE_H = Inches(7.5)
-HEADER_HEIGHT = Inches(0.7)
-CHART_TOP = Inches(1.15)
+# The heading is plain left-aligned text on a white slide (no full-width
+# color band -- that reads as an AI-generated filler element), so this is
+# just the vertical space it and the caption underneath it need, not a
+# shape height.
+HEADER_HEIGHT = Inches(0.5)
+CHART_TOP = Inches(0.95)
 
 FONT_HEADING = "Calibri"  # safe font (ships with Office, renders true-to-width)
 PROGRAM_TITLE = "Program Manager AI — Cold Chain Analysis"

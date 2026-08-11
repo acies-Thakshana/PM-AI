@@ -31,7 +31,6 @@ function toggleInList(list: string[], col: string): string[] {
 
 export default function AddKpiForm({ columns, busy, onAdd, onCancel }: AddKpiFormProps) {
   const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
   const [type, setType] = useState<FeatureSuggestionType>("duration_hours");
   const [startColumn, setStartColumn] = useState("");
   const [endColumn, setEndColumn] = useState("");
@@ -40,6 +39,8 @@ export default function AddKpiForm({ columns, busy, onAdd, onCancel }: AddKpiFor
   const [denominatorColumns, setDenominatorColumns] = useState<string[]>([]);
   const [sourceColumns, setSourceColumns] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  const formula = buildFormula(type, startColumn, endColumn, unit, numeratorColumns, denominatorColumns, sourceColumns);
 
   const handleSubmit = () => {
     if (!name.trim()) return setError("Give the KPI a name.");
@@ -57,7 +58,7 @@ export default function AddKpiForm({ columns, busy, onAdd, onCancel }: AddKpiFor
     onAdd({
       id: `custom_${Date.now().toString(36)}`,
       name: name.trim(),
-      description: description.trim() || "Custom KPI added manually.",
+      description: "Custom KPI added manually.",
       output_column: name.trim(),
       type,
       formula: buildFormula(type, startColumn, endColumn, unit, numeratorColumns, denominatorColumns, sourceColumns),
@@ -88,15 +89,9 @@ export default function AddKpiForm({ columns, busy, onAdd, onCancel }: AddKpiFor
         </label>
       </div>
 
-      <label className="add-kpi-form__field">
-        <span>Description (optional)</span>
-        <input
-          type="text"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="What does this KPI mean?"
-        />
-      </label>
+      <p className="add-kpi-form__formula-preview">
+        ƒ {formula}
+      </p>
 
       {type === "duration_hours" && (
         <div className="add-kpi-form__row">

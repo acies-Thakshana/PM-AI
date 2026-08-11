@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useRef } from "react";
 import { IconChevronDown } from "./icons";
 import "./PivotFilterBar.css";
 
@@ -7,42 +7,66 @@ type Selections = Record<string, string[] | undefined>;
 interface PivotFilterBarProps {
   filterableColumns: string[];
   filterOptions: Record<string, string[]>;
-  /** The last-SAVED selections, i.e. what the pivot's current rows reflect. Missing/undefined for a column means "all selected". */
+  /** Deduplicated real combinations of the filterable columns -- lets each
+   * column's option list narrow to whatever co-occurs with the OTHER
+   * columns' current selection, e.g. picking Italy narrows Carrier down to
+   * Italy's carriers instead of showing every carrier. */
+  combinations: Record<string, string>[];
+  /** Missing/undefined for a column means "all selected". Every change is
+   * applied immediately -- there's no separate draft/save step. */
   selected: Selections;
-  /** Called once, with the full draft, when the user clicks "Save Filters". */
   onSave: (next: Selections) => void;
   saving?: boolean;
 }
 
-function sameSelections(a: Selections, b: Selections, columns: string[]): boolean {
-  return columns.every((c) => JSON.stringify([...(a[c] ?? [])].sort()) === JSON.stringify([...(b[c] ?? [])].sort()));
+/** Options for `column` that actually co-occur with every OTHER column's
+ * current selection, per the real row combinations from the backend.
+ * Falls back to the full option list when there's no combination data. */
+function visibleOptionsFor(
+  column: string,
+  columns: string[],
+  combinations: Record<string, string>[],
+  selected: Selections,
+  filterOptions: Record<string, string[]>
+): string[] {
+  if (combinations.length === 0) return filterOptions[column] ?? [];
+  const others = columns.filter((c) => c !== column);
+  const values = new Set<string>();
+  for (const combo of combinations) {
+    const value = combo[column];
+    if (value === undefined) continue;
+    const matchesOthers = others.every((oc) => {
+      const sel = selected[oc];
+      if (sel === undefined) return true;
+      const val = combo[oc];
+      return val !== undefined && sel.includes(val);
+    });
+    if (matchesOthers) values.add(value);
+  }
+  return [...values].sort();
 }
 
-export default function PivotFilterBar({ filterableColumns, filterOptions, selected, onSave, saving }: PivotFilterBarProps) {
+export default function PivotFilterBar({ filterableColumns, filterOptions, combinations = [], selected, onSave, saving }: PivotFilterBarProps) {
   const columns = filterableColumns.filter((c) => (filterOptions[c] ?? []).length > 0);
-  const [draft, setDraft] = useState<Selections>(selected);
-
-  // Re-sync the draft whenever the saved selections change underneath us
-  // (e.g. right after a save completes) so checkboxes reflect reality.
-  useEffect(() => {
-    setDraft(selected);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(selected)]);
+  const detailsRefs = useRef<Record<string, HTMLDetailsElement | null>>({});
 
   if (columns.length === 0) return null;
 
-  const dirty = !sameSelections(draft, selected, columns);
+  const closeColumn = (column: string) => {
+    const el = detailsRefs.current[column];
+    if (el) el.open = false;
+  };
 
-  const setColumn = (column: string, values: string[] | undefined) => setDraft((prev) => ({ ...prev, [column]: values }));
+  const setColumn = (column: string, values: string[] | undefined) => onSave({ ...selected, [column]: values });
 
   return (
     <div className="pivot-filter-bar">
       <div className="pivot-filter-bar__row">
         {columns.map((column) => {
-          const options = filterOptions[column] ?? [];
-          const current = draft[column];
+          const options = visibleOptionsFor(column, columns, combinations, selected, filterOptions);
+          const current = selected[column];
           const isAll = current === undefined;
-          const activeSet = new Set(current ?? options);
+          const activeSet = current === undefined ? new Set(options) : new Set(current.filter((v) => options.includes(v)));
 
           const toggle = (option: string) => {
             const next = activeSet.has(option) ? [...activeSet].filter((v) => v !== option) : [...activeSet, option];
@@ -50,7 +74,7 @@ export default function PivotFilterBar({ filterableColumns, filterOptions, selec
           };
 
           return (
-            <details key={column} className="pivot-filter-bar__item">
+            <details key={column} className="pivot-filter-bar__item" ref={(el) => { detailsRefs.current[column] = el; }}>
               <summary className="pivot-filter-bar__summary">
                 <span className="pivot-filter-bar__label">{column}</span>
                 <span className="pivot-filter-bar__value">{isAll ? "All" : `${activeSet.size} of ${options.length}`}</span>
@@ -58,17 +82,25 @@ export default function PivotFilterBar({ filterableColumns, filterOptions, selec
               </summary>
               <div className="pivot-filter-bar__panel">
                 <div className="pivot-filter-bar__panel-actions">
-                  <button type="button" onClick={() => setColumn(column, undefined)}>
+                  <button type="button" disabled={saving} onClick={() => setColumn(column, undefined)}>
                     Select all
                   </button>
-                  <button type="button" onClick={() => setColumn(column, [])}>
+                  <button type="button" disabled={saving} onClick={() => setColumn(column, [])}>
                     Clear
+                  </button>
+                  <button
+                    type="button"
+                    className="pivot-filter-bar__close-btn"
+                    onClick={() => closeColumn(column)}
+                    aria-label="Close"
+                  >
+                    ×
                   </button>
                 </div>
                 <div className="pivot-filter-bar__checklist">
                   {options.map((option) => (
                     <label key={option} className="pivot-filter-bar__check">
-                      <input type="checkbox" checked={activeSet.has(option)} onChange={() => toggle(option)} />
+                      <input type="checkbox" checked={activeSet.has(option)} disabled={saving} onChange={() => toggle(option)} />
                       {option}
                     </label>
                   ))}
@@ -77,16 +109,6 @@ export default function PivotFilterBar({ filterableColumns, filterOptions, selec
             </details>
           );
         })}
-      </div>
-
-      <div className="pivot-filter-bar__save-row">
-        {dirty && !saving && <span className="pivot-filter-bar__unsaved">Unsaved filter changes</span>}
-        <button type="button" className="pivot-filter-bar__discard-btn" disabled={!dirty || saving} onClick={() => setDraft(selected)}>
-          Discard
-        </button>
-        <button type="button" className="pivot-filter-bar__save-btn" disabled={!dirty || saving} onClick={() => onSave(draft)}>
-          {saving ? "Saving…" : "Save Filters"}
-        </button>
       </div>
     </div>
   );

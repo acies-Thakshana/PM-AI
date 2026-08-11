@@ -102,54 +102,20 @@
   padding: 10px 12px;
 }
 
-/* -- included list ------------------------------------------------------- */
+/* -- slide list ------------------------------------------------------- */
 
-.report-page__included {
-  border: 1px solid var(--carrier-blue-tint-2);
-  border-radius: var(--radius-md);
-  padding: 14px 16px;
+.report-page__slides {
   margin-bottom: 18px;
 }
 
-.report-page__included-title {
-  margin: 0 0 10px;
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--carrier-blue);
-}
-
-.report-page__included-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.report-page__included-list li {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 13px;
-  color: var(--color-text);
-  padding: 4px 0;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.report-page__included-list li:last-child {
-  border-bottom: none;
-}
-
-.report-page__included-metrics {
-  font-size: 11.5px;
+.report-page__loading {
+  font-size: 12.5px;
   color: var(--color-text-muted);
-  text-align: right;
-  flex-shrink: 0;
 }
 
-.report-page__included-summary {
+.report-page__summary-note {
+  margin: 4px 0 0;
+  font-size: 12px;
   font-style: italic;
   color: var(--color-text-muted);
 }

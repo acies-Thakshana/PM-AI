@@ -171,6 +171,43 @@ class PivotResult(BaseModel):
     # picker per column instead of baking one fixed value into the JSON spec.
     filterable_columns: list[str] = []
     filter_options: dict[str, list[str]] = {}
+    # Deduplicated real combinations of the filterable columns (from the full,
+    # unfiltered session data) -- lets the frontend narrow one slicer's
+    # options to what actually co-occurs with the OTHER slicers' current
+    # selections (e.g. picking Italy narrows Carrier to Italy's carriers)
+    # without a round-trip to the backend.
+    filter_combinations: list[dict[str, str]] = []
+
+
+class ReportSlide(BaseModel):
+    """One explicit slide in the downloaded report -- report-time only, never
+    affects the pivot's own computed rows/table on the Analysis page. `title`
+    is user-editable and defaults to the pivot's name. `parent_id` is set for
+    a slide created by duplicating another ("+") to explore the same pivot
+    with a different filter -- always points at the top-level slide for that
+    pivot, so the hierarchy stays exactly two levels deep (no grandchildren)."""
+    id: str
+    title: str
+    pivot_id: str
+    filters: list[PivotFilterSpec] = []
+    parent_id: str | None = None
+
+
+class CreateReportSlideRequest(BaseModel):
+    pivot_id: str
+    title: str
+    filters: list[PivotFilterSpec] = []
+    parent_id: str | None = None
+
+
+class UpdateReportSlideRequest(BaseModel):
+    title: str | None = None
+    filters: list[PivotFilterSpec] | None = None
+
+
+class ReportSlidesResponse(BaseModel):
+    session_id: str
+    slides: list[ReportSlide]
 
 
 class PivotReport(BaseModel):
@@ -180,6 +217,12 @@ class PivotReport(BaseModel):
     columns: list[str]
     pivots: list[PivotResult]
     skipped_notes: list[str] = []
+    # Currently-active runtime slicer filters per pivot id (same shape as
+    # ApplyPivotsRequest.pivot_filters) -- lets a caller that didn't set
+    # these itself (e.g. the Report page, on first load) know what's already
+    # applied, so it can pre-populate its filter UI and merge in new filters
+    # without clobbering the ones already saved.
+    pivot_filters: dict[str, list[dict[str, Any]]] = {}
 
 
 class PivotDefinitionsSummary(BaseModel):
@@ -211,7 +254,11 @@ class SuggestPivotsResponse(BaseModel):
 
 
 class ApplyPivotsRequest(BaseModel):
-    extra_pivots: list[dict[str, Any]] = []
+    # None means "leave whatever AI/custom pivots were last applied for this
+    # session alone" -- a caller that only wants to change slicer filters
+    # (e.g. the Report page) can omit this instead of resending the Analysis
+    # page's full accepted list. An explicit [] means "no extra pivots".
+    extra_pivots: list[dict[str, Any]] | None = None
     # Runtime slicer selections, keyed by pivot id -- each value is a list of
     # filter dicts (same shape as a JSON-defined filter, typically {"column":
     # ..., "op": "in", "value": [...]}) applied IN ADDITION to that pivot's

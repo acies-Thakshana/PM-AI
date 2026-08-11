@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
-from app.schemas import AuditIssue, FeatureResult, OverallAnalysisReport, PivotResult
+from app.schemas import AuditIssue, FeatureResult, OverallAnalysisReport, PivotResult, ReportSlide
 
 
 @dataclass
@@ -40,6 +40,22 @@ class AuditSession:
     # mutate it, so there's no snapshot/undo bookkeeping needed here.
     pivots: list[PivotResult] = field(default_factory=list)
     pivot_skipped_notes: list[str] = field(default_factory=list)
+    # The AI-suggested/custom pivot definitions last applied on top of the
+    # uploaded Analysis Profile -- remembered so a caller that only wants to
+    # change slicer filters (e.g. the Report page) can recompute without
+    # having to resend every AI/custom pivot the Analysis page already added.
+    extra_pivot_defs: list[dict] = field(default_factory=list)
+    # Currently-active runtime slicer filters per pivot id (see
+    # ApplyPivotsRequest.pivot_filters) -- merged (not replaced) on each
+    # apply_pivots call so a caller touching one pivot's filters, or adding
+    # a filter shared across several, can't silently wipe filters saved for
+    # pivots it didn't mention.
+    pivot_filter_state: dict[str, list[dict]] = field(default_factory=dict)
+    # The explicit, user-editable report slide list (see report_slides.py's
+    # sync_slides) -- report-time only, never affects a pivot's own computed
+    # rows/table. Empty until the Report page is first visited for this
+    # session, at which point it's seeded with one slide per pivot.
+    report_slides: list[ReportSlide] = field(default_factory=list)
     # Last-computed overall analysis (see routers/analysis.py's /overall
     # endpoint) -- kept here so the report generator can reuse the exact
     # highlights/narrative the user already saw on screen instead of

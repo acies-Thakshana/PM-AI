@@ -4,8 +4,20 @@ import Header from "../components/Header";
 import StepIndicator from "../components/StepIndicator";
 import PageHeader from "../components/PageHeader";
 import StatTile from "../components/StatTile";
+import ReportSlideCard from "../components/ReportSlideCard";
 import { IconClipboard, IconChevronLeft, IconDoc, IconDownload, IconGrid, IconSparkle, IconWarnTriangle } from "../components/icons";
-import { downloadReportUrl, fetchPivotReport, AuditApiError, type PivotReport } from "../api/audit";
+import {
+  createReportSlide,
+  deleteReportSlide,
+  downloadReportUrl,
+  fetchPivotReport,
+  fetchReportSlides,
+  updateReportSlide,
+  AuditApiError,
+  type PivotFilter,
+  type PivotReport,
+  type ReportSlide,
+} from "../api/audit";
 import { AUDITED_SLOTS, UPLOAD_SLOTS } from "../constants/uploadSlots";
 import type { UploadSlotId } from "../types/upload";
 import type { AuditReportsState, FilesState } from "../App";
@@ -17,8 +29,29 @@ interface ReportPageProps {
 }
 
 type PivotReportsState = Partial<Record<UploadSlotId, PivotReport>>;
+type SlidesState = Partial<Record<UploadSlotId, ReportSlide[]>>;
 type LoadingState = Partial<Record<UploadSlotId, boolean>>;
 type ErrorsState = Partial<Record<UploadSlotId, string>>;
+
+// "Slide 1", "Slide 2", ... for each pivot's base slide, "Slide 2.1",
+// "Slide 2.2", ... for slides duplicated ("+ Add slide") off of it -- relies
+// on the backend always keeping a slide's children immediately after it.
+function computeLabels(slides: ReportSlide[]): Record<string, string> {
+  const labels: Record<string, string> = {};
+  let topIndex = 0;
+  let childIndex = 0;
+  for (const s of slides) {
+    if (s.parent_id === null) {
+      topIndex += 1;
+      childIndex = 0;
+      labels[s.id] = `Slide ${topIndex}`;
+    } else {
+      childIndex += 1;
+      labels[s.id] = `Slide ${topIndex}.${childIndex}`;
+    }
+  }
+  return labels;
+}
 
 export default function ReportPage({ files, auditReports }: ReportPageProps) {
   const navigate = useNavigate();
@@ -26,6 +59,10 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
   const [reports, setReports] = useState<PivotReportsState>({});
   const [loading, setLoading] = useState<LoadingState>({});
   const [errors, setErrors] = useState<ErrorsState>({});
+
+  const [slides, setSlides] = useState<SlidesState>({});
+  const [slidesLoading, setSlidesLoading] = useState<LoadingState>({});
+  const [savingSlide, setSavingSlide] = useState<Record<string, boolean>>({});
 
   const auditedReady = AUDITED_SLOTS.filter((id) => files[id] && auditReports[id]?.status === "reviewed");
 
@@ -48,6 +85,78 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
   }, [auditedReady, auditReports]);
 
   const slotsReady = auditedReady.filter((id) => (reports[id]?.pivots.length ?? 0) > 0);
+
+  // The slide list is auto-seeded (one per pivot) server-side the first time
+  // it's fetched for a session, so this just needs to ask for it once the
+  // pivots themselves are ready.
+  useEffect(() => {
+    for (const id of slotsReady) {
+      if (slides[id] || slidesLoading[id]) continue;
+      const sessionId = auditReports[id]!.session_id;
+      setSlidesLoading((prev) => ({ ...prev, [id]: true }));
+      fetchReportSlides(sessionId)
+        .then((res) => setSlides((prev) => ({ ...prev, [id]: res.slides })))
+        .catch((err) =>
+          setErrors((prev) => ({ ...prev, [id]: err instanceof AuditApiError ? err.message : "Could not load the slide list." }))
+        )
+        .finally(() => setSlidesLoading((prev) => ({ ...prev, [id]: false })));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slotsReady, auditReports]);
+
+  const handleSaveTitle = (id: UploadSlotId, slideId: string, title: string) => {
+    const sessionId = auditReports[id]!.session_id;
+    setSavingSlide((prev) => ({ ...prev, [slideId]: true }));
+    updateReportSlide(sessionId, slideId, { title })
+      .then((res) => setSlides((prev) => ({ ...prev, [id]: res.slides })))
+      .catch((err) =>
+        setErrors((prev) => ({ ...prev, [id]: err instanceof AuditApiError ? err.message : "Could not rename the slide." }))
+      )
+      .finally(() => setSavingSlide((prev) => ({ ...prev, [slideId]: false })));
+  };
+
+  const handleSaveFilters = (id: UploadSlotId, slideId: string, filters: PivotFilter[]) => {
+    const sessionId = auditReports[id]!.session_id;
+    setSavingSlide((prev) => ({ ...prev, [slideId]: true }));
+    updateReportSlide(sessionId, slideId, { filters })
+      .then((res) => setSlides((prev) => ({ ...prev, [id]: res.slides })))
+      .catch((err) =>
+        setErrors((prev) => ({ ...prev, [id]: err instanceof AuditApiError ? err.message : "Could not save filters." }))
+      )
+      .finally(() => setSavingSlide((prev) => ({ ...prev, [slideId]: false })));
+  };
+
+  // "+ Add slide" -- explores the same pivot again with a different filter.
+  // Inherits the source slide's CURRENT filters (e.g. Origin: Italy) so the
+  // user only has to change whatever varies, and always attaches to the
+  // TOP-LEVEL slide for that pivot so the hierarchy stays two levels deep.
+  const handleDuplicate = (id: UploadSlotId, source: ReportSlide) => {
+    const sessionId = auditReports[id]!.session_id;
+    const topLevelId = source.parent_id ?? source.id;
+    setSavingSlide((prev) => ({ ...prev, [topLevelId]: true }));
+    createReportSlide(sessionId, {
+      pivot_id: source.pivot_id,
+      title: `${source.title} (copy)`,
+      filters: source.filters,
+      parent_id: topLevelId,
+    })
+      .then((res) => setSlides((prev) => ({ ...prev, [id]: res.slides })))
+      .catch((err) =>
+        setErrors((prev) => ({ ...prev, [id]: err instanceof AuditApiError ? err.message : "Could not add the slide." }))
+      )
+      .finally(() => setSavingSlide((prev) => ({ ...prev, [topLevelId]: false })));
+  };
+
+  const handleDelete = (id: UploadSlotId, slideId: string) => {
+    const sessionId = auditReports[id]!.session_id;
+    setSavingSlide((prev) => ({ ...prev, [slideId]: true }));
+    deleteReportSlide(sessionId, slideId)
+      .then((res) => setSlides((prev) => ({ ...prev, [id]: res.slides })))
+      .catch((err) =>
+        setErrors((prev) => ({ ...prev, [id]: err instanceof AuditApiError ? err.message : "Could not remove the slide." }))
+      )
+      .finally(() => setSavingSlide((prev) => ({ ...prev, [slideId]: false })));
+  };
 
   if (AUDITED_SLOTS.every((id) => !files[id])) {
     return (
@@ -115,7 +224,7 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
         <PageHeader
           icon={<IconClipboard />}
           title="Report"
-          subtitle="A downloadable .pptx built with native, editable charts from whatever analyses and filters are currently set on the Analysis page -- plus the summary."
+          subtitle="Each slide below is its own {title, table, filter} -- edit a title, change a filter, or add another slide off the same table with a different filter (e.g. Origin: Italy vs Germany)."
         />
 
         {slotsReady.map((id) => {
@@ -123,6 +232,9 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
           const report = reports[id]!;
           const aiPivotCount = report.pivots.filter((p) => p.id.startsWith("ai_pivot_")).length;
           const customPivotCount = report.pivots.filter((p) => p.id.startsWith("custom_pivot_")).length;
+          const pivotsById = new Map(report.pivots.map((p) => [p.id, p]));
+          const slotSlides = slides[id];
+          const labels = slotSlides ? computeLabels(slotSlides) : {};
 
           return (
             <section className="report-page__card" key={id}>
@@ -151,17 +263,25 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
                 )}
               </div>
 
-              <div className="report-page__included">
-                <p className="report-page__included-title">This report will include:</p>
-                <ul className="report-page__included-list">
-                  {report.pivots.map((p) => (
-                    <li key={p.id}>
-                      {p.name}
-                      <span className="report-page__included-metrics">{p.metric_labels.join(", ")}</span>
-                    </li>
-                  ))}
-                  <li className="report-page__included-summary">Overall analysis summary</li>
-                </ul>
+              <div className="report-page__slides">
+                {!slotSlides ? (
+                  <p className="report-page__loading">Loading slides…</p>
+                ) : (
+                  slotSlides.map((slide) => (
+                    <ReportSlideCard
+                      key={slide.id}
+                      slide={slide}
+                      pivot={pivotsById.get(slide.pivot_id)}
+                      label={labels[slide.id]}
+                      onSaveTitle={(title) => handleSaveTitle(id, slide.id, title)}
+                      onSaveFilters={(filters) => handleSaveFilters(id, slide.id, filters)}
+                      onDuplicate={() => handleDuplicate(id, slide)}
+                      onDelete={slide.parent_id ? () => handleDelete(id, slide.id) : undefined}
+                      saving={!!savingSlide[slide.id]}
+                    />
+                  ))
+                )}
+                <p className="report-page__summary-note">Plus a final Summary slide, generated from the overall analysis.</p>
               </div>
 
               <a
