@@ -58,6 +58,7 @@ export default function PivotTableCard({ pivot, filterSelections, onSaveFilters,
       <PivotFilterBar
         filterableColumns={pivot.filterable_columns}
         filterOptions={pivot.filter_options}
+        combinations={pivot.filter_combinations ?? []}
         selected={filterSelections}
         onSave={onSaveFilters}
         saving={savingFilters}

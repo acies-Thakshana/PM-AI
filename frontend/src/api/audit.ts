@@ -150,6 +150,7 @@ export interface PivotResult {
   row_count: number;
   filterable_columns: string[];
   filter_options: Record<string, string[]>;
+  filter_combinations: Record<string, string>[];
 }
 
 export interface PivotReport {
@@ -159,6 +160,7 @@ export interface PivotReport {
   columns: string[];
   pivots: PivotResult[];
   skipped_notes: string[];
+  pivot_filters: Record<string, PivotFilter[]>;
 }
 
 export interface PivotDefinitionsSummary {
@@ -348,14 +350,87 @@ export async function suggestPivots(sessionId: string): Promise<PivotSuggestions
 
 export async function applyPivots(
   sessionId: string,
-  extraPivots: PivotSuggestion[] = [],
+  /** Omit (undefined) to leave whatever AI/custom pivots were last applied
+   * for this session alone -- e.g. the Report page changing only filters
+   * shouldn't have to resend the Analysis page's full accepted list. */
+  extraPivots?: PivotSuggestion[],
   pivotFilters: Record<string, PivotFilter[]> = {}
 ): Promise<PivotReport> {
   const response = await fetch(`${API_BASE_URL}/api/analysis/${sessionId}/pivots`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ extra_pivots: extraPivots, pivot_filters: pivotFilters }),
+    body: JSON.stringify({
+      ...(extraPivots !== undefined ? { extra_pivots: extraPivots } : {}),
+      pivot_filters: pivotFilters,
+    }),
   });
+  if (!response.ok) {
+    throw new AuditApiError(await parseErrorDetail(response));
+  }
+  return response.json();
+}
+
+// -- Report slide list ------------------------------------------------------
+// Report-time only -- never recomputes a pivot's own rows/table on the
+// Analysis page. Each slide is its own independent {title, pivot, filters}.
+
+export interface ReportSlide {
+  id: string;
+  title: string;
+  pivot_id: string;
+  filters: PivotFilter[];
+  parent_id: string | null;
+}
+
+export interface ReportSlidesResponse {
+  session_id: string;
+  slides: ReportSlide[];
+}
+
+/** Auto-seeds one slide per current pivot the first time it's called for a session. */
+export async function fetchReportSlides(sessionId: string): Promise<ReportSlidesResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/analysis/${sessionId}/slides`);
+  if (!response.ok) {
+    throw new AuditApiError(await parseErrorDetail(response));
+  }
+  return response.json();
+}
+
+/** Used for the "+" duplicate-with-a-different-filter action. */
+export async function createReportSlide(
+  sessionId: string,
+  slide: { pivot_id: string; title: string; filters: PivotFilter[]; parent_id: string | null }
+): Promise<ReportSlidesResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/analysis/${sessionId}/slides`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(slide),
+  });
+  if (!response.ok) {
+    throw new AuditApiError(await parseErrorDetail(response));
+  }
+  return response.json();
+}
+
+export async function updateReportSlide(
+  sessionId: string,
+  slideId: string,
+  updates: { title?: string; filters?: PivotFilter[] }
+): Promise<ReportSlidesResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/analysis/${sessionId}/slides/${slideId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  });
+  if (!response.ok) {
+    throw new AuditApiError(await parseErrorDetail(response));
+  }
+  return response.json();
+}
+
+/** Only a duplicated (child) slide can be deleted -- a pivot's base slide can't. */
+export async function deleteReportSlide(sessionId: string, slideId: string): Promise<ReportSlidesResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/analysis/${sessionId}/slides/${slideId}`, { method: "DELETE" });
   if (!response.ok) {
     throw new AuditApiError(await parseErrorDetail(response));
   }

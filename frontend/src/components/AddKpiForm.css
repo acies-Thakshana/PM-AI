@@ -42,6 +42,18 @@
   border-color: var(--carrier-light-blue);
 }
 
+.add-kpi-form__formula-preview {
+  margin: -4px 0 0;
+  font-size: 12px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-weight: 500;
+  color: var(--accent-purple);
+  background: var(--accent-purple-bg);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  align-self: flex-start;
+}
+
 .add-kpi-form__checklist {
   display: flex;
   flex-direction: column;

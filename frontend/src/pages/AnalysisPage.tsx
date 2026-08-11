@@ -238,7 +238,11 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
       for (const [column, values] of Object.entries(columns)) {
         if (values !== undefined) filters.push({ column, op: "in", value: values });
       }
-      if (filters.length > 0) payload[pivotId] = filters;
+      // Always include the pivot id, even with zero filters -- the backend
+      // merges pivot_filters per pivot id, so a present-but-empty entry is
+      // how "this pivot's filters were cleared back to All" gets communicated;
+      // omitting the key entirely would just leave its prior filters alone.
+      payload[pivotId] = filters;
     }
     return payload;
   };

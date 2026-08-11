@@ -111,6 +111,22 @@ def _filter_options(df: pd.DataFrame, columns: list[str], max_values: int = 500)
     return options
 
 
+def _filter_combinations(df: pd.DataFrame, columns: list[str], max_rows: int = 2000) -> list[dict[str, str]]:
+    """Deduplicated real combinations of the filterable columns, from the
+    FULL (pre-filter) dataframe -- lets the frontend narrow one slicer's
+    options to whatever actually co-occurs with the other slicers' current
+    selections, without a backend round-trip per checkbox click."""
+    present = [c for c in columns if c in df.columns]
+    if not present:
+        return []
+    subset = df[present].dropna(how="any")
+    if subset.empty:
+        return []
+    subset = subset.astype(str).apply(lambda s: s.str.strip())
+    subset = subset.drop_duplicates()
+    return subset.head(max_rows).to_dict(orient="records")
+
+
 def _compute_pivot(df: pd.DataFrame, spec: dict, runtime_filters: list[dict] | None = None) -> PivotResult | str:
     """Returns a PivotResult, or a skip-reason string on failure."""
     pivot_id, name = spec["id"], spec["name"]
@@ -118,6 +134,7 @@ def _compute_pivot(df: pd.DataFrame, spec: dict, runtime_filters: list[dict] | N
     metrics = spec["metrics"]
     filterable_columns = spec.get("filterable_columns", [])
     filter_options = _filter_options(df, filterable_columns)
+    filter_combinations = _filter_combinations(df, filterable_columns)
 
     missing_group_cols = [c for c in group_by if c not in df.columns]
     if missing_group_cols:
@@ -190,6 +207,7 @@ def _compute_pivot(df: pd.DataFrame, spec: dict, runtime_filters: list[dict] | N
         row_count=len(rows),
         filterable_columns=filterable_columns,
         filter_options=filter_options,
+        filter_combinations=filter_combinations,
     )
 
 

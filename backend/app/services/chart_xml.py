@@ -115,6 +115,11 @@ def add_combo_chart(
       <c:majorTickMark val="out"/>
       <c:minorTickMark val="none"/>
       <c:tickLblPos val="nextTo"/>
+      <c:txPr>
+        <a:bodyPr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"/>
+        <a:lstStyle xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"/>
+        <a:p xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:pPr><a:defRPr sz="900"/></a:pPr><a:endParaRPr lang="en-US"/></a:p>
+      </c:txPr>
       <c:crossAx val="{secondary_cat_id}"/>
       <c:crosses val="max"/>
     </c:valAx>

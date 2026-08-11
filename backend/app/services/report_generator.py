@@ -23,8 +23,8 @@ from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import PP_ALIGN
 from pptx.util import Inches, Pt
 
-from app.schemas import OverallAnalysisReport, PivotResult
-from app.services import chart_xml, report_style as style
+from app.schemas import OverallAnalysisReport, PivotResult, ReportSlide
+from app.services import chart_xml, pivot_engine, report_style as style
 
 MAX_CHART_ROWS = 20
 
@@ -125,43 +125,42 @@ class ReportBuilder:
         return slide
 
     def _header(self, slide, heading: str):
-        band = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, style.SLIDE_W, style.HEADER_HEIGHT)
-        band.fill.solid()
-        band.fill.fore_color.rgb = PRIMARY
-        band.line.fill.background()
-        band.shadow.inherit = False
-        tf = band.text_frame
-        tf.margin_left, tf.margin_top = Inches(0.4), Inches(0.12)
+        # Plain left-aligned text on the white slide background -- no
+        # full-width color band. A decorative bar spanning the slide reads
+        # as filler, and the reference deck's own clean look skips it too.
+        box = slide.shapes.add_textbox(Inches(0.5), Inches(0.22), style.SLIDE_W - Inches(1.0), style.HEADER_HEIGHT)
+        tf = box.text_frame
+        tf.margin_left = tf.margin_top = tf.margin_right = tf.margin_bottom = 0
         p = tf.paragraphs[0]
         p.text = heading
-        p.font.size = Pt(22)
+        p.font.size = Pt(16)
         p.font.bold = True
-        p.font.color.rgb = WHITE
+        p.font.color.rgb = PRIMARY
         p.font.name = style.FONT_HEADING
 
     def _footer(self, slide):
-        tb = slide.shapes.add_textbox(Inches(0.4), style.SLIDE_H - Inches(0.4), Inches(7), Inches(0.3))
+        tb = slide.shapes.add_textbox(Inches(0.4), style.SLIDE_H - Inches(0.35), Inches(7), Inches(0.25))
         p = tb.text_frame.paragraphs[0]
         p.text = style.PROGRAM_TITLE
-        p.font.size = Pt(9)
+        p.font.size = Pt(8)
         p.font.color.rgb = MUTED
         p.font.name = style.FONT_HEADING
 
-        page = slide.shapes.add_textbox(style.SLIDE_W - Inches(1.2), style.SLIDE_H - Inches(0.4), Inches(0.8), Inches(0.3))
+        page = slide.shapes.add_textbox(style.SLIDE_W - Inches(1.2), style.SLIDE_H - Inches(0.35), Inches(0.8), Inches(0.25))
         pp = page.text_frame.paragraphs[0]
         pp.text = str(self.slide_count)
-        pp.font.size = Pt(9)
+        pp.font.size = Pt(8)
         pp.alignment = PP_ALIGN.RIGHT
         pp.font.color.rgb = MUTED
         pp.font.name = style.FONT_HEADING
 
     def _caption(self, slide, text: str, top):
-        box = slide.shapes.add_textbox(Inches(0.5), top, style.SLIDE_W - Inches(1.0), Inches(0.4))
+        box = slide.shapes.add_textbox(Inches(0.5), top, style.SLIDE_W - Inches(1.0), Inches(0.35))
         tf = box.text_frame
         tf.word_wrap = True
         tf.text = text
         run = tf.paragraphs[0].runs[0]
-        run.font.size = Pt(11)
+        run.font.size = Pt(10)
         run.font.color.rgb = MUTED
         run.font.name = style.FONT_HEADING
 
@@ -173,12 +172,12 @@ class ReportBuilder:
         if chart.has_legend:
             chart.legend.position = XL_LEGEND_POSITION.BOTTOM
             chart.legend.include_in_layout = False
-            chart.legend.font.size = Pt(10)
+            chart.legend.font.size = Pt(9)
         plot = chart.plots[0]
         plot.has_data_labels = True
         plot.data_labels.number_format = number_format
         plot.data_labels.number_format_is_linked = False
-        plot.data_labels.font.size = Pt(9)
+        plot.data_labels.font.size = Pt(8)
         plot.data_labels.position = XL_LABEL_POSITION.OUTSIDE_END
         for i, series in enumerate(plot.series):
             color = BAR_PALETTE[i % len(BAR_PALETTE)]
@@ -190,8 +189,8 @@ class ReportBuilder:
             else:
                 series.format.fill.solid()
                 series.format.fill.fore_color.rgb = color
-        chart.category_axis.tick_labels.font.size = Pt(10)
-        chart.value_axis.tick_labels.font.size = Pt(10)
+        chart.category_axis.tick_labels.font.size = Pt(9)
+        chart.value_axis.tick_labels.font.size = Pt(9)
 
     # -- slides ---------------------------------------------------------------
     def add_title_slide(self, title: str, subtitle: str | None):
@@ -205,7 +204,7 @@ class ReportBuilder:
         tf.word_wrap = True
         p = tf.paragraphs[0]
         p.text = title
-        p.font.size = Pt(34)
+        p.font.size = Pt(30)
         p.font.bold = True
         p.font.color.rgb = WHITE
         p.font.name = style.FONT_HEADING
@@ -213,7 +212,7 @@ class ReportBuilder:
         if subtitle:
             p2 = tf.add_paragraph()
             p2.text = subtitle
-            p2.font.size = Pt(16)
+            p2.font.size = Pt(13)
             p2.font.color.rgb = WHITE
             p2.font.name = style.FONT_HEADING
             p2.alignment = PP_ALIGN.CENTER
@@ -221,7 +220,7 @@ class ReportBuilder:
     def add_grouped_bar_slide(self, heading: str, description: str, categories: list[str], series: list[dict], y_axis_title: str):
         slide = self._new_slide()
         self._header(slide, heading)
-        self._caption(slide, description, top=Inches(0.85))
+        self._caption(slide, description, top=Inches(0.6))
 
         data = CategoryChartData()
         data.categories = categories
@@ -235,14 +234,14 @@ class ReportBuilder:
         chart = gf.chart
         self._style_native_chart(chart, number_format="#,##0", single_series=len(series) == 1)
         chart.value_axis.axis_title.text_frame.text = y_axis_title
-        chart.value_axis.axis_title.text_frame.paragraphs[0].font.size = Pt(10)
+        chart.value_axis.axis_title.text_frame.paragraphs[0].font.size = Pt(9)
         self._footer(slide)
 
     def add_combo_slide(self, heading: str, description: str, categories: list[str],
                          bar_name: str, bar_values: list[float], line_name: str, line_values: list[float]):
         slide = self._new_slide()
         self._header(slide, heading)
-        self._caption(slide, description, top=Inches(0.85))
+        self._caption(slide, description, top=Inches(0.6))
 
         gf = chart_xml.add_combo_chart(
             slide, Inches(0.5), style.CHART_TOP, style.SLIDE_W - Inches(1.0), style.SLIDE_H - style.CHART_TOP - Inches(0.6),
@@ -254,20 +253,20 @@ class ReportBuilder:
         chart.has_legend = True
         chart.legend.position = XL_LEGEND_POSITION.BOTTOM
         chart.legend.include_in_layout = False
-        chart.legend.font.size = Pt(10)
+        chart.legend.font.size = Pt(9)
         for plot, fmt in zip(chart.plots, ('0"%"', "#,##0")):
             plot.has_data_labels = True
             plot.data_labels.number_format = fmt
             plot.data_labels.number_format_is_linked = False
-            plot.data_labels.font.size = Pt(9)
-        chart.category_axis.tick_labels.font.size = Pt(10)
+            plot.data_labels.font.size = Pt(8)
+        chart.category_axis.tick_labels.font.size = Pt(9)
         self._footer(slide)
 
     def add_simple_chart_slide(self, heading: str, description: str, categories: list[str], metric_label: str,
                                 values: list[float], is_trend: bool):
         slide = self._new_slide()
         self._header(slide, heading)
-        self._caption(slide, description, top=Inches(0.85))
+        self._caption(slide, description, top=Inches(0.6))
 
         data = CategoryChartData()
         data.categories = categories
@@ -285,28 +284,28 @@ class ReportBuilder:
         self._header(slide, heading)
 
         if overall is None:
-            self._caption(slide, "No overall analysis had been generated for this session yet.", top=Inches(1.2))
+            self._caption(slide, "No overall analysis had been generated for this session yet.", top=Inches(0.6))
             self._footer(slide)
             return
 
-        box = slide.shapes.add_textbox(Inches(0.5), Inches(1.0), style.SLIDE_W - Inches(1.0), Inches(1.6))
+        box = slide.shapes.add_textbox(Inches(0.5), Inches(0.75), style.SLIDE_W - Inches(1.0), Inches(1.5))
         tf = box.text_frame
         tf.word_wrap = True
         tf.text = overall.narrative
-        tf.paragraphs[0].font.size = Pt(14)
+        tf.paragraphs[0].font.size = Pt(12)
         tf.paragraphs[0].font.color.rgb = DARK_TEXT
         tf.paragraphs[0].font.name = style.FONT_HEADING
 
-        list_box = slide.shapes.add_textbox(Inches(0.5), Inches(2.7), style.SLIDE_W - Inches(1.0), style.SLIDE_H - Inches(3.2))
+        list_box = slide.shapes.add_textbox(Inches(0.5), Inches(2.4), style.SLIDE_W - Inches(1.0), style.SLIDE_H - Inches(2.9))
         tf2 = list_box.text_frame
         tf2.word_wrap = True
         for i, h in enumerate(overall.highlights):
             p = tf2.paragraphs[0] if i == 0 else tf2.add_paragraph()
             p.text = f"•  {h.label}: {h.value}"
-            p.font.size = Pt(13)
+            p.font.size = Pt(11)
             p.font.color.rgb = DARK_TEXT
             p.font.name = style.FONT_HEADING
-            p.space_after = Pt(10)
+            p.space_after = Pt(8)
         self._footer(slide)
 
     def save_bytes(self) -> bytes:
@@ -378,14 +377,30 @@ def _add_pivot_slides(builder: ReportBuilder, pivot: PivotResult) -> None:
 def build_report(
     source_label: str,
     df: pd.DataFrame,
-    pivots: list[PivotResult],
+    slides: list[ReportSlide],
+    definitions: list[dict],
     overall: OverallAnalysisReport | None,
 ) -> bytes:
+    """Builds the deck from the session's explicit slide list -- each slide
+    is recomputed fresh from the raw data using its OWN filters and its own
+    title, independent of whatever's currently shown on the Analysis page
+    (see report_slides.sync_slides). A slide whose pivot spec has gone
+    missing, or that ends up with zero rows once its filters are applied, is
+    silently skipped rather than breaking the whole export."""
     builder = ReportBuilder()
     builder.add_title_slide(source_label, _date_range_label(df))
 
-    for pivot in pivots:
-        _add_pivot_slides(builder, pivot)
+    defs_by_id = {d["id"]: d for d in definitions}
+    for slide in slides:
+        spec = defs_by_id.get(slide.pivot_id)
+        if not spec:
+            continue
+        filters = [f.model_dump() if hasattr(f, "model_dump") else f for f in slide.filters]
+        results, _ = pivot_engine.apply_pivots(df, [spec], pivot_filters={spec["id"]: filters})
+        if not results:
+            continue
+        pivot_result = results[0].model_copy(update={"name": slide.title})
+        _add_pivot_slides(builder, pivot_result)
 
     builder.add_summary_slide("Summary", overall)
     return builder.save_bytes()
