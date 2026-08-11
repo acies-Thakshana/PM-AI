@@ -45,25 +45,8 @@
 .report-page__card-head-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
-}
-
-.report-page__header-icon {
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md);
-  background: var(--carrier-blue);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.report-page__header-icon svg {
-  width: 20px;
-  height: 20px;
 }
 
 .report-page__slot-title {

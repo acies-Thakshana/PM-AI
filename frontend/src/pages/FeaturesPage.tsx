@@ -352,18 +352,11 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
             <section className="features-page__card" key={id}>
               <div className="features-page__card-head">
                 <div className="features-page__card-head-left">
-                  <span className="features-page__header-icon">
-                    <IconDoc />
-                  </span>
-                  <div>
-                    <h2 className="features-page__slot-title">{slot.title}</h2>
-                    <span className="features-page__pill">FEATURE REPORT</span>
-                  </div>
-                </div>
-                <div className="features-page__card-head-right">
-                  <span className="features-page__filename">{files[id]!.name}</span>
+                  <h2 className="features-page__slot-title">{slot.title}</h2>
+                  <span className="features-page__pill">FEATURE REPORT</span>
                   {report && <span className="features-page__status-pill">Computed</span>}
                 </div>
+                <span className="features-page__filename">{files[id]!.name}</span>
               </div>
 
               {loading[id] && <div className="features-page__loading">Computing features…</div>}

@@ -111,3 +111,55 @@ export const IconInfo = () => (
     <circle cx="12" cy="8.3" r="0.9" fill="currentColor" />
   </svg>
 );
+
+// -- content-aware icons for feature/pivot cards, and page-level themes --
+// (added so distinct card types don't all fall back to the same IconGrid.)
+
+export const IconClock = () => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.6" />
+    <path d="M12 7.5V12l3.2 2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+export const IconPercent = () => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M18 6 6 18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    <circle cx="7.5" cy="7.5" r="2.3" stroke="currentColor" strokeWidth="1.6" />
+    <circle cx="16.5" cy="16.5" r="2.3" stroke="currentColor" strokeWidth="1.6" />
+  </svg>
+);
+
+export const IconCalendar = () => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <rect x="3.5" y="5" width="17" height="15" rx="2" stroke="currentColor" strokeWidth="1.6" />
+    <path d="M3.5 9.5h17M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+  </svg>
+);
+
+export const IconTag = () => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path
+      d="M11.5 4h6a2 2 0 0 1 2 2v6l-8.6 8.6a1.5 1.5 0 0 1-2.1 0l-5.9-5.9a1.5 1.5 0 0 1 0-2.1L11.5 4Z"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinejoin="round"
+    />
+    <circle cx="15.5" cy="8.5" r="1.1" fill="currentColor" />
+  </svg>
+);
+
+export const IconLayers = () => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="m12 3 8 4.5-8 4.5-8-4.5L12 3Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+    <path d="m4 12 8 4.5 8-4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="m4 16.5 8 4.5 8-4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+export const IconBarChart = () => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M5 20V10M12 20V4M19 20v-7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    <path d="M3.5 20.5h17" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+  </svg>
+);

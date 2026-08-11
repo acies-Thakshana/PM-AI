@@ -5,7 +5,7 @@ import StepIndicator from "../components/StepIndicator";
 import PageHeader from "../components/PageHeader";
 import StatTile from "../components/StatTile";
 import PivotFilterBar from "../components/PivotFilterBar";
-import { IconClipboard, IconChevronLeft, IconDoc, IconDownload, IconGrid, IconSparkle, IconWarnTriangle } from "../components/icons";
+import { IconClipboard, IconChevronLeft, IconDoc, IconDownload, IconGrid, IconLayers, IconSparkle, IconWarnTriangle } from "../components/icons";
 import {
   downloadReportUrl,
   fetchPivotReport,
@@ -341,13 +341,8 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
             <section className="report-page__card" key={id}>
               <div className="report-page__card-head">
                 <div className="report-page__card-head-left">
-                  <span className="report-page__header-icon">
-                    <IconClipboard />
-                  </span>
-                  <div>
-                    <h2 className="report-page__slot-title">{slot.title}</h2>
-                    <span className="report-page__pill">REPORT READY</span>
-                  </div>
+                  <h2 className="report-page__slot-title">{slot.title}</h2>
+                  <span className="report-page__pill">REPORT READY</span>
                 </div>
                 <span className="report-page__filename">{files[id]!.name}</span>
               </div>
@@ -356,7 +351,7 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
 
               <div className="report-page__stat-row">
                 <StatTile icon={<IconDoc />} color="blue" value={report.row_count.toLocaleString()} label="Rows" />
-                <StatTile icon={<IconGrid />} color="teal" value={report.pivots.length} label="Analysis Tables" />
+                <StatTile icon={<IconLayers />} color="teal" value={report.pivots.length} label="Analysis Tables" />
                 {aiPivotCount > 0 && <StatTile icon={<IconSparkle />} color="amber" value={aiPivotCount} label="AI Suggested" />}
                 {customPivotCount > 0 && <StatTile icon={<IconGrid />} color="purple" value={customPivotCount} label="Custom Analyses" />}
                 {report.skipped_notes.length > 0 && (

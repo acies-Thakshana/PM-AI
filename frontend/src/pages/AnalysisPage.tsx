@@ -10,7 +10,7 @@ import Modal from "../components/Modal";
 import PivotSuggestionCard from "../components/PivotSuggestionCard";
 import AddPivotForm from "../components/AddPivotForm";
 import OverallAnalysisCard from "../components/OverallAnalysisCard";
-import { IconDoc, IconGrid, IconSparkle, IconWarnTriangle, IconChevronLeft, IconChevronRight, IconGrid as IconTable } from "../components/icons";
+import { IconDoc, IconGrid, IconSparkle, IconWarnTriangle, IconChevronLeft, IconChevronRight, IconBarChart, IconLayers } from "../components/icons";
 import {
   applyPivots,
   fetchFeatureReport,
@@ -352,7 +352,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
         <StepIndicator current={4} />
 
         <PageHeader
-          icon={<IconTable />}
+          icon={<IconBarChart />}
           title="Analysis"
           subtitle="Analysis tables and a summary rolled up from the audited + feature-engineered data, or ask the AI agent to suggest more analyses from your data's own columns."
         />
@@ -490,18 +490,11 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
             <section className="analysis-page__card" key={id}>
               <div className="analysis-page__card-head">
                 <div className="analysis-page__card-head-left">
-                  <span className="analysis-page__header-icon">
-                    <IconTable />
-                  </span>
-                  <div>
-                    <h2 className="analysis-page__slot-title">{slot.title}</h2>
-                    <span className="analysis-page__pill">ANALYSIS REPORT</span>
-                  </div>
-                </div>
-                <div className="analysis-page__card-head-right">
-                  <span className="analysis-page__filename">{files[id]!.name}</span>
+                  <h2 className="analysis-page__slot-title">{slot.title}</h2>
+                  <span className="analysis-page__pill">ANALYSIS REPORT</span>
                   {report && <span className="analysis-page__status-pill">Computed</span>}
                 </div>
+                <span className="analysis-page__filename">{files[id]!.name}</span>
               </div>
 
               {loading[id] && <div className="analysis-page__loading">Computing analysis tables…</div>}
@@ -512,7 +505,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
                   <div className="analysis-page__stat-row">
                     <StatTile icon={<IconDoc />} color="blue" value={report.row_count.toLocaleString()} label="Rows" />
                     <StatTile icon={<IconGrid />} color="teal" value={report.column_count} label="Columns" />
-                    <StatTile icon={<IconTable />} color="purple" value={report.pivots.length} label="Analysis Tables" />
+                    <StatTile icon={<IconLayers />} color="purple" value={report.pivots.length} label="Analysis Tables" />
                     {aiPivotCount > 0 && <StatTile icon={<IconSparkle />} color="amber" value={aiPivotCount} label="AI Suggested" />}
                     {customPivotCount > 0 && <StatTile icon={<IconGrid />} color="blue" value={customPivotCount} label="Custom Analyses" />}
                     {report.skipped_notes.length > 0 && (
@@ -557,7 +550,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
                   ) : (
                     <>
                       <h3 className="analysis-page__section-title">
-                        <IconTable /> Analysis Tables
+                        <IconLayers /> Analysis Tables
                       </h3>
                       <div className="analysis-page__pivot-list">
                         {report.pivots.map((p, idx) => (
