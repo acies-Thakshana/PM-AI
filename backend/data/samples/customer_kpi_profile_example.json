@@ -65,7 +65,7 @@
     {
       "id": "month",
       "name": "Arrival Month",
-      "description": "Calendar month (1-12) extracted from the trip's actual arrival timestamp (falls back to segment-end time if arrival is missing) -- never the trip creation date -- for month-over-month trend reporting.",
+      "description": "Calendar month name (January-December) extracted from the trip's actual arrival timestamp (falls back to segment-end time if arrival is missing) -- never the trip creation date -- for month-over-month trend reporting.",
       "output_column": "Arrival Month",
       "type": "extract_month",
       "source_columns": ["Actual Arrival Time CET", "Segment End Date Time"],

@@ -237,6 +237,12 @@ class PivotDefinitionsSummary(BaseModel):
     pivot_names: list[str]
 
 
+class ReportTemplateSummary(BaseModel):
+    """`filename` is None when no template has been uploaded -- report
+    generation then falls back to the built-in layout."""
+    filename: str | None
+
+
 class PivotSuggestion(BaseModel):
     """One AI-proposed pivot table -- shaped so the frontend can echo it
     straight back as an `extra_pivots` entry when the user accepts it."""

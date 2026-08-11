@@ -87,7 +87,7 @@ export interface FeatureDefinitionsSummary {
   feature_names: string[];
 }
 
-export type FeatureSuggestionType = "duration_hours" | "ratio" | "extract_month";
+export type FeatureSuggestionType = "duration_hours" | "ratio" | "extract_month" | "custom_formula";
 
 export interface FeatureSuggestion {
   id: string;
@@ -167,6 +167,10 @@ export interface PivotDefinitionsSummary {
   filename: string;
   pivot_count: number;
   pivot_names: string[];
+}
+
+export interface ReportTemplateSummary {
+  filename: string | null;
 }
 
 export interface PivotSuggestionsResponse {
@@ -326,6 +330,21 @@ export async function uploadPivotDefinitions(file: File): Promise<PivotDefinitio
   formData.append("file", file);
 
   const response = await fetch(`${API_BASE_URL}/api/analysis/definitions`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new AuditApiError(await parseErrorDetail(response));
+  }
+  return response.json();
+}
+
+export async function uploadReportTemplate(file: File): Promise<ReportTemplateSummary> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`${API_BASE_URL}/api/analysis/report-template`, {
     method: "POST",
     body: formData,
   });

@@ -42,16 +42,49 @@
   border-color: var(--carrier-light-blue);
 }
 
-.add-kpi-form__formula-preview {
-  margin: -4px 0 0;
-  font-size: 12px;
+.add-kpi-form__formula-input {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 12.5px;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-weight: 500;
   color: var(--accent-purple);
   background: var(--accent-purple-bg);
+  resize: vertical;
+}
+
+.add-kpi-form__formula-input:focus {
+  outline: none;
+  border-color: var(--carrier-light-blue);
+}
+
+.add-kpi-form__column-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 130px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  padding: 6px 10px;
-  align-self: flex-start;
+  padding: 8px;
+  background: var(--color-bg);
+}
+
+.add-kpi-form__chip {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.add-kpi-form__chip:hover {
+  border-color: var(--carrier-light-blue);
+  color: var(--carrier-blue);
 }
 
 .add-kpi-form__checklist {

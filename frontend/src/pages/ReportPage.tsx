@@ -15,10 +15,12 @@ import {
   saveReportFilters,
   saveReportFilterScope,
   saveReportTitle,
+  uploadReportTemplate,
   AuditApiError,
   type PivotFilter,
   type PivotReport,
   type PivotResult,
+  type ReportTemplateSummary,
 } from "../api/audit";
 import { AUDITED_SLOTS, UPLOAD_SLOTS } from "../constants/uploadSlots";
 import type { UploadSlotId } from "../types/upload";
@@ -81,16 +83,6 @@ function rangeFromFilters(filters: PivotFilter[]): { start: string; end: string 
   };
 }
 
-// A column with 2+ selected values fans out into one slide per value, for
-// EVERY table -- multiple such columns cartesian-product together.
-function comboCount(filters: PivotFilter[]): number {
-  const multiplierSizes = filters
-    .filter((f) => f.op === "in" && Array.isArray(f.value) && f.value.length > 1)
-    .map((f) => (f.value as unknown[]).length);
-  const total = multiplierSizes.reduce((acc, n) => acc * n, 1);
-  return Math.min(total, MAX_COMBOS);
-}
-
 // Which columns the shared filter is actually constraining right now --
 // only these are worth a per-pivot "apply this to me?" toggle.
 function activeColumns(filters: PivotFilter[]): string[] {
@@ -101,13 +93,20 @@ function columnLabel(column: string): string {
   return column === DEPARTURE_COLUMN ? "Departure time" : column;
 }
 
-// A pivot with no scope override respects every active column (today's
-// "same scope everywhere" default); an override restricts it to just the
-// listed columns, so e.g. an Origin multiplier can be ignored for one pivot
-// while still multiplying every other one.
-function comboCountForScope(filters: PivotFilter[], allowed: string[] | undefined): number {
+// Mirrors the backend's report_generator._report_filter_combos + _combo_label
+// exactly, so the UI shows one row per ACTUAL output slide instead of
+// collapsing them into a single "N slides" summary -- e.g. 2 selected
+// Origins -> 2 rows, each labeled with the specific Origin it resolves to.
+function pivotSlidePreviews(filters: PivotFilter[], allowed: string[] | undefined): string[] {
   const scoped = allowed === undefined ? filters : filters.filter((f) => allowed.includes(f.column));
-  return comboCount(scoped);
+  const multipliers = scoped.filter((f) => f.op === "in" && Array.isArray(f.value) && f.value.length > 1);
+  if (multipliers.length === 0) return [""];
+  let combos: string[][] = [[]];
+  for (const f of multipliers) {
+    const values = (f.value as unknown[]).map(String);
+    combos = combos.flatMap((c) => values.map((v) => [...c, v]));
+  }
+  return combos.slice(0, MAX_COMBOS).map((c) => c.join(" / "));
 }
 
 export default function ReportPage({ files, auditReports }: ReportPageProps) {
@@ -129,6 +128,24 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
   const [titles, setTitles] = useState<Partial<Record<UploadSlotId, Record<string, string>>>>({});
   const [titlesLoading, setTitlesLoading] = useState<LoadingState>({});
   const [savingTitle, setSavingTitle] = useState<Record<string, boolean>>({});
+
+  const [templateSummary, setTemplateSummary] = useState<ReportTemplateSummary | null>(null);
+  const [templateLoading, setTemplateLoading] = useState(false);
+  const [templateError, setTemplateError] = useState<string | null>(null);
+  const hasTemplateFile = !!files.reportTemplate;
+
+  // Optional -- when a Report Template file was selected on the Upload page,
+  // send it once so every download for the rest of this session uses it as
+  // the base deck instead of the built-in layout (see report_generator.py's
+  // build_report / TemplateReportBuilder).
+  useEffect(() => {
+    if (!hasTemplateFile || templateSummary || templateLoading || templateError) return;
+    setTemplateLoading(true);
+    uploadReportTemplate(files.reportTemplate!)
+      .then(setTemplateSummary)
+      .catch((err) => setTemplateError(err instanceof AuditApiError ? err.message : "Could not upload the Report Template."))
+      .finally(() => setTemplateLoading(false));
+  }, [hasTemplateFile, files.reportTemplate, templateSummary, templateLoading, templateError]);
 
   const auditedReady = AUDITED_SLOTS.filter((id) => files[id] && auditReports[id]?.status === "reviewed");
 
@@ -209,16 +226,19 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
   };
 
   // Toggles ONE column on/off for ONE pivot -- starts from the full active
-  // set if this pivot has no override yet, and clears the override entirely
-  // if toggling lands back on the full set (so it stays "default" rather
-  // than an explicit list that happens to match).
+  // set if this pivot has no override yet. Always saves the resulting list
+  // explicitly, even when it happens to equal every active column: some
+  // pivots default to a narrower scope than "everything" (see the backend's
+  // DEFAULT_SCOPE_EXCLUSIONS), so clearing back to an implicit "no override"
+  // here would silently revert the user's own explicit choice back to that
+  // narrower default the next time this page loads, instead of keeping
+  // whatever they last set as a static, sticky selection.
   const handleToggleScope = (id: UploadSlotId, pivotId: string, column: string, allActive: string[]) => {
     const sessionId = auditReports[id]!.session_id;
     const baseline = filterScope[id]?.[pivotId] ?? allActive;
     const next = baseline.includes(column) ? baseline.filter((c) => c !== column) : [...baseline, column];
-    const isFullSet = next.length === allActive.length && allActive.every((c) => next.includes(c));
     setSavingScope((prev) => ({ ...prev, [pivotId]: true }));
-    saveReportFilterScope(sessionId, pivotId, isFullSet ? null : next)
+    saveReportFilterScope(sessionId, pivotId, next)
       .then((res) => setFilterScope((prev) => ({ ...prev, [id]: res.scope })))
       .catch((err) =>
         setErrors((prev) => ({ ...prev, [id]: err instanceof AuditApiError ? err.message : "Could not save filter scope." }))
@@ -329,6 +349,14 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
           subtitle="One shared filter for the whole report -- pick 2+ values for a column (e.g. Origin) and every table below gets one slide per value instead of one slide combining them."
         />
 
+        {hasTemplateFile && (
+          <p className="report-page__template-status">
+            {templateLoading && <>Uploading report template ({files.reportTemplate!.name})…</>}
+            {templateSummary?.filename && <>Using your uploaded template ({templateSummary.filename}) as the report's base design.</>}
+            {templateError && <span className="report-page__error">{templateError}</span>}
+          </p>
+        )}
+
         {slotsReady.map((id) => {
           const slot = UPLOAD_SLOTS.find((s) => s.id === id)!;
           const report = reports[id]!;
@@ -418,16 +446,19 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
               <div className="report-page__included">
                 <p className="report-page__included-title">This report will include:</p>
                 <ul className="report-page__included-list">
-                  {report.pivots.map((p, idx) => {
+                  {report.pivots.flatMap((p, idx) => {
                     const active = activeColumns(filters);
                     const override = filterScope[id]?.[p.id];
                     const applied = override ?? active;
-                    const pivotSlides = comboCountForScope(filters, override);
                     const currentTitle = titles[id]?.[p.id] ?? p.name;
-                    return (
-                      <li key={p.id} className="report-page__included-item-wrap">
+                    const previews = pivotSlidePreviews(filters, override);
+
+                    return previews.map((comboLabel, comboIdx) => (
+                      <li key={`${p.id}-${comboIdx}`} className="report-page__included-item-wrap">
                         <div className="report-page__included-row">
-                          <span className="report-page__slide-label">Slide {idx + 1}</span>
+                          <span className="report-page__slide-label">
+                            {previews.length > 1 ? `Slide ${idx + 1}.${comboIdx + 1}` : `Slide ${idx + 1}`}
+                          </span>
                           <input
                             key={currentTitle}
                             className="report-page__slide-title"
@@ -439,29 +470,31 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
                               if (next && next !== currentTitle) handleSaveTitle(id, p.id, next);
                             }}
                           />
-                          <span className="report-page__included-metrics">
-                            {p.metric_labels.join(", ")}
-                            {pivotSlides > 1 ? ` · ${pivotSlides} slides` : ""}
-                          </span>
+                          <span className="report-page__included-metrics">{p.metric_labels.join(", ")}</span>
                         </div>
-                        {active.length > 0 && (
+                        {(active.length > 0 || comboLabel) && (
                           <div className="report-page__scope-row">
-                            <span className="report-page__scope-label">Filters applied:</span>
-                            {active.map((column) => (
-                              <button
-                                key={column}
-                                type="button"
-                                className={`report-page__scope-chip ${applied.includes(column) ? "report-page__scope-chip--on" : ""}`}
-                                disabled={!!savingScope[p.id]}
-                                onClick={() => handleToggleScope(id, p.id, column, active)}
-                              >
-                                {columnLabel(column)}
-                              </button>
-                            ))}
+                            {active.length > 0 && (
+                              <>
+                                <span className="report-page__scope-label">Filters applied:</span>
+                                {active.map((column) => (
+                                  <button
+                                    key={column}
+                                    type="button"
+                                    className={`report-page__scope-chip ${applied.includes(column) ? "report-page__scope-chip--on" : ""}`}
+                                    disabled={!!savingScope[p.id]}
+                                    onClick={() => handleToggleScope(id, p.id, column, active)}
+                                  >
+                                    {columnLabel(column)}
+                                  </button>
+                                ))}
+                              </>
+                            )}
+                            {comboLabel && <span className="report-page__scope-chip report-page__scope-chip--value">→ {comboLabel}</span>}
                           </div>
                         )}
                       </li>
-                    );
+                    ));
                   })}
                   <li className="report-page__included-summary">Overall analysis summary</li>
                 </ul>

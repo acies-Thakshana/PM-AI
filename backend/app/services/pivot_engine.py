@@ -163,14 +163,14 @@ def _compute_pivot(df: pd.DataFrame, spec: dict, runtime_filters: list[dict] | N
             # the filtered dataset total -- this is what "% of shipments" /
             # "% of total" means in practice, and it's the only definition
             # that always sums to 100% regardless of which column is picked.
-            group_counts = _aggregate(series.groupby(group_keys, dropna=False), "count")
+            group_counts = _aggregate(series.groupby(group_keys, dropna=False, observed=True), "count")
             total_count = int(series.notna().sum())
             if not total_count:
                 metric_columns[label] = group_counts * 0
             else:
                 metric_columns[label] = (group_counts / total_count * 100).round(2)
         else:
-            metric_columns[label] = _aggregate(series.groupby(group_keys, dropna=False), agg)
+            metric_columns[label] = _aggregate(series.groupby(group_keys, dropna=False, observed=True), agg)
 
     if not metric_columns:
         return f"{name}: skipped -- no metrics could be computed."

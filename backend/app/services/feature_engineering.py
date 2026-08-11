@@ -16,11 +16,18 @@ already chose to drop.
 No LLM involved -- lookup/date-extraction/ratio arithmetic needs to be
 reliable, not a plausible-sounding guess.
 """
+import re
+
 import pandas as pd
 
 from app.schemas import FeatureResult
 
 TOP_N_DISTRIBUTION = 12
+
+MONTH_NAMES = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+]
 
 
 def _numeric_stats(series: pd.Series) -> dict[str, float]:
@@ -50,6 +57,10 @@ def _apply_lookup(df: pd.DataFrame, spec: dict) -> pd.Series | None:
 
 
 def _apply_extract_month(df: pd.DataFrame, spec: dict) -> pd.Series | None:
+    """Returns calendar month NAMES (January-December) as an ordered
+    Categorical, not month numbers -- so charts/tables read as "March" while
+    sorting (see pivot_engine's `observed=True` groupby) still follows
+    calendar order rather than alphabetical."""
     candidates = [c for c in spec["source_columns"] if c in df.columns]
     if not candidates:
         return None
@@ -57,7 +68,8 @@ def _apply_extract_month(df: pd.DataFrame, spec: dict) -> pd.Series | None:
     for c in candidates:
         parsed = pd.to_datetime(df[c], errors="coerce")
         combined = combined.fillna(parsed)
-    return combined.dt.month.astype("Int64")
+    month_names = combined.dt.month.map(lambda m: MONTH_NAMES[int(m) - 1] if pd.notna(m) else pd.NA)
+    return pd.Series(pd.Categorical(month_names, categories=MONTH_NAMES, ordered=True), index=df.index)
 
 
 def _apply_duration_hours(df: pd.DataFrame, spec: dict) -> pd.Series | None:
@@ -85,11 +97,44 @@ def _apply_ratio(df: pd.DataFrame, spec: dict) -> pd.Series | None:
     return pct.where(denominator != 0).round(1)
 
 
+def _autoquote_columns(formula: str, columns: list[str]) -> str:
+    """Wraps a bare column name in backticks (pandas' own eval() syntax for
+    an identifier with spaces/special characters) so a hand-typed formula
+    doesn't require the user to know that syntax themselves -- longest names
+    first so e.g. "Time Below Ideal Hours" isn't half-matched by a shorter
+    "Time Below" column. Skips names already backtick-quoted or that are
+    already valid bare identifiers."""
+    for col in sorted(columns, key=len, reverse=True):
+        if col.isidentifier():
+            continue
+        pattern = re.escape(col)
+        formula = re.sub(rf"(?<!`){pattern}(?!`)", f"`{col}`", formula)
+    return formula
+
+
+def _apply_custom_formula(df: pd.DataFrame, spec: dict) -> pd.Series | None:
+    """Evaluates a user-authored arithmetic formula referencing column names
+    via pandas' own eval() -- a restricted expression grammar (arithmetic/
+    comparison only; no function calls, imports, or attribute access), not a
+    general Python eval, so a hand-typed formula can't run arbitrary code."""
+    formula = (spec.get("formula") or "").strip()
+    if not formula:
+        return None
+    try:
+        result = df.eval(_autoquote_columns(formula, list(df.columns)), engine="python")
+    except Exception:
+        return None
+    if not isinstance(result, pd.Series):
+        return None
+    return pd.to_numeric(result, errors="coerce")
+
+
 _APPLIERS = {
     "lookup": _apply_lookup,
     "extract_month": _apply_extract_month,
     "ratio": _apply_ratio,
     "duration_hours": _apply_duration_hours,
+    "custom_formula": _apply_custom_formula,
 }
 
 
@@ -112,7 +157,7 @@ def apply_features(df: pd.DataFrame, definitions: list[dict]) -> tuple[pd.DataFr
         if values is None:
             skipped_notes.append(
                 f"{spec['name']}: skipped -- a required source column isn't present in the "
-                f"current data (likely removed during the audit review)."
+                f"current data (likely removed during the audit review), or its formula couldn't be evaluated."
             )
             continue
 

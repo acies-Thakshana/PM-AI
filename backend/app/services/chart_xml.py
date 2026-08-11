@@ -19,6 +19,9 @@ from pptx.dml.color import RGBColor
 from pptx.enum.chart import XL_CHART_TYPE
 from pptx.oxml import parse_xml
 from pptx.oxml.ns import qn
+from pptx.util import Pt
+
+from app.services import report_style as style
 
 C_NS = "{http://schemas.openxmlformats.org/drawingml/2006/chart}"
 
@@ -45,6 +48,27 @@ def _next_axis_ids(plot_area) -> tuple[int, int]:
     return base, base + 1
 
 
+def _title_xml(text: str) -> str:
+    """A `c:title` fragment for splicing into an axis XML template that's
+    parsed as a whole -- declares xmlns:a on `c:title` itself so the `a:...`
+    descendants below don't each need their own declaration."""
+    return f"""
+    <c:title xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+      <c:tx>
+        <c:rich>
+          <a:bodyPr/>
+          <a:lstStyle/>
+          <a:p>
+            <a:pPr><a:defRPr sz="{style.CHART_AXIS_TITLE_FONT_PT * 100}"><a:latin typeface="{style.FONT_BODY}"/></a:defRPr></a:pPr>
+            <a:r><a:rPr lang="en-US"/><a:t>{_escape(text)}</a:t></a:r>
+          </a:p>
+        </c:rich>
+      </c:tx>
+      <c:overlay val="0"/>
+    </c:title>
+    """
+
+
 def add_combo_chart(
     slide,
     x,
@@ -58,16 +82,43 @@ def add_combo_chart(
     line_values: list[float],
     bar_color_hex: str,
     line_color_hex: str,
+    bar_axis_title: str | None = None,
+    line_axis_title: str | None = None,
 ):
     """Adds a clustered-bar + line combo chart (bar on the primary/left value
     axis, line on a real secondary/right value axis) to `slide`. Returns the
-    GraphicFrame, same as `shapes.add_chart`."""
+    GraphicFrame, same as `shapes.add_chart`.
+
+    `bar_axis_title` is set here, before the secondary value axis exists --
+    once a second c:valAx is spliced in below, python-pptx's own
+    `chart.value_axis` property deliberately returns the SECOND one (see its
+    docstring), so setting the primary axis's title from the caller after
+    this returns would silently land on the wrong axis."""
     chart_data = CategoryChartData()
     chart_data.categories = categories
     chart_data.add_series(bar_series_name, bar_values)
 
     graphic_frame = slide.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data)
     chart = graphic_frame.chart
+    if bar_axis_title:
+        chart.value_axis.axis_title.text_frame.text = bar_axis_title
+        chart.value_axis.axis_title.text_frame.paragraphs[0].font.size = Pt(style.CHART_AXIS_TITLE_FONT_PT)
+        chart.value_axis.axis_title.text_frame.paragraphs[0].font.name = style.FONT_BODY
+    # Primary axes only, styled HERE while chart.value_axis is still
+    # unambiguous -- see the docstring above for why. The secondary (right)
+    # value axis is deliberately left without gridlines/an axis line of its
+    # own, so the plot doesn't end up with two overlapping horizontal grids.
+    grid_color = RGBColor.from_string(style.GRIDLINE_COLOR_HEX)
+    line_color = RGBColor.from_string(style.MUTED_TEXT_HEX)
+    for axis in (chart.category_axis, chart.value_axis):
+        axis.has_major_gridlines = True
+        axis.has_minor_gridlines = False
+        axis.major_gridlines.format.line.color.rgb = grid_color
+        axis.major_gridlines.format.line.width = Pt(0.75)
+        axis.format.line.color.rgb = line_color
+        axis.format.line.width = Pt(1)
+        axis.tick_labels.font.size = Pt(style.CHART_FONT_PT)
+        axis.tick_labels.font.name = style.FONT_BODY
     chart_space = chart._chartSpace
     plot_area = chart_space.find(f"{C_NS}chart").find(f"{C_NS}plotArea")
 
@@ -111,6 +162,7 @@ def add_combo_chart(
       <c:scaling><c:orientation val="minMax"/></c:scaling>
       <c:delete val="0"/>
       <c:axPos val="r"/>
+      {_title_xml(line_axis_title) if line_axis_title else ""}
       <c:numFmt formatCode="General" sourceLinked="0"/>
       <c:majorTickMark val="out"/>
       <c:minorTickMark val="none"/>
@@ -118,7 +170,7 @@ def add_combo_chart(
       <c:txPr>
         <a:bodyPr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"/>
         <a:lstStyle xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"/>
-        <a:p xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:pPr><a:defRPr sz="900"/></a:pPr><a:endParaRPr lang="en-US"/></a:p>
+        <a:p xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:pPr><a:defRPr sz="{style.CHART_FONT_PT * 100}"><a:latin typeface="{style.FONT_BODY}"/></a:defRPr></a:pPr><a:endParaRPr lang="en-US"/></a:p>
       </c:txPr>
       <c:crossAx val="{secondary_cat_id}"/>
       <c:crosses val="max"/>

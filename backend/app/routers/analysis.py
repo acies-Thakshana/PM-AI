@@ -1,7 +1,9 @@
+import io
 import json
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import Response
+from pptx import Presentation
 
 from app.schemas import (
     ApplyPivotsRequest,
@@ -10,6 +12,7 @@ from app.schemas import (
     PivotReport,
     ReportFilterScopeResponse,
     ReportFiltersResponse,
+    ReportTemplateSummary,
     ReportTitlesResponse,
     SetReportFilterScopeRequest,
     SetReportFiltersRequest,
@@ -19,6 +22,7 @@ from app.schemas import (
 )
 from app.services import overall_analysis, overall_analysis_agent, pivot_engine, pivot_suggester, report_generator
 from app.services import pivot_definitions_store as pivot_defs_store
+from app.services import report_template_store
 from app.services.audit_store import AuditSession, store
 
 router = APIRouter(prefix="/api/analysis", tags=["analysis"])
@@ -78,6 +82,37 @@ def get_pivot_definitions() -> PivotDefinitionsSummary:
         pivot_count=len(pivot_defs_store.store.definitions),
         pivot_names=[p["name"] for p in pivot_defs_store.store.definitions],
     )
+
+
+@router.post("/report-template", response_model=ReportTemplateSummary)
+async def upload_report_template(file: UploadFile = File(...)) -> ReportTemplateSummary:
+    """Optional -- a .pptx to use as the base for every downloaded report
+    instead of the built-in layout (see report_generator.build_report). Not
+    validated beyond "is it a real pptx" here; report_template_builder falls
+    back to the first available layout for anything it can't name-match, so
+    an unfamiliar template still produces a deck."""
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=422, detail="Uploaded file is empty.")
+    try:
+        Presentation(io.BytesIO(raw))
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Not a valid .pptx file: {exc}") from exc
+
+    filename = file.filename or "report_template.pptx"
+    report_template_store.store.set(filename, raw)
+    return ReportTemplateSummary(filename=filename)
+
+
+@router.get("/report-template", response_model=ReportTemplateSummary)
+def get_report_template() -> ReportTemplateSummary:
+    return ReportTemplateSummary(filename=report_template_store.store.filename)
+
+
+@router.delete("/report-template", response_model=ReportTemplateSummary)
+def clear_report_template() -> ReportTemplateSummary:
+    report_template_store.store.clear()
+    return ReportTemplateSummary(filename=None)
 
 
 @router.post("/suggest", response_model=SuggestPivotsResponse)
@@ -149,8 +184,20 @@ def set_report_filters(session_id: str, body: SetReportFiltersRequest) -> Report
 
 @router.get("/{session_id}/report-filter-scope", response_model=ReportFilterScopeResponse)
 def get_report_filter_scope(session_id: str) -> ReportFilterScopeResponse:
+    """Merges any explicit per-pivot overrides with report_generator's
+    default scope exclusions (see DEFAULT_SCOPE_EXCLUSIONS) so the Report
+    page's filter-scope chips reflect the same defaults the downloaded .pptx
+    actually uses, without requiring the user to have touched a chip first."""
     session = _get_session_or_404(session_id)
-    return ReportFilterScopeResponse(session_id=session.session_id, scope=session.pivot_filter_scope)
+    active_columns = [f.column for f in session.report_filters]
+    scope = dict(session.pivot_filter_scope)
+    for pivot in session.pivots:
+        if pivot.id in scope:
+            continue
+        default = report_generator.resolve_default_scope(pivot.name, active_columns)
+        if default is not None:
+            scope[pivot.id] = default
+    return ReportFilterScopeResponse(session_id=session.session_id, scope=scope)
 
 
 @router.post("/{session_id}/report-filter-scope", response_model=ReportFilterScopeResponse)
@@ -228,6 +275,7 @@ def download_report(session_id: str):
         pivot_filter_scope=session.pivot_filter_scope,
         report_titles=session.report_titles,
         overall=session.overall_analysis,
+        template_bytes=report_template_store.store.content,
     )
 
     stem = session.filename.rsplit(".", 1)[0] if "." in session.filename else session.filename

@@ -111,3 +111,21 @@ export const IconInfo = () => (
     <circle cx="12" cy="8.3" r="0.9" fill="currentColor" />
   </svg>
 );
+
+export const IconSnowflake = () => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path
+      d="M12 2.5v19M4.5 6.75l15 10.5M19.5 6.75l-15 10.5M12 2.5l-2.2 2.2M12 2.5l2.2 2.2M12 21.5l-2.2-2.2M12 21.5l2.2-2.2M4.5 6.75l3 .3M4.5 6.75l.9-2.9M19.5 6.75l-3 .3M19.5 6.75l-.9-2.9M4.5 17.25l3-.3M4.5 17.25l.9 2.9M19.5 17.25l-3-.3M19.5 17.25l-.9 2.9"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+export const IconZap = () => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M13 3 5 13.5h5.5L11 21l8-10.8h-5.5L13 3Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+  </svg>
+);

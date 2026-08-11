@@ -2,10 +2,16 @@
   min-height: 100%;
   display: flex;
   flex-direction: column;
+  background:
+    radial-gradient(circle, var(--carrier-blue-tint-2) 1.4px, transparent 1.4px) 0 0 / 16px 16px,
+    radial-gradient(circle, var(--carrier-blue-tint-2) 1.4px, transparent 1.4px) 100% 0 / 16px 16px,
+    var(--color-bg);
+  background-repeat: no-repeat;
+  background-size: 90px 90px, 90px 90px, auto;
 }
 
 .welcome-page__main {
-  max-width: 1080px;
+  max-width: 1140px;
   width: 100%;
   margin: 0 auto;
   padding: 20px 24px 24px;
@@ -15,28 +21,99 @@
   justify-content: center;
 }
 
+.welcome-page__card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 32px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
 /* -- hero ---------------------------------------------------------- */
+
+.welcome-page__hero-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+}
+
+.welcome-page__illustration {
+  width: 160px;
+  height: auto;
+  flex-shrink: 0;
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .welcome-page__illustration {
+    display: block;
+  }
+}
+
+/* Mirrors the illustration's width on the opposite side so the hero text
+   is centered on the row itself, not on the illustration+text group. */
+.welcome-page__hero-row::after {
+  content: "";
+  display: none;
+  width: 160px;
+  flex-shrink: 0;
+}
+
+@media (min-width: 900px) {
+  .welcome-page__hero-row::after {
+    display: block;
+  }
+}
 
 .welcome-page__hero {
   text-align: center;
-  max-width: 620px;
-  margin: 0 auto 24px;
+  max-width: 560px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
 }
 
+.welcome-page__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--carrier-blue-tint);
+  color: var(--carrier-blue);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 5px 14px;
+}
+
+.welcome-page__badge svg {
+  width: 13px;
+  height: 13px;
+}
+
 .welcome-page__title {
   margin: 0;
-  font-size: 27px;
+  font-size: 32px;
   font-weight: 800;
   color: var(--carrier-blue);
 }
 
+.welcome-page__title-underline {
+  width: 40px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--carrier-light-blue);
+}
+
 .welcome-page__lede {
   margin: 0;
-  font-size: 12.5px;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--color-text-muted);
 }
@@ -72,15 +149,27 @@
 .welcome-page__flow-title {
   text-align: center;
   margin: 0 0 12px;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 800;
   color: var(--color-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.welcome-page__flow-diamond {
+  width: 6px;
+  height: 6px;
+  background: var(--carrier-light-blue);
+  transform: rotate(45deg);
+  border-radius: 1px;
 }
 
 .welcome-page__steps {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 12px;
+  gap: 14px;
 }
 
 @media (max-width: 960px) {
@@ -100,11 +189,12 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 12px 13px;
+  padding: 14px 14px 16px;
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
   gap: 5px;
+  overflow: hidden;
 }
 
 .welcome-page__step-top {
@@ -115,8 +205,8 @@
 
 .welcome-page__step-icon {
   flex-shrink: 0;
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -124,28 +214,28 @@
 }
 
 .welcome-page__step-icon svg {
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
 }
 
 .welcome-page__step-icon--blue {
-  background: var(--carrier-blue);
-  color: #fff;
+  background: var(--carrier-blue-tint);
+  color: var(--carrier-blue);
 }
 
 .welcome-page__step-icon--teal {
-  background: var(--accent-teal);
-  color: #fff;
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 
 .welcome-page__step-icon--purple {
-  background: var(--accent-purple);
-  color: #fff;
+  background: var(--accent-purple-bg);
+  color: var(--accent-purple);
 }
 
 .welcome-page__step-icon--amber {
-  background: var(--accent-amber);
-  color: #fff;
+  background: var(--accent-amber-bg);
+  color: var(--accent-amber);
 }
 
 .welcome-page__step-number {
@@ -153,14 +243,29 @@
   font-weight: 800;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  color: var(--color-text-muted);
+}
+
+.welcome-page__step-number--blue {
+  color: var(--carrier-blue);
+}
+
+.welcome-page__step-number--teal {
+  color: var(--color-success);
+}
+
+.welcome-page__step-number--purple {
+  color: var(--accent-purple);
+}
+
+.welcome-page__step-number--amber {
+  color: var(--accent-amber);
 }
 
 .welcome-page__step-title {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
-  color: var(--carrier-blue);
+  color: var(--color-text);
 }
 
 .welcome-page__step-description {
@@ -170,18 +275,126 @@
   color: var(--color-text-muted);
 }
 
+.welcome-page__step-underline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+}
+
+.welcome-page__step-underline--blue {
+  background: var(--carrier-blue);
+}
+
+.welcome-page__step-underline--teal {
+  background: var(--color-success);
+}
+
+.welcome-page__step-underline--purple {
+  background: var(--accent-purple);
+}
+
+.welcome-page__step-underline--amber {
+  background: var(--accent-amber);
+}
+
 .welcome-page__step-connector {
   display: none;
 }
 
 @media (min-width: 961px) {
   .welcome-page__step-connector {
-    display: block;
+    display: flex;
+    align-items: center;
     position: absolute;
-    top: 27px;
-    right: -18px;
-    width: 16px;
+    top: 22px;
+    right: -21px;
+    width: 18px;
     height: 2px;
-    background: var(--carrier-blue-tint-2);
+    background-image: linear-gradient(to right, var(--carrier-light-blue) 50%, transparent 50%);
+    background-size: 6px 2px;
+    color: var(--carrier-light-blue);
   }
+
+  .welcome-page__step-connector svg {
+    position: absolute;
+    right: -8px;
+    width: 12px;
+    height: 12px;
+  }
+}
+
+/* -- benefits row ---------------------------------------------------- */
+
+.welcome-page__benefits {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 18px 22px;
+}
+
+@media (max-width: 900px) {
+  .welcome-page__benefits {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .welcome-page__benefits {
+    grid-template-columns: 1fr;
+  }
+}
+
+.welcome-page__benefit {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.welcome-page__benefit-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.welcome-page__benefit-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.welcome-page__benefit-icon--blue {
+  background: var(--carrier-blue-tint);
+  color: var(--carrier-blue);
+}
+
+.welcome-page__benefit-icon--teal {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.welcome-page__benefit-icon--purple {
+  background: var(--accent-purple-bg);
+  color: var(--accent-purple);
+}
+
+.welcome-page__benefit-title {
+  margin: 0 0 2px;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.welcome-page__benefit-description {
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--color-text-muted);
 }

@@ -41,6 +41,14 @@ export const UPLOAD_SLOTS: UploadSlotConfig[] = [
     accept: ".json",
     acceptLabel: "JSON",
   },
+  {
+    id: "reportTemplate",
+    title: "Report Template",
+    description: "Optional PowerPoint template to use as the base for the downloaded report. Falls back to the built-in layout if not provided.",
+    required: false,
+    accept: ".pptx",
+    acceptLabel: "PowerPoint (.pptx)",
+  },
 ];
 
 // Only the tabular data sources get audited -- duplicate/outlier checks aren't

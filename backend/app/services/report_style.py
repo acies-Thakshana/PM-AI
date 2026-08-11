@@ -2,6 +2,8 @@
 the brand palette (matches frontend/src/styles/theme.css) and layout numbers
 so report_generator.py and chart_xml.py never hardcode a hex or an Inches()
 value independently."""
+from pathlib import Path
+
 from pptx.util import Inches
 
 SLIDE_W = Inches(10)
@@ -13,8 +15,33 @@ SLIDE_H = Inches(7.5)
 HEADER_HEIGHT = Inches(0.5)
 CHART_TOP = Inches(0.95)
 
-FONT_HEADING = "Calibri"  # safe font (ships with Office, renders true-to-width)
+# Matches the Carrier PowerPoint template's own font list.
+FONT_BODY = "Franklin Gothic Medium Cond"  # captions, footer, summary copy -- 12pt
+FONT_TITLE = "Franklin Gothic Demi Cond"   # each slide's own heading only -- 24pt
 PROGRAM_TITLE = "Program Manager AI — Cold Chain Analysis"
+PROPRIETARY_TEXT = "Proprietary and Confidential"
+
+SIDE_BAND_WIDTH = Inches(0.12)  # solid navy strip along the slide's right edge, matching the Carrier template
+
+CHART_FONT_PT = 8            # legend/tick-label text inside a chart -- smaller than
+                              # slide body text so a dense multi-category axis stays legible
+CHART_DATA_LABEL_FONT_PT = 5  # the numbers plotted on bars/points -- smaller still, so a
+                               # dense chart's own data doesn't crowd out its axes
+CHART_AXIS_TITLE_FONT_PT = 10  # axis title text (e.g. "% In Spec") -- a notch bigger than
+                                # tick labels so it reads as a label, not more chart noise
+
+ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
+LOGO_PATH = ASSETS_DIR / "carrier-logo.png"
+LOGO_WIDTH = Inches(0.7)
+LOGO_HEIGHT = Inches(0.28)  # matches the logo's own aspect ratio (700x279)
+TITLE_LOGO_WIDTH = Inches(1.6)   # the title slide's own larger mark -- same 2.5:1 aspect ratio
+TITLE_LOGO_HEIGHT = Inches(0.64)
+
+# The permanent, built-in base for every report -- report_generator.build_report
+# falls back to this whenever no template was explicitly uploaded to
+# report_template_store (see routers/analysis.py's /report-template), so a
+# fresh session with nothing uploaded still gets this exact look.
+DEFAULT_TEMPLATE_PATH = ASSETS_DIR / "carrier-template.pptx"
 
 # Hex values below mirror frontend/src/styles/theme.css so the exported deck
 # reads as the same product as the web app.
@@ -24,11 +51,16 @@ WHITE_HEX = "FFFFFF"
 DARK_TEXT_HEX = "1B2333"       # --color-text
 MUTED_TEXT_HEX = "5B6478"      # --color-text-muted
 REFERENCE_LINE_COLOR_HEX = "C62828"  # --color-error
+GRIDLINE_COLOR_HEX = "D9DCE3"  # light, low-contrast -- gridlines/axis lines frame the plot without competing with the data
 
-# Categorical slots for a grouped-bar chart (one color per series) -- ordered
-# so adjacent slots stay distinguishable; cap usage at this length and fold
-# any remainder into "Other" rather than generating more hues.
+# Categorical slots for a chart with more than one series -- ordered so
+# adjacent slots stay distinguishable.
 BAR_PALETTE_HEX = ["152C73", "1891F6", "6F42C1", "0F8B8D", "8A5A10", "1A8F5E"]
-MAX_GROUPED_SERIES = len(BAR_PALETTE_HEX)
 
 Y_AXIS_SHIPMENT_COUNT_LABEL = "Shipments"
+
+# A two-level grouped-bar slide renders one bar per (level1, level2) pair
+# rather than folding low-volume pairs into an "Other" series, so this caps
+# total bars for readability instead -- the lowest-value pairs are dropped.
+MULTI_LEVEL_MAX_LEAVES = 40
+BLANK_LABEL = "(blank)"  # matches Excel's own PivotChart label for a missing group value

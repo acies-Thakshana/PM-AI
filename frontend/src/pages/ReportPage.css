@@ -22,6 +22,16 @@
   padding: 8px 12px;
 }
 
+.report-page__template-status {
+  margin: -8px 0 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--carrier-blue);
+  background: var(--carrier-blue-tint);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+}
+
 /* -- card shell ----------------------------------------------------- */
 
 .report-page__card {
@@ -287,6 +297,17 @@
   background: var(--carrier-blue-tint);
   border-color: var(--carrier-blue);
   color: var(--carrier-blue);
+}
+
+/* The resolved value for THIS specific output slide (e.g. "→ Giacovelli
+   Srl") -- informational only, not a toggle, so it's visually distinct
+   from the clickable column chips. */
+.report-page__scope-chip--value {
+  background: var(--accent-purple-bg);
+  border-color: var(--accent-purple);
+  color: var(--accent-purple);
+  cursor: default;
+  font-style: italic;
 }
 
 /* -- download button ------------------------------------------------------- */
