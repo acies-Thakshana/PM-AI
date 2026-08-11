@@ -370,41 +370,29 @@ export async function applyPivots(
   return response.json();
 }
 
-// -- Report slide list ------------------------------------------------------
+// -- Overall report filter ---------------------------------------------------
 // Report-time only -- never recomputes a pivot's own rows/table on the
-// Analysis page. Each slide is its own independent {title, pivot, filters}.
+// Analysis page. ONE shared filter set for the whole report: a column with
+// 2+ selected values fans out into one slide per value, for every pivot.
 
-export interface ReportSlide {
-  id: string;
-  title: string;
-  pivot_id: string;
-  filters: PivotFilter[];
-  parent_id: string | null;
-}
-
-export interface ReportSlidesResponse {
+export interface ReportFiltersResponse {
   session_id: string;
-  slides: ReportSlide[];
+  filters: PivotFilter[];
 }
 
-/** Auto-seeds one slide per current pivot the first time it's called for a session. */
-export async function fetchReportSlides(sessionId: string): Promise<ReportSlidesResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/analysis/${sessionId}/slides`);
+export async function fetchReportFilters(sessionId: string): Promise<ReportFiltersResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/analysis/${sessionId}/report-filters`);
   if (!response.ok) {
     throw new AuditApiError(await parseErrorDetail(response));
   }
   return response.json();
 }
 
-/** Used for the "+" duplicate-with-a-different-filter action. */
-export async function createReportSlide(
-  sessionId: string,
-  slide: { pivot_id: string; title: string; filters: PivotFilter[]; parent_id: string | null }
-): Promise<ReportSlidesResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/analysis/${sessionId}/slides`, {
+export async function saveReportFilters(sessionId: string, filters: PivotFilter[]): Promise<ReportFiltersResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/analysis/${sessionId}/report-filters`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(slide),
+    body: JSON.stringify({ filters }),
   });
   if (!response.ok) {
     throw new AuditApiError(await parseErrorDetail(response));
@@ -412,15 +400,33 @@ export async function createReportSlide(
   return response.json();
 }
 
-export async function updateReportSlide(
+// -- Per-pivot filter scope ---------------------------------------------------
+// Which of the shared report_filters columns actually apply to ONE pivot --
+// a pivot id absent from `scope` uses every active column (the default).
+
+export interface ReportFilterScopeResponse {
+  session_id: string;
+  scope: Record<string, string[]>;
+}
+
+export async function fetchReportFilterScope(sessionId: string): Promise<ReportFilterScopeResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/analysis/${sessionId}/report-filter-scope`);
+  if (!response.ok) {
+    throw new AuditApiError(await parseErrorDetail(response));
+  }
+  return response.json();
+}
+
+/** `columns: null` clears the override (back to "every active column applies"). */
+export async function saveReportFilterScope(
   sessionId: string,
-  slideId: string,
-  updates: { title?: string; filters?: PivotFilter[] }
-): Promise<ReportSlidesResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/analysis/${sessionId}/slides/${slideId}`, {
-    method: "PATCH",
+  pivotId: string,
+  columns: string[] | null
+): Promise<ReportFilterScopeResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/analysis/${sessionId}/report-filter-scope`, {
+    method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(updates),
+    body: JSON.stringify({ pivot_id: pivotId, columns }),
   });
   if (!response.ok) {
     throw new AuditApiError(await parseErrorDetail(response));
@@ -428,9 +434,30 @@ export async function updateReportSlide(
   return response.json();
 }
 
-/** Only a duplicated (child) slide can be deleted -- a pivot's base slide can't. */
-export async function deleteReportSlide(sessionId: string, slideId: string): Promise<ReportSlidesResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/analysis/${sessionId}/slides/${slideId}`, { method: "DELETE" });
+// -- Per-pivot report title ---------------------------------------------------
+// Purely cosmetic -- renames a pivot's slide heading in the downloaded
+// report. A pivot id absent from `titles` uses its own name (the default).
+
+export interface ReportTitlesResponse {
+  session_id: string;
+  titles: Record<string, string>;
+}
+
+export async function fetchReportTitles(sessionId: string): Promise<ReportTitlesResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/analysis/${sessionId}/report-titles`);
+  if (!response.ok) {
+    throw new AuditApiError(await parseErrorDetail(response));
+  }
+  return response.json();
+}
+
+/** `title: null` (or blank) clears the override, back to the pivot's own name. */
+export async function saveReportTitle(sessionId: string, pivotId: string, title: string | null): Promise<ReportTitlesResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/analysis/${sessionId}/report-titles`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pivot_id: pivotId, title }),
+  });
   if (!response.ok) {
     throw new AuditApiError(await parseErrorDetail(response));
   }

@@ -179,35 +179,41 @@ class PivotResult(BaseModel):
     filter_combinations: list[dict[str, str]] = []
 
 
-class ReportSlide(BaseModel):
-    """One explicit slide in the downloaded report -- report-time only, never
-    affects the pivot's own computed rows/table on the Analysis page. `title`
-    is user-editable and defaults to the pivot's name. `parent_id` is set for
-    a slide created by duplicating another ("+") to explore the same pivot
-    with a different filter -- always points at the top-level slide for that
-    pivot, so the hierarchy stays exactly two levels deep (no grandchildren)."""
-    id: str
-    title: str
-    pivot_id: str
+class SetReportFiltersRequest(BaseModel):
     filters: list[PivotFilterSpec] = []
-    parent_id: str | None = None
 
 
-class CreateReportSlideRequest(BaseModel):
-    pivot_id: str
-    title: str
-    filters: list[PivotFilterSpec] = []
-    parent_id: str | None = None
-
-
-class UpdateReportSlideRequest(BaseModel):
-    title: str | None = None
-    filters: list[PivotFilterSpec] | None = None
-
-
-class ReportSlidesResponse(BaseModel):
+class ReportFiltersResponse(BaseModel):
     session_id: str
-    slides: list[ReportSlide]
+    filters: list[PivotFilterSpec]
+
+
+class SetReportFilterScopeRequest(BaseModel):
+    pivot_id: str
+    # None clears the override (back to "every active filter column applies,
+    # the default"). An explicit list -- even [] -- means "only these columns
+    # apply to this pivot; every other active column is ignored for it."
+    columns: list[str] | None = None
+
+
+class ReportFilterScopeResponse(BaseModel):
+    session_id: str
+    # pivot id -> the columns that apply to it. A pivot id absent here uses
+    # the default (every active report_filters column applies to it).
+    scope: dict[str, list[str]]
+
+
+class SetReportTitleRequest(BaseModel):
+    pivot_id: str
+    # None clears the override (back to the pivot's own name).
+    title: str | None = None
+
+
+class ReportTitlesResponse(BaseModel):
+    session_id: str
+    # pivot id -> its custom slide title. A pivot id absent here uses its
+    # own name (the default).
+    titles: dict[str, str]
 
 
 class PivotReport(BaseModel):

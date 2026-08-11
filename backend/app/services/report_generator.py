@@ -23,7 +23,7 @@ from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import PP_ALIGN
 from pptx.util import Inches, Pt
 
-from app.schemas import OverallAnalysisReport, PivotResult, ReportSlide
+from app.schemas import OverallAnalysisReport, PivotResult
 from app.services import chart_xml, pivot_engine, report_style as style
 
 MAX_CHART_ROWS = 20
@@ -374,33 +374,87 @@ def _add_pivot_slides(builder: ReportBuilder, pivot: PivotResult) -> None:
         return
 
 
+MAX_COMBOS_PER_PIVOT = 12
+
+
+def _report_filter_combos(report_filters: list[dict]) -> list[list[dict]]:
+    """Splits the one shared report_filters list into (fixed_filters, one
+    combo per multiplier value) -- an 'in' filter with 2+ selected values is
+    a MULTIPLIER (one slide per value); everything else (a single-value
+    'in', or a non-'in' op like the departure-time gte/lte) is just a fixed
+    filter applied to every combo. Multiple multiplier columns cartesian-
+    product together, capped at MAX_COMBOS_PER_PIVOT total combos."""
+    fixed: list[dict] = []
+    multipliers: list[list[dict]] = []  # each entry: [{"column": c, "op": "eq", "value": v}, ...] for one column's values
+    for f in report_filters:
+        if f.get("op") == "in" and isinstance(f.get("value"), list) and len(f["value"]) > 1:
+            multipliers.append([{"column": f["column"], "op": "eq", "value": v} for v in f["value"]])
+        else:
+            fixed.append(f)
+
+    if not multipliers:
+        return [fixed]
+
+    combos = [fixed]
+    for axis in multipliers:
+        combos = [combo + [choice] for combo in combos for choice in axis]
+    return combos[:MAX_COMBOS_PER_PIVOT]
+
+
+def _combo_label(combo: list[dict], fixed_columns: set[str]) -> str:
+    extra = [f["value"] for f in combo if f["column"] not in fixed_columns]
+    return " / ".join(str(v) for v in extra)
+
+
 def build_report(
     source_label: str,
     df: pd.DataFrame,
-    slides: list[ReportSlide],
+    pivots: list[PivotResult],
     definitions: list[dict],
+    report_filters: list[dict],
+    pivot_filter_scope: dict[str, list[str]] | None,
+    report_titles: dict[str, str] | None,
     overall: OverallAnalysisReport | None,
 ) -> bytes:
-    """Builds the deck from the session's explicit slide list -- each slide
-    is recomputed fresh from the raw data using its OWN filters and its own
-    title, independent of whatever's currently shown on the Analysis page
-    (see report_slides.sync_slides). A slide whose pivot spec has gone
-    missing, or that ends up with zero rows once its filters are applied, is
-    silently skipped rather than breaking the whole export."""
+    """Builds the deck from EVERY current pivot, each recomputed fresh from
+    the raw data using the one shared `report_filters` -- scoped down per
+    pivot by `pivot_filter_scope` first (a pivot id absent there uses every
+    active column, i.e. the same scope everywhere). A column with 2+
+    selected values that survives scoping fans out into one slide per value
+    for THAT pivot (see _report_filter_combos) -- e.g. pivot_1 scoped to
+    just Country of Origin ignores an Origin multiplier entirely, while
+    pivot_2 scoped to Country of Origin + Origin still multiplies by it. A
+    pivot whose spec has gone missing, or that ends up with zero rows for a
+    given combo, is silently skipped rather than breaking the whole export.
+    """
     builder = ReportBuilder()
     builder.add_title_slide(source_label, _date_range_label(df))
 
     defs_by_id = {d["id"]: d for d in definitions}
-    for slide in slides:
-        spec = defs_by_id.get(slide.pivot_id)
+    pivot_filter_scope = pivot_filter_scope or {}
+    report_titles = report_titles or {}
+
+    for pivot in pivots:
+        spec = defs_by_id.get(pivot.id)
         if not spec:
             continue
-        filters = [f.model_dump() if hasattr(f, "model_dump") else f for f in slide.filters]
-        results, _ = pivot_engine.apply_pivots(df, [spec], pivot_filters={spec["id"]: filters})
-        if not results:
-            continue
-        pivot_result = results[0].model_copy(update={"name": slide.title})
-        _add_pivot_slides(builder, pivot_result)
+        allowed_columns = pivot_filter_scope.get(pivot.id)
+        scoped_filters = (
+            report_filters if allowed_columns is None else [f for f in report_filters if f["column"] in allowed_columns]
+        )
+        fixed_columns = {
+            f["column"] for f in scoped_filters if not (f.get("op") == "in" and isinstance(f.get("value"), list) and len(f["value"]) > 1)
+        }
+        combos = _report_filter_combos(scoped_filters)
+        for combo in combos:
+            results, _ = pivot_engine.apply_pivots(df, [spec], pivot_filters={spec["id"]: combo})
+            if not results:
+                continue
+            label = _combo_label(combo, fixed_columns)
+            base_title = report_titles.get(pivot.id, pivot.name)
+            title = f"{base_title} — {label}" if label else base_title
+            pivot_result = results[0].model_copy(update={"name": title})
+            _add_pivot_slides(builder, pivot_result)
 
     builder.add_summary_slide("Summary", overall)
     return builder.save_bytes()

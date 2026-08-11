@@ -4,19 +4,21 @@ import Header from "../components/Header";
 import StepIndicator from "../components/StepIndicator";
 import PageHeader from "../components/PageHeader";
 import StatTile from "../components/StatTile";
-import ReportSlideCard from "../components/ReportSlideCard";
+import PivotFilterBar from "../components/PivotFilterBar";
 import { IconClipboard, IconChevronLeft, IconDoc, IconDownload, IconGrid, IconSparkle, IconWarnTriangle } from "../components/icons";
 import {
-  createReportSlide,
-  deleteReportSlide,
   downloadReportUrl,
   fetchPivotReport,
-  fetchReportSlides,
-  updateReportSlide,
+  fetchReportFilters,
+  fetchReportFilterScope,
+  fetchReportTitles,
+  saveReportFilters,
+  saveReportFilterScope,
+  saveReportTitle,
   AuditApiError,
   type PivotFilter,
   type PivotReport,
-  type ReportSlide,
+  type PivotResult,
 } from "../api/audit";
 import { AUDITED_SLOTS, UPLOAD_SLOTS } from "../constants/uploadSlots";
 import type { UploadSlotId } from "../types/upload";
@@ -29,28 +31,83 @@ interface ReportPageProps {
 }
 
 type PivotReportsState = Partial<Record<UploadSlotId, PivotReport>>;
-type SlidesState = Partial<Record<UploadSlotId, ReportSlide[]>>;
+type ReportFiltersState = Partial<Record<UploadSlotId, PivotFilter[]>>;
 type LoadingState = Partial<Record<UploadSlotId, boolean>>;
 type ErrorsState = Partial<Record<UploadSlotId, string>>;
 
-// "Slide 1", "Slide 2", ... for each pivot's base slide, "Slide 2.1",
-// "Slide 2.2", ... for slides duplicated ("+ Add slide") off of it -- relies
-// on the backend always keeping a slide's children immediately after it.
-function computeLabels(slides: ReportSlide[]): Record<string, string> {
-  const labels: Record<string, string> = {};
-  let topIndex = 0;
-  let childIndex = 0;
-  for (const s of slides) {
-    if (s.parent_id === null) {
-      topIndex += 1;
-      childIndex = 0;
-      labels[s.id] = `Slide ${topIndex}`;
-    } else {
-      childIndex += 1;
-      labels[s.id] = `Slide ${topIndex}.${childIndex}`;
+// The raw column the data uses for a shipment's departure -- not one of the
+// categorical filterable_columns slicers, so it gets its own date-range
+// control alongside them.
+const DEPARTURE_COLUMN = "Actual Departure Time CET";
+// Mirrors the backend's report_generator.MAX_COMBOS_PER_PIVOT.
+const MAX_COMBOS = 12;
+
+function selectionsFromFilters(filters: PivotFilter[], filterableColumns: string[]): Record<string, string[] | undefined> {
+  const selections: Record<string, string[] | undefined> = {};
+  for (const f of filters) {
+    if (f.op === "in" && filterableColumns.includes(f.column)) {
+      selections[f.column] = (Array.isArray(f.value) ? f.value : [f.value]).map(String);
     }
   }
-  return labels;
+  return selections;
+}
+
+function globalColumnsFor(pivots: PivotResult[]): string[] {
+  const columns = new Set<string>();
+  for (const p of pivots) for (const c of p.filterable_columns) columns.add(c);
+  return [...columns];
+}
+
+function globalOptionsFor(pivots: PivotResult[], columns: string[]): Record<string, string[]> {
+  const options: Record<string, string[]> = {};
+  for (const column of columns) {
+    const values = new Set<string>();
+    for (const p of pivots) for (const v of p.filter_options[column] ?? []) values.add(v);
+    options[column] = [...values].sort();
+  }
+  return options;
+}
+
+function globalCombinationsFor(pivots: PivotResult[]): Record<string, string>[] {
+  return pivots.flatMap((p) => p.filter_combinations);
+}
+
+function rangeFromFilters(filters: PivotFilter[]): { start: string; end: string } {
+  const gte = filters.find((f) => f.column === DEPARTURE_COLUMN && f.op === "gte");
+  const lte = filters.find((f) => f.column === DEPARTURE_COLUMN && f.op === "lte");
+  return {
+    start: typeof gte?.value === "string" ? gte.value.slice(0, 10) : "",
+    end: typeof lte?.value === "string" ? lte.value.slice(0, 10) : "",
+  };
+}
+
+// A column with 2+ selected values fans out into one slide per value, for
+// EVERY table -- multiple such columns cartesian-product together.
+function comboCount(filters: PivotFilter[]): number {
+  const multiplierSizes = filters
+    .filter((f) => f.op === "in" && Array.isArray(f.value) && f.value.length > 1)
+    .map((f) => (f.value as unknown[]).length);
+  const total = multiplierSizes.reduce((acc, n) => acc * n, 1);
+  return Math.min(total, MAX_COMBOS);
+}
+
+// Which columns the shared filter is actually constraining right now --
+// only these are worth a per-pivot "apply this to me?" toggle.
+function activeColumns(filters: PivotFilter[]): string[] {
+  return [...new Set(filters.map((f) => f.column))];
+}
+
+function columnLabel(column: string): string {
+  return column === DEPARTURE_COLUMN ? "Departure time" : column;
+}
+
+// A pivot with no scope override respects every active column (today's
+// "same scope everywhere" default); an override restricts it to just the
+// listed columns, so e.g. an Origin multiplier can be ignored for one pivot
+// while still multiplying every other one.
+function comboCountForScope(filters: PivotFilter[], allowed: string[] | undefined): number {
+  const scoped = allowed === undefined ? filters : filters.filter((f) => allowed.includes(f.column));
+  return comboCount(scoped);
 }
 
 export default function ReportPage({ files, auditReports }: ReportPageProps) {
@@ -60,9 +117,18 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
   const [loading, setLoading] = useState<LoadingState>({});
   const [errors, setErrors] = useState<ErrorsState>({});
 
-  const [slides, setSlides] = useState<SlidesState>({});
-  const [slidesLoading, setSlidesLoading] = useState<LoadingState>({});
-  const [savingSlide, setSavingSlide] = useState<Record<string, boolean>>({});
+  const [reportFilters, setReportFilters] = useState<ReportFiltersState>({});
+  const [filtersLoading, setFiltersLoading] = useState<LoadingState>({});
+  const [savingFilters, setSavingFilters] = useState<LoadingState>({});
+  const [rangeDraft, setRangeDraft] = useState<Partial<Record<UploadSlotId, { start: string; end: string }>>>({});
+
+  const [filterScope, setFilterScope] = useState<Partial<Record<UploadSlotId, Record<string, string[]>>>>({});
+  const [scopeLoading, setScopeLoading] = useState<LoadingState>({});
+  const [savingScope, setSavingScope] = useState<Record<string, boolean>>({});
+
+  const [titles, setTitles] = useState<Partial<Record<UploadSlotId, Record<string, string>>>>({});
+  const [titlesLoading, setTitlesLoading] = useState<LoadingState>({});
+  const [savingTitle, setSavingTitle] = useState<Record<string, boolean>>({});
 
   const auditedReady = AUDITED_SLOTS.filter((id) => files[id] && auditReports[id]?.status === "reviewed");
 
@@ -86,76 +152,112 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
 
   const slotsReady = auditedReady.filter((id) => (reports[id]?.pivots.length ?? 0) > 0);
 
-  // The slide list is auto-seeded (one per pivot) server-side the first time
-  // it's fetched for a session, so this just needs to ask for it once the
-  // pivots themselves are ready.
   useEffect(() => {
     for (const id of slotsReady) {
-      if (slides[id] || slidesLoading[id]) continue;
+      if (reportFilters[id] || filtersLoading[id]) continue;
       const sessionId = auditReports[id]!.session_id;
-      setSlidesLoading((prev) => ({ ...prev, [id]: true }));
-      fetchReportSlides(sessionId)
-        .then((res) => setSlides((prev) => ({ ...prev, [id]: res.slides })))
+      setFiltersLoading((prev) => ({ ...prev, [id]: true }));
+      fetchReportFilters(sessionId)
+        .then((res) => setReportFilters((prev) => ({ ...prev, [id]: res.filters })))
         .catch((err) =>
-          setErrors((prev) => ({ ...prev, [id]: err instanceof AuditApiError ? err.message : "Could not load the slide list." }))
+          setErrors((prev) => ({ ...prev, [id]: err instanceof AuditApiError ? err.message : "Could not load report filters." }))
         )
-        .finally(() => setSlidesLoading((prev) => ({ ...prev, [id]: false })));
+        .finally(() => setFiltersLoading((prev) => ({ ...prev, [id]: false })));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slotsReady, auditReports]);
 
-  const handleSaveTitle = (id: UploadSlotId, slideId: string, title: string) => {
+  useEffect(() => {
+    for (const id of slotsReady) {
+      if (filterScope[id] || scopeLoading[id]) continue;
+      const sessionId = auditReports[id]!.session_id;
+      setScopeLoading((prev) => ({ ...prev, [id]: true }));
+      fetchReportFilterScope(sessionId)
+        .then((res) => setFilterScope((prev) => ({ ...prev, [id]: res.scope })))
+        .catch((err) =>
+          setErrors((prev) => ({ ...prev, [id]: err instanceof AuditApiError ? err.message : "Could not load filter scope." }))
+        )
+        .finally(() => setScopeLoading((prev) => ({ ...prev, [id]: false })));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slotsReady, auditReports]);
+
+  useEffect(() => {
+    for (const id of slotsReady) {
+      if (titles[id] || titlesLoading[id]) continue;
+      const sessionId = auditReports[id]!.session_id;
+      setTitlesLoading((prev) => ({ ...prev, [id]: true }));
+      fetchReportTitles(sessionId)
+        .then((res) => setTitles((prev) => ({ ...prev, [id]: res.titles })))
+        .catch((err) =>
+          setErrors((prev) => ({ ...prev, [id]: err instanceof AuditApiError ? err.message : "Could not load slide titles." }))
+        )
+        .finally(() => setTitlesLoading((prev) => ({ ...prev, [id]: false })));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slotsReady, auditReports]);
+
+  const handleSaveTitle = (id: UploadSlotId, pivotId: string, title: string) => {
     const sessionId = auditReports[id]!.session_id;
-    setSavingSlide((prev) => ({ ...prev, [slideId]: true }));
-    updateReportSlide(sessionId, slideId, { title })
-      .then((res) => setSlides((prev) => ({ ...prev, [id]: res.slides })))
+    setSavingTitle((prev) => ({ ...prev, [pivotId]: true }));
+    saveReportTitle(sessionId, pivotId, title)
+      .then((res) => setTitles((prev) => ({ ...prev, [id]: res.titles })))
       .catch((err) =>
         setErrors((prev) => ({ ...prev, [id]: err instanceof AuditApiError ? err.message : "Could not rename the slide." }))
       )
-      .finally(() => setSavingSlide((prev) => ({ ...prev, [slideId]: false })));
+      .finally(() => setSavingTitle((prev) => ({ ...prev, [pivotId]: false })));
   };
 
-  const handleSaveFilters = (id: UploadSlotId, slideId: string, filters: PivotFilter[]) => {
+  // Toggles ONE column on/off for ONE pivot -- starts from the full active
+  // set if this pivot has no override yet, and clears the override entirely
+  // if toggling lands back on the full set (so it stays "default" rather
+  // than an explicit list that happens to match).
+  const handleToggleScope = (id: UploadSlotId, pivotId: string, column: string, allActive: string[]) => {
     const sessionId = auditReports[id]!.session_id;
-    setSavingSlide((prev) => ({ ...prev, [slideId]: true }));
-    updateReportSlide(sessionId, slideId, { filters })
-      .then((res) => setSlides((prev) => ({ ...prev, [id]: res.slides })))
+    const baseline = filterScope[id]?.[pivotId] ?? allActive;
+    const next = baseline.includes(column) ? baseline.filter((c) => c !== column) : [...baseline, column];
+    const isFullSet = next.length === allActive.length && allActive.every((c) => next.includes(c));
+    setSavingScope((prev) => ({ ...prev, [pivotId]: true }));
+    saveReportFilterScope(sessionId, pivotId, isFullSet ? null : next)
+      .then((res) => setFilterScope((prev) => ({ ...prev, [id]: res.scope })))
+      .catch((err) =>
+        setErrors((prev) => ({ ...prev, [id]: err instanceof AuditApiError ? err.message : "Could not save filter scope." }))
+      )
+      .finally(() => setSavingScope((prev) => ({ ...prev, [pivotId]: false })));
+  };
+
+  const saveFilters = (id: UploadSlotId, filters: PivotFilter[]) => {
+    const sessionId = auditReports[id]!.session_id;
+    setSavingFilters((prev) => ({ ...prev, [id]: true }));
+    saveReportFilters(sessionId, filters)
+      .then((res) => setReportFilters((prev) => ({ ...prev, [id]: res.filters })))
       .catch((err) =>
         setErrors((prev) => ({ ...prev, [id]: err instanceof AuditApiError ? err.message : "Could not save filters." }))
       )
-      .finally(() => setSavingSlide((prev) => ({ ...prev, [slideId]: false })));
+      .finally(() => setSavingFilters((prev) => ({ ...prev, [id]: false })));
   };
 
-  // "+ Add slide" -- explores the same pivot again with a different filter.
-  // Inherits the source slide's CURRENT filters (e.g. Origin: Italy) so the
-  // user only has to change whatever varies, and always attaches to the
-  // TOP-LEVEL slide for that pivot so the hierarchy stays two levels deep.
-  const handleDuplicate = (id: UploadSlotId, source: ReportSlide) => {
-    const sessionId = auditReports[id]!.session_id;
-    const topLevelId = source.parent_id ?? source.id;
-    setSavingSlide((prev) => ({ ...prev, [topLevelId]: true }));
-    createReportSlide(sessionId, {
-      pivot_id: source.pivot_id,
-      title: `${source.title} (copy)`,
-      filters: source.filters,
-      parent_id: topLevelId,
-    })
-      .then((res) => setSlides((prev) => ({ ...prev, [id]: res.slides })))
-      .catch((err) =>
-        setErrors((prev) => ({ ...prev, [id]: err instanceof AuditApiError ? err.message : "Could not add the slide." }))
-      )
-      .finally(() => setSavingSlide((prev) => ({ ...prev, [topLevelId]: false })));
+  const handleSaveCategorical = (id: UploadSlotId, nextSelections: Record<string, string[] | undefined>) => {
+    const current = reportFilters[id] ?? [];
+    const inFilters: PivotFilter[] = [];
+    for (const [column, values] of Object.entries(nextSelections)) {
+      if (values !== undefined) inFilters.push({ column, op: "in", value: values });
+    }
+    const preservedRange = current.filter((f) => f.column === DEPARTURE_COLUMN);
+    saveFilters(id, [...inFilters, ...preservedRange]);
   };
 
-  const handleDelete = (id: UploadSlotId, slideId: string) => {
-    const sessionId = auditReports[id]!.session_id;
-    setSavingSlide((prev) => ({ ...prev, [slideId]: true }));
-    deleteReportSlide(sessionId, slideId)
-      .then((res) => setSlides((prev) => ({ ...prev, [id]: res.slides })))
-      .catch((err) =>
-        setErrors((prev) => ({ ...prev, [id]: err instanceof AuditApiError ? err.message : "Could not remove the slide." }))
-      )
-      .finally(() => setSavingSlide((prev) => ({ ...prev, [slideId]: false })));
+  const handleApplyRange = (id: UploadSlotId, start: string, end: string) => {
+    const current = reportFilters[id] ?? [];
+    const rangeFilters: PivotFilter[] =
+      start && end
+        ? [
+            { column: DEPARTURE_COLUMN, op: "gte", value: `${start} 00:00:00` },
+            { column: DEPARTURE_COLUMN, op: "lte", value: `${end} 23:59:59` },
+          ]
+        : [];
+    const preservedIn = current.filter((f) => f.column !== DEPARTURE_COLUMN);
+    saveFilters(id, [...preservedIn, ...rangeFilters]);
   };
 
   if (AUDITED_SLOTS.every((id) => !files[id])) {
@@ -224,7 +326,7 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
         <PageHeader
           icon={<IconClipboard />}
           title="Report"
-          subtitle="Each slide below is its own {title, table, filter} -- edit a title, change a filter, or add another slide off the same table with a different filter (e.g. Origin: Italy vs Germany)."
+          subtitle="One shared filter for the whole report -- pick 2+ values for a column (e.g. Origin) and every table below gets one slide per value instead of one slide combining them."
         />
 
         {slotsReady.map((id) => {
@@ -232,9 +334,8 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
           const report = reports[id]!;
           const aiPivotCount = report.pivots.filter((p) => p.id.startsWith("ai_pivot_")).length;
           const customPivotCount = report.pivots.filter((p) => p.id.startsWith("custom_pivot_")).length;
-          const pivotsById = new Map(report.pivots.map((p) => [p.id, p]));
-          const slotSlides = slides[id];
-          const labels = slotSlides ? computeLabels(slotSlides) : {};
+          const globalColumns = globalColumnsFor(report.pivots);
+          const filters = reportFilters[id] ?? [];
 
           return (
             <section className="report-page__card" key={id}>
@@ -263,25 +364,107 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
                 )}
               </div>
 
-              <div className="report-page__slides">
-                {!slotSlides ? (
-                  <p className="report-page__loading">Loading slides…</p>
-                ) : (
-                  slotSlides.map((slide) => (
-                    <ReportSlideCard
-                      key={slide.id}
-                      slide={slide}
-                      pivot={pivotsById.get(slide.pivot_id)}
-                      label={labels[slide.id]}
-                      onSaveTitle={(title) => handleSaveTitle(id, slide.id, title)}
-                      onSaveFilters={(filters) => handleSaveFilters(id, slide.id, filters)}
-                      onDuplicate={() => handleDuplicate(id, slide)}
-                      onDelete={slide.parent_id ? () => handleDelete(id, slide.id) : undefined}
-                      saving={!!savingSlide[slide.id]}
-                    />
-                  ))
-                )}
-                <p className="report-page__summary-note">Plus a final Summary slide, generated from the overall analysis.</p>
+              {globalColumns.length > 0 && (
+                <div className="report-page__global-filters">
+                  <span className="report-page__range-label">Filters (applied to every table below)</span>
+                  <PivotFilterBar
+                    filterableColumns={globalColumns}
+                    filterOptions={globalOptionsFor(report.pivots, globalColumns)}
+                    combinations={globalCombinationsFor(report.pivots)}
+                    selected={selectionsFromFilters(filters, globalColumns)}
+                    onSave={(next) => handleSaveCategorical(id, next)}
+                    saving={!!savingFilters[id]}
+                  />
+                </div>
+              )}
+
+              {(() => {
+                const range = rangeDraft[id] ?? rangeFromFilters(filters);
+                const setField = (field: "start" | "end", value: string) =>
+                  setRangeDraft((prev) => ({ ...prev, [id]: { ...range, [field]: value } }));
+                return (
+                  <div className="report-page__range">
+                    <span className="report-page__range-label">Departure time (applies to every table above)</span>
+                    <div className="report-page__range-row">
+                      <input type="date" value={range.start} onChange={(e) => setField("start", e.target.value)} aria-label="Departure start date" />
+                      <span className="report-page__range-sep">to</span>
+                      <input type="date" value={range.end} onChange={(e) => setField("end", e.target.value)} aria-label="Departure end date" />
+                      <button
+                        type="button"
+                        className="report-page__btn report-page__btn--secondary report-page__range-btn"
+                        disabled={!!savingFilters[id] || !range.start || !range.end}
+                        onClick={() => handleApplyRange(id, range.start, range.end)}
+                      >
+                        {savingFilters[id] ? "Saving…" : "Apply Range"}
+                      </button>
+                      {(range.start || range.end) && (
+                        <button
+                          type="button"
+                          className="report-page__btn report-page__btn--secondary report-page__range-btn"
+                          disabled={!!savingFilters[id]}
+                          onClick={() => {
+                            setRangeDraft((prev) => ({ ...prev, [id]: { start: "", end: "" } }));
+                            handleApplyRange(id, "", "");
+                          }}
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="report-page__included">
+                <p className="report-page__included-title">This report will include:</p>
+                <ul className="report-page__included-list">
+                  {report.pivots.map((p, idx) => {
+                    const active = activeColumns(filters);
+                    const override = filterScope[id]?.[p.id];
+                    const applied = override ?? active;
+                    const pivotSlides = comboCountForScope(filters, override);
+                    const currentTitle = titles[id]?.[p.id] ?? p.name;
+                    return (
+                      <li key={p.id} className="report-page__included-item-wrap">
+                        <div className="report-page__included-row">
+                          <span className="report-page__slide-label">Slide {idx + 1}</span>
+                          <input
+                            key={currentTitle}
+                            className="report-page__slide-title"
+                            defaultValue={currentTitle}
+                            disabled={!!savingTitle[p.id]}
+                            aria-label={`Title for ${p.name}`}
+                            onBlur={(e) => {
+                              const next = e.target.value.trim();
+                              if (next && next !== currentTitle) handleSaveTitle(id, p.id, next);
+                            }}
+                          />
+                          <span className="report-page__included-metrics">
+                            {p.metric_labels.join(", ")}
+                            {pivotSlides > 1 ? ` · ${pivotSlides} slides` : ""}
+                          </span>
+                        </div>
+                        {active.length > 0 && (
+                          <div className="report-page__scope-row">
+                            <span className="report-page__scope-label">Filters applied:</span>
+                            {active.map((column) => (
+                              <button
+                                key={column}
+                                type="button"
+                                className={`report-page__scope-chip ${applied.includes(column) ? "report-page__scope-chip--on" : ""}`}
+                                disabled={!!savingScope[p.id]}
+                                onClick={() => handleToggleScope(id, p.id, column, active)}
+                              >
+                                {columnLabel(column)}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                  <li className="report-page__included-summary">Overall analysis summary</li>
+                </ul>
               </div>
 
               <a

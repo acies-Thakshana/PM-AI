@@ -102,22 +102,191 @@
   padding: 10px 12px;
 }
 
-/* -- slide list ------------------------------------------------------- */
+/* -- global filters ------------------------------------------------- */
 
-.report-page__slides {
+.report-page__global-filters {
+  border: 1px solid var(--carrier-blue-tint-2);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.report-page__global-filters .pivot-filter-bar {
+  margin-bottom: 0;
+}
+
+/* -- departure time range ------------------------------------------- */
+
+.report-page__range {
+  border: 1px solid var(--carrier-blue-tint-2);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.report-page__range-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.report-page__range-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.report-page__range-row input[type="date"] {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  font-size: 12.5px;
+  color: var(--color-text);
+}
+
+.report-page__range-sep {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.report-page__range-btn {
+  padding: 6px 14px;
+  font-size: 12.5px;
+}
+
+/* -- included list ------------------------------------------------------- */
+
+.report-page__included {
+  border: 1px solid var(--carrier-blue-tint-2);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
   margin-bottom: 18px;
 }
 
-.report-page__loading {
-  font-size: 12.5px;
+.report-page__included-title {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--carrier-blue);
+}
+
+.report-page__included-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.report-page__included-item-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.report-page__included-item-wrap:last-child {
+  border-bottom: none;
+}
+
+.report-page__included-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.report-page__slide-label {
+  flex-shrink: 0;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: var(--carrier-blue);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+
+.report-page__slide-title {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 5px 7px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text);
+  background: transparent;
+}
+
+.report-page__slide-title:hover,
+.report-page__slide-title:focus {
+  border-color: var(--color-border);
+  background: var(--color-bg);
+}
+
+.report-page__slide-title:focus {
+  outline: none;
+  border-color: var(--carrier-light-blue);
+}
+
+.report-page__included-metrics {
+  font-size: 11.5px;
+  color: var(--color-text-muted);
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.report-page__included-summary {
+  font-style: italic;
+  color: var(--color-text-muted);
+  display: block;
+  padding: 4px 0;
+}
+
+.report-page__scope-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.report-page__scope-label {
+  font-size: 11px;
+  font-weight: 700;
   color: var(--color-text-muted);
 }
 
-.report-page__summary-note {
-  margin: 4px 0 0;
-  font-size: 12px;
-  font-style: italic;
+.report-page__scope-chip {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 700;
   color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.report-page__scope-chip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.report-page__scope-chip--on {
+  background: var(--carrier-blue-tint);
+  border-color: var(--carrier-blue);
+  color: var(--carrier-blue);
 }
 
 /* -- download button ------------------------------------------------------- */

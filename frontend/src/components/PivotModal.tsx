@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { PivotResult } from "../api/audit";
 import Modal from "./Modal";
+import PivotFilterBar from "./PivotFilterBar";
 import PivotTableCard from "./PivotTableCard";
 import PivotChart from "./PivotChart";
 import "./PivotModal.css";
@@ -20,6 +21,17 @@ export default function PivotModal({ pivot, filterSelections, onSaveFilters, sav
 
   return (
     <Modal title={pivot.name} onClose={onClose}>
+      <div className="pivot-modal__filters">
+        <PivotFilterBar
+          filterableColumns={pivot.filterable_columns}
+          filterOptions={pivot.filter_options}
+          combinations={pivot.filter_combinations ?? []}
+          selected={filterSelections}
+          onSave={onSaveFilters}
+          saving={savingFilters}
+        />
+      </div>
+
       <div className="pivot-modal__tabs" role="tablist">
         <button
           type="button"
@@ -42,17 +54,7 @@ export default function PivotModal({ pivot, filterSelections, onSaveFilters, sav
       </div>
 
       <div className="pivot-modal__tab-content">
-        {tab === "table" ? (
-          <PivotTableCard
-            pivot={pivot}
-            filterSelections={filterSelections}
-            onSaveFilters={onSaveFilters}
-            savingFilters={savingFilters}
-            hideHeader
-          />
-        ) : (
-          <PivotChart pivot={pivot} />
-        )}
+        {tab === "table" ? <PivotTableCard pivot={pivot} hideHeader /> : <PivotChart pivot={pivot} />}
       </div>
     </Modal>
   );

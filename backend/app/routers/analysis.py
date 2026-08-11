@@ -1,22 +1,23 @@
 import json
-import uuid
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import Response
 
 from app.schemas import (
     ApplyPivotsRequest,
-    CreateReportSlideRequest,
     OverallAnalysisReport,
     PivotDefinitionsSummary,
     PivotReport,
-    ReportSlide,
-    ReportSlidesResponse,
+    ReportFilterScopeResponse,
+    ReportFiltersResponse,
+    ReportTitlesResponse,
+    SetReportFilterScopeRequest,
+    SetReportFiltersRequest,
+    SetReportTitleRequest,
     SuggestPivotsRequest,
     SuggestPivotsResponse,
-    UpdateReportSlideRequest,
 )
-from app.services import overall_analysis, overall_analysis_agent, pivot_engine, pivot_suggester, report_generator, report_slides
+from app.services import overall_analysis, overall_analysis_agent, pivot_engine, pivot_suggester, report_generator
 from app.services import pivot_definitions_store as pivot_defs_store
 from app.services.audit_store import AuditSession, store
 
@@ -40,18 +41,6 @@ def _to_pivot_report(session: AuditSession) -> PivotReport:
         skipped_notes=session.pivot_skipped_notes,
         pivot_filters=session.pivot_filter_state,
     )
-
-
-def _get_slide_or_404(session: AuditSession, slide_id: str) -> ReportSlide:
-    slide = next((s for s in session.report_slides if s.id == slide_id), None)
-    if not slide:
-        raise HTTPException(status_code=404, detail="Report slide not found.")
-    return slide
-
-
-def _synced_slides_response(session: AuditSession) -> ReportSlidesResponse:
-    session.report_slides = report_slides.sync_slides(session.pivots, session.report_slides, session.pivot_filter_state)
-    return ReportSlidesResponse(session_id=session.session_id, slides=session.report_slides)
 
 
 @router.post("/definitions", response_model=PivotDefinitionsSummary)
@@ -140,58 +129,62 @@ def get_pivots(session_id: str) -> PivotReport:
     return _to_pivot_report(_get_session_or_404(session_id))
 
 
-@router.get("/{session_id}/slides", response_model=ReportSlidesResponse)
-def list_report_slides(session_id: str) -> ReportSlidesResponse:
-    """Report-time only -- auto-seeds one slide per current pivot the first
-    time this is called for a session, and never touches session.pivots."""
-    return _synced_slides_response(_get_session_or_404(session_id))
-
-
-@router.post("/{session_id}/slides", response_model=ReportSlidesResponse)
-def create_report_slide(session_id: str, body: CreateReportSlideRequest) -> ReportSlidesResponse:
-    """Adds a slide -- used for the "+" duplicate-with-a-different-filter
-    action. `parent_id` should be the TOP-LEVEL slide id for this pivot (the
-    frontend resolves that before calling), keeping the hierarchy exactly two
-    levels deep."""
+@router.get("/{session_id}/report-filters", response_model=ReportFiltersResponse)
+def get_report_filters(session_id: str) -> ReportFiltersResponse:
     session = _get_session_or_404(session_id)
-    if not any(p.id == body.pivot_id for p in session.pivots):
-        raise HTTPException(status_code=404, detail=f"No pivot '{body.pivot_id}' in this session's analysis.")
-    session.report_slides.append(
-        ReportSlide(
-            id=f"slide_{body.pivot_id}_{len(session.report_slides)}_{uuid.uuid4().hex[:8]}",
-            title=body.title,
-            pivot_id=body.pivot_id,
-            filters=body.filters,
-            parent_id=body.parent_id,
-        )
-    )
-    return _synced_slides_response(session)
+    return ReportFiltersResponse(session_id=session.session_id, filters=session.report_filters)
 
 
-@router.patch("/{session_id}/slides/{slide_id}", response_model=ReportSlidesResponse)
-def update_report_slide(session_id: str, slide_id: str, body: UpdateReportSlideRequest) -> ReportSlidesResponse:
+@router.post("/{session_id}/report-filters", response_model=ReportFiltersResponse)
+def set_report_filters(session_id: str, body: SetReportFiltersRequest) -> ReportFiltersResponse:
+    """The ONE shared filter set for the whole downloaded report -- replaces
+    it wholesale (there's only one, unlike the per-pivot pivot_filters map).
+    Report-time only -- never touches session.pivots. Selecting 2+ values
+    for a column here means the report gets one slide per value for every
+    pivot, instead of one slide combining them (see report_generator)."""
     session = _get_session_or_404(session_id)
-    slide = _get_slide_or_404(session, slide_id)
-    updates = {}
-    if body.title is not None:
-        updates["title"] = body.title
-    if body.filters is not None:
-        updates["filters"] = body.filters
-    if updates:
-        session.report_slides = [s.model_copy(update=updates) if s.id == slide_id else s for s in session.report_slides]
+    session.report_filters = body.filters
+    return ReportFiltersResponse(session_id=session.session_id, filters=session.report_filters)
+
+
+@router.get("/{session_id}/report-filter-scope", response_model=ReportFilterScopeResponse)
+def get_report_filter_scope(session_id: str) -> ReportFilterScopeResponse:
+    session = _get_session_or_404(session_id)
+    return ReportFilterScopeResponse(session_id=session.session_id, scope=session.pivot_filter_scope)
+
+
+@router.post("/{session_id}/report-filter-scope", response_model=ReportFilterScopeResponse)
+def set_report_filter_scope(session_id: str, body: SetReportFilterScopeRequest) -> ReportFilterScopeResponse:
+    """Which of the shared report_filters columns actually apply to ONE
+    pivot -- e.g. pivot_1 scoped to just ["Country of Origin"] ignores
+    Origin/Carrier/Product/departure-range even though they're set overall.
+    `columns=None` clears the override (back to "every active column
+    applies", the default). Only touches this one pivot id."""
+    session = _get_session_or_404(session_id)
+    if body.columns is None:
+        session.pivot_filter_scope.pop(body.pivot_id, None)
     else:
-        _ = slide  # nothing to change
-    return _synced_slides_response(session)
+        session.pivot_filter_scope[body.pivot_id] = body.columns
+    return ReportFilterScopeResponse(session_id=session.session_id, scope=session.pivot_filter_scope)
 
 
-@router.delete("/{session_id}/slides/{slide_id}", response_model=ReportSlidesResponse)
-def delete_report_slide(session_id: str, slide_id: str) -> ReportSlidesResponse:
+@router.get("/{session_id}/report-titles", response_model=ReportTitlesResponse)
+def get_report_titles(session_id: str) -> ReportTitlesResponse:
     session = _get_session_or_404(session_id)
-    slide = _get_slide_or_404(session, slide_id)
-    if slide.parent_id is None:
-        raise HTTPException(status_code=400, detail="Can't delete a pivot's base slide -- only a duplicated one.")
-    session.report_slides = [s for s in session.report_slides if s.id != slide_id]
-    return _synced_slides_response(session)
+    return ReportTitlesResponse(session_id=session.session_id, titles=session.report_titles)
+
+
+@router.post("/{session_id}/report-titles", response_model=ReportTitlesResponse)
+def set_report_title(session_id: str, body: SetReportTitleRequest) -> ReportTitlesResponse:
+    """Purely cosmetic -- renames a pivot's slide heading in the downloaded
+    report (and the prefix of any of its multiplied variants). `title=None`
+    clears the override, back to the pivot's own name."""
+    session = _get_session_or_404(session_id)
+    if body.title is None or not body.title.strip():
+        session.report_titles.pop(body.pivot_id, None)
+    else:
+        session.report_titles[body.pivot_id] = body.title.strip()
+    return ReportTitlesResponse(session_id=session.session_id, titles=session.report_titles)
 
 
 @router.get("/{session_id}/overall", response_model=OverallAnalysisReport)
@@ -213,11 +206,11 @@ def get_overall_analysis(session_id: str) -> OverallAnalysisReport:
 
 @router.get("/{session_id}/report")
 def download_report(session_id: str):
-    """Streams a .pptx built from the session's explicit slide list (see
-    /slides) -- each slide is recomputed fresh from the raw data using its
-    OWN filters and its own title, independent of whatever's currently shown
-    on the Analysis page. Every chart is native, built fresh, never a
-    picture."""
+    """Streams a .pptx built from every current pivot, each recomputed fresh
+    from the raw data using the session's one shared report_filters (see
+    /report-filters) -- a column with 2+ selected values there fans out into
+    one slide per value, per pivot. Every chart is native, built fresh,
+    never a picture."""
     session = _get_session_or_404(session_id)
     if not session.pivots:
         raise HTTPException(
@@ -226,13 +219,14 @@ def download_report(session_id: str):
         )
 
     combined_defs = list(pivot_defs_store.store.definitions or []) + session.extra_pivot_defs
-    slides = report_slides.sync_slides(session.pivots, session.report_slides, session.pivot_filter_state)
-    session.report_slides = slides
     pptx_bytes = report_generator.build_report(
         source_label=session.filename,
         df=session.df,
-        slides=slides,
+        pivots=session.pivots,
         definitions=combined_defs,
+        report_filters=[f.model_dump() for f in session.report_filters],
+        pivot_filter_scope=session.pivot_filter_scope,
+        report_titles=session.report_titles,
         overall=session.overall_analysis,
     )
 

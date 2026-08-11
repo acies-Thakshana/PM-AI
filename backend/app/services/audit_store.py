@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
-from app.schemas import AuditIssue, FeatureResult, OverallAnalysisReport, PivotResult, ReportSlide
+from app.schemas import AuditIssue, FeatureResult, OverallAnalysisReport, PivotFilterSpec, PivotResult
 
 
 @dataclass
@@ -51,11 +51,23 @@ class AuditSession:
     # a filter shared across several, can't silently wipe filters saved for
     # pivots it didn't mention.
     pivot_filter_state: dict[str, list[dict]] = field(default_factory=dict)
-    # The explicit, user-editable report slide list (see report_slides.py's
-    # sync_slides) -- report-time only, never affects a pivot's own computed
-    # rows/table. Empty until the Report page is first visited for this
-    # session, at which point it's seeded with one slide per pivot.
-    report_slides: list[ReportSlide] = field(default_factory=list)
+    # The ONE shared filter set for the whole downloaded report -- applied to
+    # EVERY pivot at report-build time (see report_generator.build_report).
+    # An "in" filter with 2+ selected values becomes a multiplier: the report
+    # gets one slide per value (per pivot) instead of one slide combining
+    # them. Report-time only, never affects a pivot's own computed rows/table
+    # on the Analysis page.
+    report_filters: list[PivotFilterSpec] = field(default_factory=list)
+    # Per-pivot override of WHICH report_filters columns actually apply to
+    # that pivot's slide(s) -- a pivot id absent here uses every active
+    # column (the default, i.e. today's "same scope everywhere" behavior).
+    # E.g. {"pivot_1": ["Country of Origin"]} means pivot_1 only respects the
+    # Country of Origin filter and ignores Origin/Carrier/Product/departure-
+    # range even though they're set in the shared report_filters.
+    pivot_filter_scope: dict[str, list[str]] = field(default_factory=dict)
+    # Per-pivot custom slide title -- a pivot id absent here uses its own
+    # name (the default). Report-time only, purely cosmetic.
+    report_titles: dict[str, str] = field(default_factory=dict)
     # Last-computed overall analysis (see routers/analysis.py's /overall
     # endpoint) -- kept here so the report generator can reuse the exact
     # highlights/narrative the user already saw on screen instead of

@@ -1,14 +1,10 @@
 import { useState } from "react";
 import type { PivotResult } from "../api/audit";
 import { IconChevronDown } from "./icons";
-import PivotFilterBar from "./PivotFilterBar";
 import "./PivotTableCard.css";
 
 interface PivotTableCardProps {
   pivot: PivotResult;
-  filterSelections: Record<string, string[] | undefined>;
-  onSaveFilters: (next: Record<string, string[] | undefined>) => void;
-  savingFilters?: boolean;
   hideHeader?: boolean;
 }
 
@@ -18,7 +14,7 @@ function formatCell(value: unknown): string {
   return String(value);
 }
 
-export default function PivotTableCard({ pivot, filterSelections, onSaveFilters, savingFilters, hideHeader }: PivotTableCardProps) {
+export default function PivotTableCard({ pivot, hideHeader }: PivotTableCardProps) {
   const [sort, setSort] = useState<{ column: string; direction: "asc" | "desc" } | null>(null);
   const columns = [...pivot.group_by, ...pivot.metric_labels];
 
@@ -54,15 +50,6 @@ export default function PivotTableCard({ pivot, filterSelections, onSaveFilters,
           {pivot.id.startsWith("custom_pivot_") && <span className="pivot-table-card__custom-badge">Custom</span>}
         </div>
       )}
-
-      <PivotFilterBar
-        filterableColumns={pivot.filterable_columns}
-        filterOptions={pivot.filter_options}
-        combinations={pivot.filter_combinations ?? []}
-        selected={filterSelections}
-        onSave={onSaveFilters}
-        saving={savingFilters}
-      />
 
       {pivot.row_count === 0 ? (
         <p className="pivot-table-card__empty">No rows match the current filter selection.</p>
