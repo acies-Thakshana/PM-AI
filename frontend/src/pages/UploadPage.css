@@ -31,7 +31,6 @@
   margin: 0;
   font-size: 14px;
   color: var(--color-text-muted);
-  max-width: 640px;
   line-height: 1.5;
   text-align: justify;
 }

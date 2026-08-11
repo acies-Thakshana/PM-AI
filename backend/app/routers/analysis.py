@@ -267,7 +267,7 @@ def download_report(session_id: str):
 
     combined_defs = list(pivot_defs_store.store.definitions or []) + session.extra_pivot_defs
     pptx_bytes = report_generator.build_report(
-        source_label=session.filename,
+        source_label=report_generator.REPORT_NAME,
         df=session.df,
         pivots=session.pivots,
         definitions=combined_defs,
@@ -278,8 +278,7 @@ def download_report(session_id: str):
         template_bytes=report_template_store.store.content,
     )
 
-    stem = session.filename.rsplit(".", 1)[0] if "." in session.filename else session.filename
-    filename = f"{stem}_report.pptx"
+    filename = f"{report_generator.REPORT_NAME}.pptx"
     return Response(
         content=pptx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",

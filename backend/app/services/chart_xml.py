@@ -100,6 +100,7 @@ def add_combo_chart(
 
     graphic_frame = slide.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data)
     chart = graphic_frame.chart
+    style.set_chart_default_font(chart, style.CHART_DATA_LABEL_FONT_PT, style.FONT_BODY)
     if bar_axis_title:
         chart.value_axis.axis_title.text_frame.text = bar_axis_title
         chart.value_axis.axis_title.text_frame.paragraphs[0].font.size = Pt(style.CHART_AXIS_TITLE_FONT_PT)

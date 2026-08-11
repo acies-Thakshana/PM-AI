@@ -25,6 +25,7 @@ import io
 from pptx import Presentation
 from pptx.chart.data import CategoryChartData
 from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION
+from pptx.enum.shapes import MSO_SHAPE
 from pptx.oxml.ns import qn
 from pptx.util import Inches, Pt
 
@@ -109,10 +110,25 @@ class TemplateReportBuilder:
         self._chart_layout_idx += 1
         return layout
 
-    def _new_slide(self, layout):
+    def _new_slide(self, layout, bordered: bool = True):
         slide = self.prs.slides.add_slide(layout)
         self.slide_count += 1
+        if bordered:
+            self._add_border(slide)
         return slide
+
+    def _add_border(self, slide) -> None:
+        """A thin dark-navy frame just inside the slide edges -- every
+        content slide (Slide 2 onward) gets one; the cover slide doesn't."""
+        border = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE,
+            style.BORDER_MARGIN, style.BORDER_MARGIN,
+            self.prs.slide_width - 2 * style.BORDER_MARGIN, self.prs.slide_height - 2 * style.BORDER_MARGIN,
+        )
+        border.fill.background()
+        border.line.color.rgb = rg.PRIMARY
+        border.line.width = style.BORDER_WEIGHT
+        border.shadow.inherit = False
 
     def _set_title(self, slide, text: str):
         title = _placeholder(slide, TITLE_IDX)
@@ -167,7 +183,7 @@ class TemplateReportBuilder:
     # -- slides, same public shape as report_generator.ReportBuilder --------
 
     def add_title_slide(self, title: str, subtitle: str | None):
-        slide = self._new_slide(self._cover_layout)
+        slide = self._new_slide(self._cover_layout, bordered=False)
         self._set_title(slide, title)
         if subtitle:
             sub = _placeholder(slide, SUBTITLE_IDX)

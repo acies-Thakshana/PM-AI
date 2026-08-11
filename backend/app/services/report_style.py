@@ -4,7 +4,8 @@ so report_generator.py and chart_xml.py never hardcode a hex or an Inches()
 value independently."""
 from pathlib import Path
 
-from pptx.util import Inches
+from pptx.oxml.ns import qn
+from pptx.util import Inches, Pt
 
 SLIDE_W = Inches(10)
 SLIDE_H = Inches(7.5)
@@ -23,12 +24,18 @@ PROPRIETARY_TEXT = "Proprietary and Confidential"
 
 SIDE_BAND_WIDTH = Inches(0.12)  # solid navy strip along the slide's right edge, matching the Carrier template
 
-CHART_FONT_PT = 8            # legend/tick-label text inside a chart -- smaller than
-                              # slide body text so a dense multi-category axis stays legible
-CHART_DATA_LABEL_FONT_PT = 5  # the numbers plotted on bars/points -- smaller still, so a
-                               # dense chart's own data doesn't crowd out its axes
-CHART_AXIS_TITLE_FONT_PT = 10  # axis title text (e.g. "% In Spec") -- a notch bigger than
-                                # tick labels so it reads as a label, not more chart noise
+# Dark-navy frame just inside the slide edges -- every content slide (Slide 2
+# onward) gets one; the cover/title slide doesn't.
+BORDER_MARGIN = Inches(0.08)
+BORDER_WEIGHT = Pt(1.75)
+
+# Every chart text element (legend/tick labels, data-label numbers, axis
+# titles) uses the same size -- one uniform 10pt (sz="1000" in the raw OOXML)
+# across the whole chart, by explicit standing choice, rather than the
+# previous staggered per-role sizes.
+CHART_FONT_PT = 10
+CHART_DATA_LABEL_FONT_PT = 10
+CHART_AXIS_TITLE_FONT_PT = 10
 
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
 LOGO_PATH = ASSETS_DIR / "carrier-logo.png"
@@ -64,3 +71,23 @@ Y_AXIS_SHIPMENT_COUNT_LABEL = "Shipments"
 # total bars for readability instead -- the lowest-value pairs are dropped.
 MULTI_LEVEL_MAX_LEAVES = 40
 BLANK_LABEL = "(blank)"  # matches Excel's own PivotChart label for a missing group value
+
+
+def set_chart_default_font(chart, size_pt: int, font_name: str) -> None:
+    """Overrides a chart's own auto-generated chart-space-level default text
+    style -- python-pptx creates one on every add_chart() call (sz="1800"
+    i.e. 18pt, no typeface, so it silently inherits the theme's own default
+    Latin font, e.g. Arial). Every more specific override this codebase sets
+    (axis titles, tick labels, data labels, legend) already wins over this,
+    but leaving the chart-space default untouched at 18pt/Arial is exactly
+    what makes PowerPoint's own selection UI report "Arial 18" for anything
+    that doesn't have a closer override -- lives here (not report_generator
+    or chart_xml) since both of those need it and importing either into the
+    other would be circular."""
+    defRPr = chart._chartSpace.find(qn("c:txPr")).find(qn("a:p")).find(qn("a:pPr")).find(qn("a:defRPr"))
+    defRPr.set("sz", str(size_pt * 100))
+    latin = defRPr.find(qn("a:latin"))
+    if latin is None:
+        latin = defRPr.makeelement(qn("a:latin"), {})
+        defRPr.append(latin)
+    latin.set("typeface", font_name)

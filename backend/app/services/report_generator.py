@@ -28,6 +28,8 @@ from app.services import chart_xml, pivot_engine, report_style as style
 
 MAX_CHART_ROWS = 20
 
+REPORT_NAME = "Eduka Report"  # standing report title/filename -- not derived from the uploaded source file's name
+
 PRIMARY = RGBColor.from_string(style.BAR_COLOR_HEX)
 LINE_COLOR = RGBColor.from_string(style.LINE_COLOR_HEX)
 WHITE = RGBColor.from_string(style.WHITE_HEX)
@@ -146,6 +148,7 @@ def set_axis_title(axis, text: str):
 
 
 def style_native_chart(chart, number_format: str, single_series: bool):
+    style.set_chart_default_font(chart, style.CHART_DATA_LABEL_FONT_PT, style.FONT_BODY)
     chart.has_title = False
     chart.has_legend = not single_series
     if chart.has_legend:
@@ -185,13 +188,27 @@ class ReportBuilder:
         self._blank = self.prs.slide_layouts[BLANK_LAYOUT]
         self.slide_count = 0
 
-    def _new_slide(self):
+    def _new_slide(self, bordered: bool = True):
         slide = self.prs.slides.add_slide(self._blank)
         self.slide_count += 1
         slide.background.fill.solid()
         slide.background.fill.fore_color.rgb = WHITE
         self._side_band(slide)
+        if bordered:
+            self._add_border(slide)
         return slide
+
+    def _add_border(self, slide):
+        # A thin dark-navy frame just inside the slide edges -- every
+        # content slide (Slide 2 onward) gets one; the cover slide doesn't.
+        border = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE, style.BORDER_MARGIN, style.BORDER_MARGIN,
+            style.SLIDE_W - 2 * style.BORDER_MARGIN, style.SLIDE_H - 2 * style.BORDER_MARGIN,
+        )
+        border.fill.background()
+        border.line.color.rgb = PRIMARY
+        border.line.width = style.BORDER_WEIGHT
+        border.shadow.inherit = False
 
     def _side_band(self, slide):
         # Solid navy strip down the slide's right edge, matching the Carrier
@@ -263,7 +280,7 @@ class ReportBuilder:
         photography is available for this deck, so solid colour panels stand
         in for where a Carrier-branded cover would place its imagery, rather
         than faking or downloading photos."""
-        slide = self._new_slide()
+        slide = self._new_slide(bordered=False)
 
         slide.shapes.add_picture(str(style.LOGO_PATH), Inches(0.4), Inches(0.35), style.TITLE_LOGO_WIDTH, style.TITLE_LOGO_HEIGHT)
 
