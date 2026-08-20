@@ -5,8 +5,8 @@
   "pivots": [
     {
       "id": "pivot_shipments_by_product_grower",
-      "name": "Shipments by Product & Grower",
-      "description": "Counts shipments grouped by Product then by Origin/grower -- slice by Country of Origin, Origin, Carrier, or Product to answer 'how many shipments per product, and which grower shipped them' for any subset.",
+      "name": "Shipments by Product & Origin",
+      "description": "Counts shipments grouped by Product then by Origin -- slice by Country of Origin, Origin, Carrier, or Product to answer 'how many shipments per product, and which origin shipped them' for any subset.",
       "group_by": ["Product", "Origin"],
       "metrics": [
         { "column": "Serial Number", "agg": "count", "output_label": "Shipments" }

@@ -283,7 +283,7 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
   if (AUDITED_SLOTS.every((id) => !files[id])) {
     return (
       <div className="report-page">
-        <Header />
+        <Header subtitle="Report" />
         <main className="report-page__main">
           <StepIndicator current={5} />
           <div className="report-page__empty">
@@ -300,7 +300,7 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
   if (auditedReady.length === 0) {
     return (
       <div className="report-page">
-        <Header />
+        <Header subtitle="Report" />
         <main className="report-page__main">
           <StepIndicator current={5} />
           <div className="report-page__empty">
@@ -319,7 +319,7 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
   if (slotsReady.length === 0) {
     return (
       <div className="report-page">
-        <Header />
+        <Header subtitle="Report" />
         <main className="report-page__main">
           <StepIndicator current={5} />
           <div className="report-page__empty">
@@ -339,7 +339,7 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
 
   return (
     <div className="report-page">
-      <Header />
+      <Header subtitle="Report" />
       <main className="report-page__main">
         <StepIndicator current={5} />
 

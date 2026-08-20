@@ -272,7 +272,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
   if (AUDITED_SLOTS.every((id) => !files[id])) {
     return (
       <div className="analysis-page">
-        <Header />
+        <Header subtitle="Analysis" />
         <main className="analysis-page__main">
           <StepIndicator current={4} />
           <div className="analysis-page__empty">
@@ -289,7 +289,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
   if (auditedReady.length === 0) {
     return (
       <div className="analysis-page">
-        <Header />
+        <Header subtitle="Analysis" />
         <main className="analysis-page__main">
           <StepIndicator current={4} />
           <div className="analysis-page__empty">
@@ -306,7 +306,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
   if (slotsReady.length === 0) {
     return (
       <div className="analysis-page">
-        <Header />
+        <Header subtitle="Analysis" />
         <main className="analysis-page__main">
           <StepIndicator current={4} />
           <div className="analysis-page__empty">
@@ -327,7 +327,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
   if (!hasAnalysisProfileFile) {
     return (
       <div className="analysis-page">
-        <Header />
+        <Header subtitle="Analysis" />
         <main className="analysis-page__main">
           <StepIndicator current={4} />
           <div className="analysis-page__empty">
@@ -347,7 +347,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
 
   return (
     <div className="analysis-page">
-      <Header />
+      <Header subtitle="Analysis" />
       <main className="analysis-page__main">
         <StepIndicator current={4} />
 

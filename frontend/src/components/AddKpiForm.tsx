@@ -49,7 +49,7 @@ export default function AddKpiForm({ columns, busy, onAdd, onCancel }: AddKpiFor
     onAdd({
       id: `custom_${Date.now().toString(36)}`,
       name: name.trim(),
-      description: "Custom KPI added manually.",
+      description: `Formula: ${formula.trim()}`,
       output_column: name.trim(),
       type: "custom_formula",
       formula: formula.trim(),

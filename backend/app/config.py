@@ -12,7 +12,7 @@ DATA_DIR = BACKEND_DIR / "data"
 RAW_DATA_DIR = DATA_DIR / "raw"
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 CORS_ORIGINS = [
     "http://localhost:5173",

@@ -11,13 +11,20 @@
 }
 
 .add-kpi-form__field {
-  flex: 1 1 200px;
   display: flex;
   flex-direction: column;
   gap: 5px;
   font-size: 12px;
   font-weight: 700;
   color: var(--color-text);
+}
+
+/* 200px is a WIDTH basis for fields sitting side-by-side in a __row -- only
+   scoped there, since .add-kpi-form itself is a column flex container,
+   where an unscoped flex-basis would be read as a HEIGHT instead, forcing
+   every field to stretch to 200px tall. */
+.add-kpi-form__row .add-kpi-form__field {
+  flex: 1 1 200px;
 }
 
 .add-kpi-form__field--narrow {

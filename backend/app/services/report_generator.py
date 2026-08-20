@@ -542,10 +542,10 @@ def _combo_label(combo: list[dict], fixed_columns: set[str]) -> str:
 # the Report page's per-pivot filter-scope toggle -- that's a real, explicit
 # override and takes precedence over this default.
 DEFAULT_SCOPE_EXCLUSIONS: dict[str, set[str]] = {
-    # Shipments by Product & Grower reads best sliced by Country of Origin
+    # Shipments by Product & Origin reads best sliced by Country of Origin
     # alone -- Origin/Carrier/Product all still show up as columns IN the
     # table itself, so filtering by them too is redundant.
-    "Shipments by Product & Grower": {"Origin", "Carrier", "Product"},
+    "Shipments by Product & Origin": {"Origin", "Carrier", "Product"},
     # Carrier Compliance Ranking always defaults to just Country of Origin +
     # Origin -- Carrier is excluded because the pivot already groups BY
     # Carrier (filtering by it too is self-defeating), and Product is
