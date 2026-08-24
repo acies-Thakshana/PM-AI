@@ -62,6 +62,9 @@ export interface FeatureResult {
   null_count: number;
   distribution: Record<string, number>;
   stats: Record<string, number>;
+  // Only set for an "ai_generated" feature -- the pandas code Groq wrote to
+  // compute it, after it ran successfully through the backend's sandbox.
+  generated_code?: string | null;
 }
 
 export interface FeatureReport {
@@ -87,7 +90,7 @@ export interface FeatureDefinitionsSummary {
   feature_names: string[];
 }
 
-export type FeatureSuggestionType = "duration_hours" | "ratio" | "extract_month" | "custom_formula";
+export type FeatureSuggestionType = "duration_hours" | "ratio" | "extract_month" | "custom_formula" | "ai_generated";
 
 export interface FeatureSuggestion {
   id: string;
@@ -103,6 +106,11 @@ export interface FeatureSuggestion {
   numerator_columns: string[] | null;
   denominator_columns: string[] | null;
   source_columns: string[] | null;
+  // Only used by type "ai_generated": the plain-English ask, and the
+  // pandas code Groq wrote for it (filled in after the backend computes
+  // it once -- not set when the KPI is first submitted).
+  calculation_prompt?: string | null;
+  generated_code?: string | null;
 }
 
 export interface FeatureSuggestionsResponse {

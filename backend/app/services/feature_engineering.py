@@ -1,10 +1,11 @@
 """
-Deterministic feature engineering. Feature specs (including any lookup
-mappings, e.g. the COO table) come entirely from whatever "Customer KPI
-Profile" JSON the user uploaded (see feature_definitions_store.py) -- there
-is no bundled backend default definitions file. Adding a new feature of an
-already-supported type ("lookup", "extract_month", "ratio") only requires
-editing/re-uploading that JSON.
+Feature engineering by reusable, JSON-driven templates. Each entry in
+`_APPLIERS` is a template for one calculation shape (lookup, month
+extraction, ratio, duration, custom formula); a feature spec is just JSON
+that fills in that template's inputs (source/target columns, mappings,
+formula text, ...) -- see feature_definitions_store.py for where that JSON
+comes from. Adding a new feature of an already-supported type only
+requires editing/re-uploading the JSON, no code change.
 
 Every feature is computed against the dataframe passed in by the caller,
 which is always the CURRENT audited session dataframe (see routers/audit.py)
@@ -13,14 +14,20 @@ column was removed during the audit's HITL review, that feature is skipped
 (and reported as skipped) rather than silently recomputed from data the user
 already chose to drop.
 
-No LLM involved -- lookup/date-extraction/ratio arithmetic needs to be
-reliable, not a plausible-sounding guess.
+The templates above are deterministic -- no LLM involved, since
+lookup/date-extraction/ratio arithmetic needs to be reliable, not a
+plausible-sounding guess. The one exception is the "ai_generated" type: a
+fallback for when a requested calculation doesn't fit any existing
+template, where an LLM writes the pandas code itself (see
+ai_feature_generator.py) and it runs through a restricted sandbox (see
+ai_code_executor.py) rather than being trusted outright.
 """
 import re
 
 import pandas as pd
 
 from app.schemas import FeatureResult
+from app.services import ai_code_executor
 
 TOP_N_DISTRIBUTION = 12
 
@@ -129,12 +136,44 @@ def _apply_custom_formula(df: pd.DataFrame, spec: dict) -> pd.Series | None:
     return pd.to_numeric(result, errors="coerce")
 
 
+def _apply_ai_generated(df: pd.DataFrame, spec: dict) -> pd.Series | None:
+    """Fallback for a calculation that doesn't fit any template above.
+    Groq writes pandas code for it once; that code is cached onto `spec`
+    (the same dict object the store/session extra_features list holds) so
+    re-applying features later in the session replays the cached code
+    instead of calling the LLM again. On any failure -- unavailable LLM,
+    unsafe/malformed code, a runtime error against this particular data --
+    the reason is stashed on `spec["_ai_error"]` for apply_features() to
+    surface as a skip note, since "a required column is missing" (the
+    generic skip message below) wouldn't be accurate here."""
+    cached_code = spec.get("generated_code")
+    if cached_code:
+        try:
+            return ai_code_executor.run_generated_code(cached_code, df)
+        except Exception as exc:
+            spec["_ai_error"] = str(exc)
+            return None
+
+    from app.services import ai_feature_generator  # lazy: avoid requiring GROQ_API_KEY unless this type is actually used
+
+    try:
+        code = ai_feature_generator.generate_code(spec, df)
+        values = ai_code_executor.run_generated_code(code, df)
+    except Exception as exc:
+        spec["_ai_error"] = f"AI-generated calculation failed: {exc}"
+        return None
+
+    spec["generated_code"] = code
+    return values
+
+
 _APPLIERS = {
     "lookup": _apply_lookup,
     "extract_month": _apply_extract_month,
     "ratio": _apply_ratio,
     "duration_hours": _apply_duration_hours,
     "custom_formula": _apply_custom_formula,
+    "ai_generated": _apply_ai_generated,
 }
 
 
@@ -155,10 +194,13 @@ def apply_features(df: pd.DataFrame, definitions: list[dict]) -> tuple[pd.DataFr
 
         values = applier(working, spec)
         if values is None:
-            skipped_notes.append(
-                f"{spec['name']}: skipped -- a required source column isn't present in the "
-                f"current data (likely removed during the audit review), or its formula couldn't be evaluated."
-            )
+            if spec["type"] == "ai_generated" and spec.get("_ai_error"):
+                skipped_notes.append(f"{spec['name']}: {spec['_ai_error']}")
+            else:
+                skipped_notes.append(
+                    f"{spec['name']}: skipped -- a required source column isn't present in the "
+                    f"current data (likely removed during the audit review), or its formula couldn't be evaluated."
+                )
             continue
 
         output_col = spec["output_column"]
@@ -171,6 +213,7 @@ def apply_features(df: pd.DataFrame, definitions: list[dict]) -> tuple[pd.DataFr
             output_column=output_col, non_null_count=non_null, null_count=len(values) - non_null,
             distribution=_distribution(values) if summary == "distribution" else {},
             stats=_numeric_stats(values) if summary == "stats" else {},
+            generated_code=spec.get("generated_code") if spec["type"] == "ai_generated" else None,
         ))
 
     return working, results, skipped_notes

@@ -89,6 +89,7 @@ class FeatureResult(BaseModel):
     null_count: int
     distribution: dict[str, int] = {}
     stats: dict[str, float] = {}
+    generated_code: str | None = None
 
 
 class FeatureReport(BaseModel):
@@ -123,6 +124,8 @@ class FeatureSuggestion(BaseModel):
     numerator_columns: list[str] | None = None
     denominator_columns: list[str] | None = None
     source_columns: list[str] | None = None
+    calculation_prompt: str | None = None
+    generated_code: str | None = None
 
 
 class SuggestFeaturesRequest(BaseModel):
