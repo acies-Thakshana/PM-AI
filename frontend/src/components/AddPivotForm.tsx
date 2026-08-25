@@ -1,11 +1,11 @@
 import { useState } from "react";
-import type { PivotAgg, PivotFilter, PivotMetric, PivotSuggestion } from "../api/audit";
+import type { CustomPivot, PivotAgg, PivotFilter, PivotMetric } from "../api/audit";
 import "./AddPivotForm.css";
 
 interface AddPivotFormProps {
   columns: string[];
   busy: boolean;
-  onAdd: (pivot: PivotSuggestion) => void;
+  onAdd: (pivot: CustomPivot) => void;
   onCancel: () => void;
 }
 

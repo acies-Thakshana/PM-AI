@@ -7,6 +7,7 @@ from pptx import Presentation
 
 from app.schemas import (
     ApplyPivotsRequest,
+    LanguageOption,
     OverallAnalysisReport,
     PivotDefinitionsSummary,
     PivotReport,
@@ -17,10 +18,9 @@ from app.schemas import (
     SetReportFilterScopeRequest,
     SetReportFiltersRequest,
     SetReportTitleRequest,
-    SuggestPivotsRequest,
-    SuggestPivotsResponse,
+    SupportedLanguagesResponse,
 )
-from app.services import overall_analysis, overall_analysis_agent, pivot_engine, pivot_suggester, report_generator
+from app.services import overall_analysis, pivot_engine, report_generator, translation_service
 from app.services import pivot_definitions_store as pivot_defs_store
 from app.services import report_template_store
 from app.services.audit_store import AuditSession, store
@@ -115,16 +115,6 @@ def clear_report_template() -> ReportTemplateSummary:
     return ReportTemplateSummary(filename=None)
 
 
-@router.post("/suggest", response_model=SuggestPivotsResponse)
-def suggest_pivots(body: SuggestPivotsRequest) -> SuggestPivotsResponse:
-    session = _get_session_or_404(body.session_id)
-    try:
-        suggestions = pivot_suggester.suggest_pivots(session.df)
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Pivot suggestion agent (Groq) is unavailable: {exc}") from exc
-    return SuggestPivotsResponse(session_id=body.session_id, suggestions=suggestions)
-
-
 @router.post("/{session_id}/pivots", response_model=PivotReport)
 def apply_pivots(session_id: str, body: ApplyPivotsRequest | None = None) -> PivotReport:
     session = _get_session_or_404(session_id)
@@ -134,7 +124,7 @@ def apply_pivots(session_id: str, body: ApplyPivotsRequest | None = None) -> Piv
             detail="No Analysis Profile has been uploaded yet -- upload one (with your pivot table "
                    "definitions) before analysis can run. There is no default.",
         )
-    # `extra_pivots` omitted (None) means "leave the AI/custom pivots already
+    # `extra_pivots` omitted (None) means "leave the custom pivots already
     # applied for this session alone" -- a caller that only wants to change
     # slicer filters (e.g. the Report page) doesn't have to resend the
     # Analysis page's full accepted list to avoid dropping them.
@@ -238,32 +228,44 @@ def set_report_title(session_id: str, body: SetReportTitleRequest) -> ReportTitl
 def get_overall_analysis(session_id: str) -> OverallAnalysisReport:
     session = _get_session_or_404(session_id)
     highlights = overall_analysis.build_highlights(len(session.df), session.features, session.pivots)
-    try:
-        narrative = overall_analysis_agent.generate_narrative(len(session.df), highlights)
-    except Exception as exc:
-        raise HTTPException(
-            status_code=502, detail=f"Overall analysis narrative agent (Groq) is unavailable: {exc}"
-        ) from exc
-    report = OverallAnalysisReport(
-        session_id=session_id, row_count=len(session.df), highlights=highlights, narrative=narrative
-    )
+    report = OverallAnalysisReport(session_id=session_id, row_count=len(session.df), highlights=highlights)
     session.overall_analysis = report
     return report
 
 
+@router.get("/languages", response_model=SupportedLanguagesResponse)
+def get_supported_languages() -> SupportedLanguagesResponse:
+    """Languages the downloaded report can be translated into (see
+    translation_service.py) -- "en" (no translation, the default) plus
+    whatever DeepL target languages that module currently lists."""
+    languages = [LanguageOption(code="en", name="English")] + [
+        LanguageOption(code=code, name=name)
+        for code, (name, _) in sorted(translation_service.SUPPORTED_LANGUAGES.items(), key=lambda kv: kv[1][0])
+    ]
+    return SupportedLanguagesResponse(languages=languages)
+
+
 @router.get("/{session_id}/report")
-def download_report(session_id: str):
+def download_report(session_id: str, language: str = "en"):
     """Streams a .pptx built from every current pivot, each recomputed fresh
     from the raw data using the session's one shared report_filters (see
     /report-filters) -- a column with 2+ selected values there fans out into
     one slide per value, per pivot. Every chart is native, built fresh,
-    never a picture."""
+    never a picture.
+
+    `language` (optional, default "en") translates the report's own fixed
+    English phrases -- see report_generator.TRANSLATABLE_PHRASES -- into one
+    of the codes /languages lists; the underlying data (pivot/column names,
+    category values) is never translated. If the translation API isn't
+    configured or fails, the report still downloads, just in English."""
     session = _get_session_or_404(session_id)
     if not session.pivots:
         raise HTTPException(
             status_code=422,
             detail="No pivot tables have been computed yet -- run the Analysis step before downloading a report.",
         )
+    if language != "en" and language not in translation_service.SUPPORTED_LANGUAGES:
+        raise HTTPException(status_code=422, detail=f"Unsupported language '{language}'.")
 
     combined_defs = list(pivot_defs_store.store.definitions or []) + session.extra_pivot_defs
     pptx_bytes = report_generator.build_report(
@@ -276,6 +278,7 @@ def download_report(session_id: str):
         report_titles=session.report_titles,
         overall=session.overall_analysis,
         template_bytes=report_template_store.store.content,
+        language=language,
     )
 
     filename = f"{report_generator.REPORT_NAME}.pptx"

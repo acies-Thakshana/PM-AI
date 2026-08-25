@@ -145,16 +145,7 @@
 }
 
 
-/* -- AI suggestions + custom KPI panels (side by side) ------------------- */
-
-.features-page__panels-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 16px;
-  margin-top: 20px;
-  margin-bottom: 20px;
-  align-items: start;
-}
+/* -- custom KPI panel --------------------------------------------------- */
 
 .features-page__panel-head-text {
   display: flex;
@@ -201,50 +192,14 @@
   height: 14px;
 }
 
-.features-page__ai-panel {
-  border: 1px solid var(--accent-purple-bg);
-  background: var(--accent-purple-bg);
-  border-radius: var(--radius-md);
-  padding: 18px 20px;
-  display: flex;
-  flex-direction: column;
-}
-
-.features-page__ai-panel-head {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-}
-
-.features-page__ai-panel-title {
-  margin: 0 0 4px;
-  font-size: 14.5px;
-  font-weight: 800;
-  color: var(--accent-purple);
-}
-
-.features-page__ai-panel-hint {
-  margin: 0;
-  font-size: 12px;
-  color: var(--color-text-muted);
-  line-height: 1.5;
-}
-
-.features-page__ai-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 12px;
-  margin-top: 16px;
-}
-
-/* -- add custom KPI ---------------------------------------------------- */
-
 .features-page__custom-kpi {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: 18px 20px;
   display: flex;
   flex-direction: column;
+  margin-top: 20px;
+  margin-bottom: 20px;
 }
 
 .features-page__custom-kpi-head {

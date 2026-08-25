@@ -4,11 +4,14 @@ pivots are in `session.pivots` right now (with whatever slicer filters are
 active) and the last-computed overall analysis. Every chart is a real,
 native PowerPoint chart object -- never a picture, and never anything
 carried over from a reference deck. No LLM decides slide content: every
-slide, heading, and chart is 100% rule-driven from the pivot's own shape
-(group_by column count, metric count) and its already-computed numbers.
-The one exception is the narrative sentence on the summary slide, which is
-already-computed prose handed in via `overall.narrative` -- this module
-never reinterprets a raw number itself.
+slide, heading, and chart -- including the summary slide's highlight
+bullets -- is 100% rule-driven from the pivot's own shape (group_by column
+count, metric count) and its already-computed numbers.
+
+`build_report`'s `language` param optionally translates the report's own
+fixed English phrases (see TRANSLATABLE_PHRASES) via translation_service --
+never the underlying data (pivot/column names, category values), which
+always stays exactly as it appears in the source spreadsheet.
 """
 import io
 import re
@@ -24,11 +27,47 @@ from pptx.enum.text import PP_ALIGN
 from pptx.util import Inches, Pt
 
 from app.schemas import OverallAnalysisReport, PivotResult
-from app.services import chart_xml, pivot_engine, report_style as style
+from app.services import chart_xml, pivot_engine, report_style as style, translation_service
 
 MAX_CHART_ROWS = 20
 
 REPORT_NAME = "Eduka Report"  # standing report title/filename -- not derived from the uploaded source file's name
+
+# Fixed English phrases the report builder writes itself -- never a data
+# value (column name, pivot/feature name, category value). Translated as
+# one batch per report/language in build_report, then looked up via the
+# `phrases` dict every builder carries. PROGRAM_TITLE and REPORT_NAME are
+# deliberately excluded from this list -- they're product/brand names, not
+# descriptive UI text, so they stay in English regardless of the selected
+# language, same as the frontend's own "Program Manager AI" branding.
+SUMMARY_HEADING = "Summary"
+NO_HIGHLIGHTS_CAPTION = "No highlights had been generated for this session yet."
+GROUPED_BY_PHRASE = "grouped by"
+
+# Highlight-label keyword prefixes (see overall_analysis.py's
+# build_highlights) -- translated once, then substituted back onto the
+# FRONT of the label ahead of whatever data-derived text follows (a
+# feature/pivot/metric name), via translate_highlight_label below, so a
+# data value is never itself sent to the translator.
+HIGHLIGHT_LABEL_PREFIXES = ["Total Rows Analyzed", "Most common", "Highest", "Lowest", "Avg"]
+
+TRANSLATABLE_PHRASES = [
+    SUMMARY_HEADING, NO_HIGHLIGHTS_CAPTION, GROUPED_BY_PHRASE, style.PROPRIETARY_TEXT, *HIGHLIGHT_LABEL_PREFIXES,
+]
+
+
+def translate_highlight_label(label: str, phrases: dict[str, str]) -> str:
+    """Swaps in the translated version of whichever HIGHLIGHT_LABEL_PREFIXES
+    entry `label` starts with, leaving everything after it (the actual
+    feature/pivot/metric name -- a data value) untouched. Returns `label`
+    unchanged if it doesn't match a known prefix shape."""
+    for prefix in sorted(HIGHLIGHT_LABEL_PREFIXES, key=len, reverse=True):
+        translated_prefix = phrases.get(prefix, prefix)
+        if label == prefix:
+            return translated_prefix
+        if label.startswith(prefix + " "):
+            return translated_prefix + label[len(prefix):]
+    return label
 
 PRIMARY = RGBColor.from_string(style.BAR_COLOR_HEX)
 LINE_COLOR = RGBColor.from_string(style.LINE_COLOR_HEX)
@@ -181,7 +220,8 @@ def style_native_chart(chart, number_format: str, single_series: bool):
 
 
 class ReportBuilder:
-    def __init__(self):
+    def __init__(self, phrases: dict[str, str] | None = None):
+        self.phrases = phrases or {}
         self.prs = Presentation()
         self.prs.slide_width = style.SLIDE_W
         self.prs.slide_height = style.SLIDE_H
@@ -242,14 +282,14 @@ class ReportBuilder:
 
         tb = slide.shapes.add_textbox(Inches(1.25), style.SLIDE_H - Inches(0.35), Inches(2.5), Inches(0.25))
         p = tb.text_frame.paragraphs[0]
-        p.text = style.PROGRAM_TITLE
+        p.text = style.PROGRAM_TITLE  # brand name -- always English, never translated
         p.font.size = Pt(12)
         p.font.color.rgb = MUTED
         p.font.name = style.FONT_BODY
 
         proprietary = slide.shapes.add_textbox(Inches(3.85), style.SLIDE_H - Inches(0.35), Inches(2.3), Inches(0.25))
         pr = proprietary.text_frame.paragraphs[0]
-        pr.text = style.PROPRIETARY_TEXT
+        pr.text = self.phrases.get(style.PROPRIETARY_TEXT, style.PROPRIETARY_TEXT)
         pr.font.size = Pt(12)
         pr.alignment = PP_ALIGN.CENTER
         pr.font.color.rgb = MUTED
@@ -407,25 +447,19 @@ class ReportBuilder:
         slide = self._new_slide()
         self._header(slide, heading)
 
-        if overall is None:
-            self._caption(slide, "No overall analysis had been generated for this session yet.", top=Inches(0.6))
+        if overall is None or not overall.highlights:
+            caption = self.phrases.get(NO_HIGHLIGHTS_CAPTION, NO_HIGHLIGHTS_CAPTION)
+            self._caption(slide, caption, top=Inches(0.6))
             self._footer(slide)
             return
 
-        box = slide.shapes.add_textbox(Inches(0.5), Inches(0.75), style.SLIDE_W - Inches(1.0), Inches(1.5))
-        tf = box.text_frame
+        list_box = slide.shapes.add_textbox(Inches(0.5), Inches(0.75), style.SLIDE_W - Inches(1.0), style.SLIDE_H - Inches(1.25))
+        tf = list_box.text_frame
         tf.word_wrap = True
-        tf.text = overall.narrative
-        tf.paragraphs[0].font.size = Pt(12)
-        tf.paragraphs[0].font.color.rgb = DARK_TEXT
-        tf.paragraphs[0].font.name = style.FONT_BODY
-
-        list_box = slide.shapes.add_textbox(Inches(0.5), Inches(2.4), style.SLIDE_W - Inches(1.0), style.SLIDE_H - Inches(2.9))
-        tf2 = list_box.text_frame
-        tf2.word_wrap = True
         for i, h in enumerate(overall.highlights):
-            p = tf2.paragraphs[0] if i == 0 else tf2.add_paragraph()
-            p.text = f"•  {h.label}: {h.value}"
+            p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+            label = translate_highlight_label(h.label, self.phrases)
+            p.text = f"•  {label}: {h.value}"
             p.font.size = Pt(12)
             p.font.color.rgb = DARK_TEXT
             p.font.name = style.FONT_BODY
@@ -442,7 +476,7 @@ def _percent_metric(pivot: PivotResult) -> str | None:
     return next((m for m in pivot.metric_labels if "%" in m), None)
 
 
-def _add_pivot_slides(builder: ReportBuilder, pivot: PivotResult) -> None:
+def _add_pivot_slides(builder: ReportBuilder, pivot: PivotResult, phrases: dict[str, str]) -> None:
     """Exactly ONE slide per pivot, whatever its shape -- mirrors the
     reference GenericReportBuilder, where a pivot maps to a single slide
     call (add_grouped_bar_slide / add_combo_slide / add_simple_chart_slide),
@@ -459,9 +493,10 @@ def _add_pivot_slides(builder: ReportBuilder, pivot: PivotResult) -> None:
         metric_label = pivot.metric_labels[0]
         groups = _grouped_bar_data(pivot.rows, level1, level2, metric_label)
         if groups:
+            grouped_by = phrases.get(GROUPED_BY_PHRASE, GROUPED_BY_PHRASE)
             builder.add_grouped_bar_slide(
                 heading=pivot.name,
-                description=f"{pivot.description}  (grouped by {level2})",
+                description=f"{pivot.description}  ({grouped_by} {level2})",
                 groups=groups, y_axis_title=metric_label, category_axis_title=level1,
             )
             return
@@ -577,6 +612,7 @@ def build_report(
     report_titles: dict[str, str] | None,
     overall: OverallAnalysisReport | None,
     template_bytes: bytes | None = None,
+    language: str = "en",
 ) -> bytes:
     """Builds the deck from EVERY current pivot, each recomputed fresh from
     the raw data using the one shared `report_filters` -- scoped down per
@@ -600,15 +636,25 @@ def build_report(
     default can't take report generation down entirely. Both builders
     expose the same add_*_slide methods, so nothing below this line needs
     to know or care which one it's talking to.
+
+    `language` is a translation_service.SUPPORTED_LANGUAGES code (or "en",
+    the default/no-op). Only the report's own fixed English phrases --
+    TRANSLATABLE_PHRASES -- are ever translated; every data value (pivot
+    names, column names, category values from the uploaded spreadsheet)
+    stays exactly as it appears in the source data. Falls back to English
+    silently if translation isn't available for any reason (see
+    translation_service.translate_many) -- never blocks the download.
     """
+    phrases = translation_service.translate_many(TRANSLATABLE_PHRASES, language)
+
     if not template_bytes and style.DEFAULT_TEMPLATE_PATH.exists():
         template_bytes = style.DEFAULT_TEMPLATE_PATH.read_bytes()
 
     if template_bytes:
         from app.services.report_template_builder import TemplateReportBuilder
-        builder = TemplateReportBuilder(template_bytes)
+        builder = TemplateReportBuilder(template_bytes, phrases=phrases)
     else:
-        builder = ReportBuilder()
+        builder = ReportBuilder(phrases=phrases)
     builder.add_title_slide(source_label, _date_range_label(df))
 
     defs_by_id = {d["id"]: d for d in definitions}
@@ -637,7 +683,7 @@ def build_report(
             base_title = report_titles.get(pivot.id, pivot.name)
             title = f"{base_title} — {label}" if label else base_title
             pivot_result = results[0].model_copy(update={"name": title})
-            _add_pivot_slides(builder, pivot_result)
+            _add_pivot_slides(builder, pivot_result, phrases)
 
-    builder.add_summary_slide("Summary", overall)
+    builder.add_summary_slide(phrases.get(SUMMARY_HEADING, SUMMARY_HEADING), overall)
     return builder.save_bytes()

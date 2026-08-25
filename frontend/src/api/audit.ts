@@ -35,8 +35,6 @@ export interface AuditIssue {
   selectable_items: string[];
   status: IssueStatus;
   resolution: string | null;
-  recommended_action: string | null;
-  recommendation: string | null;
   chart: OutlierChart | null;
 }
 
@@ -62,9 +60,6 @@ export interface FeatureResult {
   null_count: number;
   distribution: Record<string, number>;
   stats: Record<string, number>;
-  // Only set for an "ai_generated" feature -- the pandas code Groq wrote to
-  // compute it, after it ran successfully through the backend's sandbox.
-  generated_code?: string | null;
 }
 
 export interface FeatureReport {
@@ -90,14 +85,16 @@ export interface FeatureDefinitionsSummary {
   feature_names: string[];
 }
 
-export type FeatureSuggestionType = "duration_hours" | "ratio" | "extract_month" | "custom_formula" | "ai_generated";
+// Shape of a manually-defined custom KPI (see AddKpiForm) -- sent straight
+// back to the backend as an `extra_features` entry when added.
+export type CustomFeatureType = "duration_hours" | "ratio" | "extract_month" | "custom_formula";
 
-export interface FeatureSuggestion {
+export interface CustomFeature {
   id: string;
   name: string;
   description: string;
   output_column: string;
-  type: FeatureSuggestionType;
+  type: CustomFeatureType;
   formula: string;
   summary: string;
   start_column: string | null;
@@ -106,16 +103,6 @@ export interface FeatureSuggestion {
   numerator_columns: string[] | null;
   denominator_columns: string[] | null;
   source_columns: string[] | null;
-  // Only used by type "ai_generated": the plain-English ask, and the
-  // pandas code Groq wrote for it (filled in after the backend computes
-  // it once -- not set when the KPI is first submitted).
-  calculation_prompt?: string | null;
-  generated_code?: string | null;
-}
-
-export interface FeatureSuggestionsResponse {
-  session_id: string;
-  suggestions: FeatureSuggestion[];
 }
 
 export type PivotAgg = "sum" | "mean" | "count" | "min" | "max" | "median" | "distinct_count" | "pct_of_total";
@@ -137,7 +124,9 @@ export interface PivotSort {
   direction: "asc" | "desc";
 }
 
-export interface PivotSuggestion {
+// Shape of a manually-defined custom analysis (see AddPivotForm) -- sent
+// straight back to the backend as an `extra_pivots` entry when added.
+export interface CustomPivot {
   id: string;
   name: string;
   description: string;
@@ -181,11 +170,6 @@ export interface ReportTemplateSummary {
   filename: string | null;
 }
 
-export interface PivotSuggestionsResponse {
-  session_id: string;
-  suggestions: PivotSuggestion[];
-}
-
 export interface OverallHighlight {
   label: string;
   value: string;
@@ -195,7 +179,15 @@ export interface OverallAnalysisReport {
   session_id: string;
   row_count: number;
   highlights: OverallHighlight[];
-  narrative: string;
+}
+
+export interface LanguageOption {
+  code: string;
+  name: string;
+}
+
+export interface SupportedLanguagesResponse {
+  languages: LanguageOption[];
 }
 
 export class AuditApiError extends Error {}
@@ -258,11 +250,16 @@ export function downloadCleansedFileUrl(sessionId: string): string {
   return `${API_BASE_URL}/api/audit/${sessionId}/download`;
 }
 
-export function downloadReportUrl(sessionId: string): string {
-  return `${API_BASE_URL}/api/analysis/${sessionId}/report`;
+/** `language` is a code from fetchSupportedLanguages() (default "en", the
+ * report's own no-translation language) -- appended as a query param only
+ * when it isn't "en", so an unset/English selection hits the exact same
+ * URL as before this existed. */
+export function downloadReportUrl(sessionId: string, language: string = "en"): string {
+  const base = `${API_BASE_URL}/api/analysis/${sessionId}/report`;
+  return language === "en" ? base : `${base}?language=${encodeURIComponent(language)}`;
 }
 
-export async function applyFeatures(sessionId: string, extraFeatures: FeatureSuggestion[] = []): Promise<FeatureReport> {
+export async function applyFeatures(sessionId: string, extraFeatures: CustomFeature[] = []): Promise<FeatureReport> {
   const response = await fetch(`${API_BASE_URL}/api/audit/${sessionId}/features`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -276,18 +273,6 @@ export async function applyFeatures(sessionId: string, extraFeatures: FeatureSug
 
 export async function fetchFeatureReport(sessionId: string): Promise<FeatureReport> {
   const response = await fetch(`${API_BASE_URL}/api/audit/${sessionId}/features`);
-  if (!response.ok) {
-    throw new AuditApiError(await parseErrorDetail(response));
-  }
-  return response.json();
-}
-
-export async function suggestFeatures(sessionId: string): Promise<FeatureSuggestionsResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/features/suggest`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ session_id: sessionId }),
-  });
   if (!response.ok) {
     throw new AuditApiError(await parseErrorDetail(response));
   }
@@ -363,24 +348,12 @@ export async function uploadReportTemplate(file: File): Promise<ReportTemplateSu
   return response.json();
 }
 
-export async function suggestPivots(sessionId: string): Promise<PivotSuggestionsResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/analysis/suggest`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ session_id: sessionId }),
-  });
-  if (!response.ok) {
-    throw new AuditApiError(await parseErrorDetail(response));
-  }
-  return response.json();
-}
-
 export async function applyPivots(
   sessionId: string,
-  /** Omit (undefined) to leave whatever AI/custom pivots were last applied
+  /** Omit (undefined) to leave whatever custom pivots were last applied
    * for this session alone -- e.g. the Report page changing only filters
    * shouldn't have to resend the Analysis page's full accepted list. */
-  extraPivots?: PivotSuggestion[],
+  extraPivots?: CustomPivot[],
   pivotFilters: Record<string, PivotFilter[]> = {}
 ): Promise<PivotReport> {
   const response = await fetch(`${API_BASE_URL}/api/analysis/${sessionId}/pivots`, {
@@ -501,6 +474,17 @@ export async function fetchPivotReport(sessionId: string): Promise<PivotReport> 
 
 export async function fetchOverallAnalysis(sessionId: string): Promise<OverallAnalysisReport> {
   const response = await fetch(`${API_BASE_URL}/api/analysis/${sessionId}/overall`);
+  if (!response.ok) {
+    throw new AuditApiError(await parseErrorDetail(response));
+  }
+  return response.json();
+}
+
+/** Languages the downloaded report can be translated into -- "en" (no
+ * translation) is always first, followed by whatever the backend's
+ * translation_service currently supports. */
+export async function fetchSupportedLanguages(): Promise<SupportedLanguagesResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/analysis/languages`);
   if (!response.ok) {
     throw new AuditApiError(await parseErrorDetail(response));
   }

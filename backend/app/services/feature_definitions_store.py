@@ -7,7 +7,7 @@ the other in-memory stores in this app (one demo session at a time).
 """
 import threading
 
-SUPPORTED_TYPES = {"lookup", "extract_month", "ratio", "duration_hours", "custom_formula", "ai_generated"}
+SUPPORTED_TYPES = {"lookup", "extract_month", "ratio", "duration_hours", "custom_formula"}
 
 
 class FeatureDefinitionsStore:
@@ -46,7 +46,6 @@ def validate(payload: dict) -> list[dict]:
         "ratio": {"numerator_columns", "denominator_columns"},
         "duration_hours": {"start_column", "end_column"},
         "custom_formula": {"formula"},
-        "ai_generated": {"calculation_prompt"},
     }
 
     for i, spec in enumerate(features):

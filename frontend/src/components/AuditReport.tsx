@@ -102,8 +102,6 @@ export default function AuditReport({
     [decisionIssues]
   );
 
-  const [bulkApplying, setBulkApplying] = useState(false);
-  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
   const [columnQuery, setColumnQuery] = useState("");
   const [columnDropdownOpen, setColumnDropdownOpen] = useState(false);
   const columnSearchRef = useRef<HTMLDivElement | null>(null);
@@ -146,32 +144,6 @@ export default function AuditReport({
     setColumnQuery("");
     setColumnDropdownOpen(false);
   };
-  // Bulk-apply only acts on whatever the column search is currently showing --
-  // what you see is what gets applied.
-  const pendingInActiveTab = useMemo(
-    () => visibleIssues.filter((i) => i.requires_decision && i.status === "pending"),
-    [visibleIssues]
-  );
-
-  // Snapshot the pending list at click time and work through it in order --
-  // each onResolve re-renders the parent with a shrinking `activeIssues`, so
-  // recomputing the work list mid-loop would make it shrink out from under
-  // us. Each finding's own recommended_action/selectable_items are static
-  // audit-time metadata (the backend re-validates them fresh against the
-  // current dataframe on every resolve), so acting on the snapshot is safe
-  // even if an earlier resolve in this same batch changed row/column counts.
-  const applyAllRecommendations = async () => {
-    const toApply = pendingInActiveTab;
-    setBulkApplying(true);
-    setBulkProgress({ done: 0, total: toApply.length });
-    for (const issue of toApply) {
-      const decisionId = issue.recommended_action ?? "keep";
-      const selectedItems = issue.selectable_items.length > 0 ? issue.selectable_items : undefined;
-      await onResolve(issue.id, decisionId, selectedItems);
-      setBulkProgress((p) => ({ ...p, done: p.done + 1 }));
-    }
-    setBulkApplying(false);
-  };
 
   const changeTotals = useMemo(() => summarizeChanges(resolvedIssues), [resolvedIssues]);
   const originalRowCount = report.row_count + changeTotals.rowsRemoved;
@@ -213,7 +185,6 @@ export default function AuditReport({
                 role="tab"
                 aria-selected={activeTab === "quality"}
                 className={`audit-report__tab ${activeTab === "quality" ? "audit-report__tab--active" : ""}`}
-                disabled={bulkApplying}
                 onClick={() => onTabChange("quality")}
               >
                 Overall Checks
@@ -224,7 +195,6 @@ export default function AuditReport({
                 role="tab"
                 aria-selected={activeTab === "suggestions"}
                 className={`audit-report__tab ${activeTab === "suggestions" ? "audit-report__tab--active" : ""}`}
-                disabled={bulkApplying}
                 onClick={() => onTabChange("suggestions")}
               >
                 Variable-Level Checks
@@ -235,7 +205,6 @@ export default function AuditReport({
                 role="tab"
                 aria-selected={activeTab === "summary"}
                 className={`audit-report__tab ${activeTab === "summary" ? "audit-report__tab--active" : ""}`}
-                disabled={bulkApplying}
                 onClick={() => onTabChange("summary")}
               >
                 Summary
@@ -253,7 +222,6 @@ export default function AuditReport({
                     className="audit-report__col-search-input"
                     placeholder="Search by column…"
                     value={columnQuery}
-                    disabled={bulkApplying}
                     onFocus={() => setColumnDropdownOpen(true)}
                     onChange={(e) => {
                       setColumnQuery(e.target.value);
@@ -270,7 +238,7 @@ export default function AuditReport({
                       ✕
                     </button>
                   )}
-                  {columnDropdownOpen && !bulkApplying && matchingColumns.length > 0 && (
+                  {columnDropdownOpen && matchingColumns.length > 0 && (
                     <ul className="audit-report__col-dropdown" role="listbox">
                       {matchingColumns.map((col) => (
                         <li key={col}>
@@ -288,18 +256,6 @@ export default function AuditReport({
                     </ul>
                   )}
                 </div>
-                {(bulkApplying || pendingInActiveTab.length > 0) && (
-                  <button
-                    type="button"
-                    className="audit-report__bulk-btn"
-                    disabled={bulkApplying}
-                    onClick={applyAllRecommendations}
-                  >
-                    {bulkApplying
-                      ? `Applying ${bulkProgress.done} of ${bulkProgress.total}…`
-                      : `Apply AI Recommendations (${pendingInActiveTab.length})`}
-                  </button>
-                )}
               </div>
             )}
           </div>

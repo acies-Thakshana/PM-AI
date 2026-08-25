@@ -5,7 +5,7 @@ import "./FeatureCard.css";
 interface FeatureCardProps {
   feature: FeatureResult;
   colorIndex?: number;
-  /** Present for AI-suggested/custom KPIs -- the formula it was built from. */
+  /** Present for custom KPIs -- the formula it was built from. */
   formula?: string;
   onExpand: () => void;
 }
@@ -77,7 +77,6 @@ export default function FeatureCard({ feature, colorIndex = 0, formula, onExpand
           <span className="feature-card__column">{feature.output_column}</span>
         </div>
         <div className="feature-card__badges">
-          {feature.id.startsWith("ai_") && <span className="feature-card__ai-badge">AI</span>}
           {feature.id.startsWith("custom_") && <span className="feature-card__custom-badge">Custom</span>}
         </div>
       </div>

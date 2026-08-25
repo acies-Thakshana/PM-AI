@@ -14,10 +14,10 @@ export default function OverallAnalysisCard({ report, loading, error, onRefresh 
     <div className="overall-analysis-card">
       <div className="overall-analysis-card__head">
         <h3 className="overall-analysis-card__title">
-          <IconSparkle /> Summary
+          <IconSparkle /> Highlights
         </h3>
         <button type="button" className="overall-analysis-card__refresh-btn" disabled={loading} onClick={onRefresh}>
-          {loading ? "Analyzing…" : report ? "Refresh" : "Generate Summary"}
+          {loading ? "Computing…" : report ? "Refresh" : "Compute Highlights"}
         </button>
       </div>
 
@@ -25,7 +25,6 @@ export default function OverallAnalysisCard({ report, loading, error, onRefresh 
 
       {report && (
         <>
-          <p className="overall-analysis-card__narrative">{report.narrative}</p>
           <ul className="overall-analysis-card__highlights">
             {report.highlights.map((h, idx) => (
               <li key={idx}>

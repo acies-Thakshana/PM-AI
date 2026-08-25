@@ -71,7 +71,7 @@ class AuditSession:
     # Last-computed overall analysis (see routers/analysis.py's /overall
     # endpoint) -- kept here so the report generator can reuse the exact
     # highlights/narrative the user already saw on screen instead of
-    # triggering another Groq call at export time.
+    # recomputing it at export time.
     overall_analysis: OverallAnalysisReport | None = None
 
 

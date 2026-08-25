@@ -46,7 +46,6 @@ export default function PivotTableCard({ pivot, hideHeader }: PivotTableCardProp
             <h3 className="pivot-table-card__name">{pivot.name}</h3>
             <p className="pivot-table-card__description">{pivot.description}</p>
           </div>
-          {pivot.id.startsWith("ai_pivot_") && <span className="pivot-table-card__ai-badge">AI</span>}
           {pivot.id.startsWith("custom_pivot_") && <span className="pivot-table-card__custom-badge">Custom</span>}
         </div>
       )}

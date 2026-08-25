@@ -5,18 +5,20 @@ import StepIndicator from "../components/StepIndicator";
 import PageHeader from "../components/PageHeader";
 import StatTile from "../components/StatTile";
 import PivotFilterBar from "../components/PivotFilterBar";
-import { IconClipboard, IconChevronLeft, IconDoc, IconDownload, IconGrid, IconLayers, IconSparkle, IconWarnTriangle } from "../components/icons";
+import { IconClipboard, IconChevronLeft, IconDoc, IconDownload, IconGrid, IconLayers, IconWarnTriangle } from "../components/icons";
 import {
   downloadReportUrl,
   fetchPivotReport,
   fetchReportFilters,
   fetchReportFilterScope,
   fetchReportTitles,
+  fetchSupportedLanguages,
   saveReportFilters,
   saveReportFilterScope,
   saveReportTitle,
   uploadReportTemplate,
   AuditApiError,
+  type LanguageOption,
   type PivotFilter,
   type PivotReport,
   type PivotResult,
@@ -133,6 +135,20 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
   const [templateLoading, setTemplateLoading] = useState(false);
   const [templateError, setTemplateError] = useState<string | null>(null);
   const hasTemplateFile = !!files.reportTemplate;
+
+  const [languages, setLanguages] = useState<LanguageOption[]>([{ code: "en", name: "English" }]);
+  const [language, setLanguage] = useState("en");
+
+  // The language list only ever needs fetching once -- unlike everything
+  // else on this page it isn't per-session/per-slot, just a fixed catalog
+  // of what the backend's translation_service currently supports. Falling
+  // back to English-only (the initial state above) if this fails is fine --
+  // the report always downloads, just without the language picker filled in.
+  useEffect(() => {
+    fetchSupportedLanguages()
+      .then((res) => setLanguages(res.languages))
+      .catch(() => {});
+  }, []);
 
   // Optional -- when a Report Template file was selected on the Upload page,
   // send it once so every download for the rest of this session uses it as
@@ -349,6 +365,22 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
           subtitle="One shared filter for the whole report -- pick 2+ values for a column (e.g. Origin) and every table below gets one slide per value instead of one slide combining them."
         />
 
+        <div className="report-page__language-picker">
+          <label htmlFor="report-language">Report language</label>
+          <select id="report-language" value={language} onChange={(e) => setLanguage(e.target.value)}>
+            {languages.map((l) => (
+              <option key={l.code} value={l.code}>
+                {l.name}
+              </option>
+            ))}
+          </select>
+          {language !== "en" && (
+            <span className="report-page__language-hint">
+              Slide headings, captions, and labels are translated -- data values (names, categories) are not.
+            </span>
+          )}
+        </div>
+
         {hasTemplateFile && (
           <p className="report-page__template-status">
             {templateLoading && <>Uploading report template ({files.reportTemplate!.name})…</>}
@@ -360,7 +392,6 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
         {slotsReady.map((id) => {
           const slot = UPLOAD_SLOTS.find((s) => s.id === id)!;
           const report = reports[id]!;
-          const aiPivotCount = report.pivots.filter((p) => p.id.startsWith("ai_pivot_")).length;
           const customPivotCount = report.pivots.filter((p) => p.id.startsWith("custom_pivot_")).length;
           const globalColumns = globalColumnsFor(report.pivots);
           const filters = reportFilters[id] ?? [];
@@ -380,7 +411,6 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
               <div className="report-page__stat-row">
                 <StatTile icon={<IconDoc />} color="blue" value={report.row_count.toLocaleString()} label="Rows" />
                 <StatTile icon={<IconLayers />} color="teal" value={report.pivots.length} label="Analysis Tables" />
-                {aiPivotCount > 0 && <StatTile icon={<IconSparkle />} color="amber" value={aiPivotCount} label="AI Suggested" />}
                 {customPivotCount > 0 && <StatTile icon={<IconGrid />} color="purple" value={customPivotCount} label="Custom Analyses" />}
                 {report.skipped_notes.length > 0 && (
                   <StatTile icon={<IconWarnTriangle />} color="error" value={report.skipped_notes.length} label="Skipped" />
@@ -497,7 +527,7 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
 
               <a
                 className="report-page__download-btn"
-                href={downloadReportUrl(auditReports[id]!.session_id)}
+                href={downloadReportUrl(auditReports[id]!.session_id, language)}
                 download
               >
                 <IconDownload />

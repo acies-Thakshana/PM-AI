@@ -297,32 +297,6 @@
   color: var(--carrier-blue);
 }
 
-.audit-report__bulk-btn {
-  flex-shrink: 0;
-  margin-bottom: 0;
-  background: var(--carrier-blue);
-  border: 1px solid var(--carrier-blue);
-  border-radius: var(--radius-sm);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  padding: 7px 14px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.audit-report__bulk-btn:hover:not(:disabled) {
-  background: var(--carrier-light-blue);
-  border-color: var(--carrier-light-blue);
-}
-
-.audit-report__bulk-btn:disabled {
-  opacity: 0.7;
-  cursor: default;
-}
-
 .audit-report__tab {
   display: flex;
   align-items: center;

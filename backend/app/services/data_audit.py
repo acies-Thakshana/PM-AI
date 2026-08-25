@@ -4,9 +4,9 @@ the current working dataframe so the same detection logic can be re-run at
 resolve time (after earlier fixes changed row/column counts) instead of
 trusting stale row indices computed at audit time.
 
-No LLM involved here on purpose: duplicate/outlier detection has to be
-reliable, not a plausible-sounding guess -- see audit_agent.py for the one
-place Groq is used (the narrative summary only).
+No LLM involved here, or anywhere in this app: duplicate/outlier detection
+has to be reliable, not a plausible-sounding guess -- see audit_summary.py
+for the deterministic headline sentence built from these findings.
 
 Column-level checks (empty/high-null/constant columns) are "selective":
 each fires as ONE issue carrying every offending column in `selectable_items`

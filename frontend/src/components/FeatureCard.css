@@ -122,16 +122,6 @@
   flex-shrink: 0;
 }
 
-.feature-card__ai-badge {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  color: #fff;
-  background: var(--accent-purple);
-  border-radius: 999px;
-  padding: 2px 8px;
-}
-
 .feature-card__custom-badge {
   font-size: 10px;
   font-weight: 800;

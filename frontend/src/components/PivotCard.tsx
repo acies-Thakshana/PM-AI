@@ -33,7 +33,6 @@ export default function PivotCard({ pivot, onOpen, colorIndex = 0 }: PivotCardPr
       <span className="pivot-card__body">
         <span className="pivot-card__top">
           <span className="pivot-card__name">{pivot.name}</span>
-          {pivot.id.startsWith("ai_pivot_") && <span className="pivot-card__ai-badge">AI</span>}
           {pivot.id.startsWith("custom_pivot_") && <span className="pivot-card__custom-badge">Custom</span>}
         </span>
         <span className="pivot-card__description">{pivot.description}</span>

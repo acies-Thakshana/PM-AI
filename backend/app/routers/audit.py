@@ -8,8 +8,8 @@ from fastapi.responses import Response
 from app.schemas import ApplyFeaturesRequest, AuditIssue, AuditReport, FeatureReport, ResolveRequest
 from app.services import data_audit, feature_engineering
 from app.services import feature_definitions_store as defs_store
-from app.services.audit_agent import generate_audit_analysis
 from app.services.audit_store import AuditSession, store
+from app.services.audit_summary import generate_summary
 from app.services.excel_parser import load_spreadsheet
 
 router = APIRouter(prefix="/api/audit", tags=["audit"])
@@ -71,16 +71,7 @@ async def upload_for_audit(file: UploadFile = File(...), source: str = Form(...)
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     issues = data_audit.run_audit(df)
-    try:
-        summary, recommendations = generate_audit_analysis(
-            source, file.filename or "upload", len(df), len(df.columns), issues
-        )
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Data audit agent (Groq) is unavailable: {exc}") from exc
-    for issue in issues:
-        action, note = recommendations.get(issue.id, (None, None))
-        issue.recommended_action = action
-        issue.recommendation = note
+    summary = generate_summary(len(df), len(df.columns), issues)
     if parse_warnings:
         summary = " ".join(parse_warnings) + " " + summary
 
@@ -216,7 +207,7 @@ def apply_features(session_id: str, body: ApplyFeaturesRequest | None = None) ->
                    "definitions) before features can be computed. There is no default.",
         )
     # Always recompute from the pre-feature snapshot (not the possibly
-    # already-engineered `session.df`) so accepting another AI suggestion
+    # already-engineered `session.df`) so accepting another suggestion
     # re-runs the full definition set cleanly instead of layering feature
     # columns on top of feature columns.
     if session.pre_feature_df is None:

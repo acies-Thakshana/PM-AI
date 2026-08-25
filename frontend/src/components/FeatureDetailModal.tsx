@@ -18,12 +18,6 @@ export default function FeatureDetailModal({ feature, formula, onClose }: Featur
     <Modal title={feature.name} onClose={onClose}>
       {formula && <p className="feature-card__formula">ƒ {formula}</p>}
       <p className="feature-card__modal-description">{feature.description}</p>
-      {feature.generated_code && (
-        <div className="feature-card__code-block">
-          <span className="feature-card__code-label">AI-generated pandas code</span>
-          <pre className="feature-card__code"><code>{feature.generated_code}</code></pre>
-        </div>
-      )}
       {statsEntries.length > 0 && (
         <div className="feature-card__stats feature-card__stats--modal">
           {statsEntries.map(([key, value]) => (

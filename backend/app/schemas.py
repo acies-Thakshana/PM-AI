@@ -49,13 +49,6 @@ class AuditIssue(BaseModel):
     # chart says more than the description (currently: statistical_outliers).
     # None for every other category.
     chart: OutlierChart | None = None
-    # Agent-written, per-finding recommendation -- set by
-    # audit_agent.generate_audit_analysis after the deterministic findings are
-    # computed. `recommended_action` is one of this issue's own `options` ids
-    # (e.g. "drop_selected", "keep"); `recommendation` is the short why. Both
-    # None if the agent didn't return a usable recommendation for this finding.
-    recommended_action: str | None = None
-    recommendation: str | None = None
 
 
 class AuditReport(BaseModel):
@@ -89,7 +82,6 @@ class FeatureResult(BaseModel):
     null_count: int
     distribution: dict[str, int] = {}
     stats: dict[str, float] = {}
-    generated_code: str | None = None
 
 
 class FeatureReport(BaseModel):
@@ -105,36 +97,6 @@ class FeatureDefinitionsSummary(BaseModel):
     filename: str
     feature_count: int
     feature_names: list[str]
-
-
-class FeatureSuggestion(BaseModel):
-    """One AI-proposed feature -- shaped so the frontend can echo it straight
-    back as an `extra_features` entry when the user accepts it, no
-    reshaping needed. Only the fields relevant to `type` are populated."""
-    id: str
-    name: str
-    description: str
-    output_column: str
-    type: str
-    formula: str
-    summary: str
-    start_column: str | None = None
-    end_column: str | None = None
-    unit: str | None = None
-    numerator_columns: list[str] | None = None
-    denominator_columns: list[str] | None = None
-    source_columns: list[str] | None = None
-    calculation_prompt: str | None = None
-    generated_code: str | None = None
-
-
-class SuggestFeaturesRequest(BaseModel):
-    session_id: str
-
-
-class FeatureSuggestionsResponse(BaseModel):
-    session_id: str
-    suggestions: list[FeatureSuggestion]
 
 
 class ApplyFeaturesRequest(BaseModel):
@@ -246,31 +208,9 @@ class ReportTemplateSummary(BaseModel):
     filename: str | None
 
 
-class PivotSuggestion(BaseModel):
-    """One AI-proposed pivot table -- shaped so the frontend can echo it
-    straight back as an `extra_pivots` entry when the user accepts it."""
-    id: str
-    name: str
-    description: str
-    group_by: list[str]
-    metrics: list[PivotMetricSpec]
-    filters: list[PivotFilterSpec] = []
-    sort_by: PivotSortSpec | None = None
-    top_n: int | None = None
-
-
-class SuggestPivotsRequest(BaseModel):
-    session_id: str
-
-
-class SuggestPivotsResponse(BaseModel):
-    session_id: str
-    suggestions: list[PivotSuggestion]
-
-
 class ApplyPivotsRequest(BaseModel):
-    # None means "leave whatever AI/custom pivots were last applied for this
-    # session alone" -- a caller that only wants to change slicer filters
+    # None means "leave whatever custom pivots were last applied for
+    # this session alone" -- a caller that only wants to change slicer filters
     # (e.g. the Report page) can omit this instead of resending the Analysis
     # page's full accepted list. An explicit [] means "no extra pivots".
     extra_pivots: list[dict[str, Any]] | None = None
@@ -290,4 +230,15 @@ class OverallAnalysisReport(BaseModel):
     session_id: str
     row_count: int
     highlights: list[OverallHighlight]
-    narrative: str
+
+
+class LanguageOption(BaseModel):
+    code: str
+    name: str
+
+
+class SupportedLanguagesResponse(BaseModel):
+    # "en" (English) is always first -- the report's default, no-translation
+    # language -- followed by whatever translation_service.SUPPORTED_LANGUAGES
+    # currently lists.
+    languages: list[LanguageOption]

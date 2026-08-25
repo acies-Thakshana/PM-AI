@@ -7,23 +7,21 @@ import StatTile from "../components/StatTile";
 import PivotCard from "../components/PivotCard";
 import PivotModal from "../components/PivotModal";
 import Modal from "../components/Modal";
-import PivotSuggestionCard from "../components/PivotSuggestionCard";
 import AddPivotForm from "../components/AddPivotForm";
 import OverallAnalysisCard from "../components/OverallAnalysisCard";
-import { IconDoc, IconGrid, IconSparkle, IconWarnTriangle, IconChevronLeft, IconChevronRight, IconBarChart, IconLayers } from "../components/icons";
+import { IconDoc, IconGrid, IconWarnTriangle, IconChevronLeft, IconChevronRight, IconBarChart, IconLayers } from "../components/icons";
 import {
   applyPivots,
   fetchFeatureReport,
   fetchOverallAnalysis,
-  suggestPivots,
   uploadPivotDefinitions,
   AuditApiError,
+  type CustomPivot,
   type FeatureReport,
   type OverallAnalysisReport,
   type PivotDefinitionsSummary,
   type PivotFilter,
   type PivotReport,
-  type PivotSuggestion,
 } from "../api/audit";
 import { AUDITED_SLOTS, UPLOAD_SLOTS } from "../constants/uploadSlots";
 import type { UploadSlotId } from "../types/upload";
@@ -40,9 +38,7 @@ type PivotReportsState = Partial<Record<UploadSlotId, PivotReport>>;
 type OverallReportsState = Partial<Record<UploadSlotId, OverallAnalysisReport>>;
 type LoadingState = Partial<Record<UploadSlotId, boolean>>;
 type ErrorsState = Partial<Record<UploadSlotId, string>>;
-type SuggestionsState = Partial<Record<UploadSlotId, PivotSuggestion[]>>;
-type AcceptedState = Partial<Record<UploadSlotId, PivotSuggestion[]>>;
-type BusyIdState = Partial<Record<UploadSlotId, string>>;
+type AcceptedState = Partial<Record<UploadSlotId, CustomPivot[]>>;
 // slot -> pivot id -> column -> selected values (undefined column entry = "all", no filter)
 type PivotFilterSelections = Record<string, string[] | undefined>;
 type FilterSelectionsState = Partial<Record<UploadSlotId, Record<string, PivotFilterSelections>>>;
@@ -59,15 +55,9 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
   const [loading, setLoading] = useState<LoadingState>({});
   const [errors, setErrors] = useState<ErrorsState>({});
 
-  const [suggestions, setSuggestions] = useState<SuggestionsState>({});
-  const [suggestLoading, setSuggestLoading] = useState<LoadingState>({});
-  const [suggestError, setSuggestError] = useState<ErrorsState>({});
   const [accepted, setAccepted] = useState<AcceptedState>({});
-  const [applyingSuggestionId, setApplyingSuggestionId] = useState<BusyIdState>({});
-  const [applyingAll, setApplyingAll] = useState<LoadingState>({});
   const [showAddPivotForm, setShowAddPivotForm] = useState<LoadingState>({});
   const [addingPivot, setAddingPivot] = useState<LoadingState>({});
-  const [showSuggestionsModal, setShowSuggestionsModal] = useState<LoadingState>({});
 
   const [overallReports, setOverallReports] = useState<OverallReportsState>({});
   const [overallLoading, setOverallLoading] = useState<LoadingState>({});
@@ -134,74 +124,22 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defsSummary, slotsReady, auditReports]);
 
-  const runSuggest = (id: UploadSlotId) => {
-    const sessionId = auditReports[id]!.session_id;
-    setSuggestLoading((prev) => ({ ...prev, [id]: true }));
-    setSuggestError((prev) => ({ ...prev, [id]: undefined }));
-    suggestPivots(sessionId)
-      .then((res) => setSuggestions((prev) => ({ ...prev, [id]: res.suggestions })))
-      .catch((err) =>
-        setSuggestError((prev) => ({
-          ...prev,
-          [id]: err instanceof AuditApiError ? err.message : "Could not reach the suggestion agent.",
-        }))
-      )
-      .finally(() => setSuggestLoading((prev) => ({ ...prev, [id]: false })));
-  };
-
-  // Shared by both the AI suggester and the manual "Add Pivot" form.
-  const addPivot = (id: UploadSlotId, pivot: PivotSuggestion): Promise<void> => {
+  const addCustomPivot = (id: UploadSlotId, pivot: CustomPivot) => {
     const sessionId = auditReports[id]!.session_id;
     const nextAccepted = [...(accepted[id] ?? []), pivot];
-    return applyPivots(sessionId, nextAccepted)
-      .then((report) => {
-        setReports((prev) => ({ ...prev, [id]: report }));
-        setAccepted((prev) => ({ ...prev, [id]: nextAccepted }));
-      })
-      .catch((err) => {
-        setErrors((prev) => ({
-          ...prev,
-          [id]: err instanceof AuditApiError ? err.message : "Could not add that analysis.",
-        }));
-        throw err;
-      });
-  };
-
-  const acceptSuggestion = (id: UploadSlotId, suggestion: PivotSuggestion) => {
-    setApplyingSuggestionId((prev) => ({ ...prev, [id]: suggestion.id }));
-    addPivot(id, suggestion)
-      .catch(() => {})
-      .finally(() => setApplyingSuggestionId((prev) => ({ ...prev, [id]: undefined })));
-  };
-
-  const acceptAllSuggestions = (id: UploadSlotId) => {
-    const currentAccepted = accepted[id] ?? [];
-    const acceptedIds = new Set(currentAccepted.map((s) => s.id));
-    const pending = (suggestions[id] ?? []).filter((s) => !acceptedIds.has(s.id));
-    if (pending.length === 0) return;
-
-    const sessionId = auditReports[id]!.session_id;
-    const nextAccepted = [...currentAccepted, ...pending];
-    setApplyingAll((prev) => ({ ...prev, [id]: true }));
+    setAddingPivot((prev) => ({ ...prev, [id]: true }));
     applyPivots(sessionId, nextAccepted)
       .then((report) => {
         setReports((prev) => ({ ...prev, [id]: report }));
         setAccepted((prev) => ({ ...prev, [id]: nextAccepted }));
+        setShowAddPivotForm((prev) => ({ ...prev, [id]: false }));
       })
       .catch((err) =>
         setErrors((prev) => ({
           ...prev,
-          [id]: err instanceof AuditApiError ? err.message : "Could not add all analyses.",
+          [id]: err instanceof AuditApiError ? err.message : "Could not add that analysis.",
         }))
       )
-      .finally(() => setApplyingAll((prev) => ({ ...prev, [id]: false })));
-  };
-
-  const addCustomPivot = (id: UploadSlotId, pivot: PivotSuggestion) => {
-    setAddingPivot((prev) => ({ ...prev, [id]: true }));
-    addPivot(id, pivot)
-      .then(() => setShowAddPivotForm((prev) => ({ ...prev, [id]: false })))
-      .catch(() => {})
       .finally(() => setAddingPivot((prev) => ({ ...prev, [id]: false })));
   };
 
@@ -214,13 +152,13 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
       .catch((err) =>
         setOverallError((prev) => ({
           ...prev,
-          [id]: err instanceof AuditApiError ? err.message : "Could not reach the analysis agent.",
+          [id]: err instanceof AuditApiError ? err.message : "Could not compute highlights.",
         }))
       )
       .finally(() => setOverallLoading((prev) => ({ ...prev, [id]: false })));
   };
 
-  // Auto-generate the overall analysis as soon as pivots are computed, since
+  // Auto-generate the highlights as soon as pivots are computed, since
   // it's now the headline summary at the top of the page rather than
   // something the user has to remember to click for.
   useEffect(() => {
@@ -354,7 +292,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
         <PageHeader
           icon={<IconBarChart />}
           title="Analysis"
-          subtitle="Analysis tables and a summary rolled up from the audited + feature-engineered data, or ask the AI agent to suggest more analyses from your data's own columns."
+          subtitle="Analysis tables and a summary rolled up from the audited + feature-engineered data, or add a custom analysis of your own."
         />
 
         {defsLoading && <div className="analysis-page__loading">Reading analysis definitions from {files.analysisProfile!.name}…</div>}
@@ -364,125 +302,41 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
           const slot = UPLOAD_SLOTS.find((s) => s.id === id)!;
           const report = reports[id];
           const featureColumns = featureReports[id]?.columns ?? [];
-          const slotSuggestions = suggestions[id] ?? [];
-          const slotAccepted = accepted[id] ?? [];
-          const acceptedIds = new Set(slotAccepted.map((s) => s.id));
-          const pendingSuggestionCount = slotSuggestions.filter((s) => !acceptedIds.has(s.id)).length;
-          const aiPivotCount = report ? report.pivots.filter((p) => p.id.startsWith("ai_pivot_")).length : 0;
           const customPivotCount = report ? report.pivots.filter((p) => p.id.startsWith("custom_pivot_")).length : 0;
 
-
-          const panelsSection = report && (
-            <div className="analysis-page__panels-grid">
-              <div className="analysis-page__ai-panel">
-                <div className="analysis-page__ai-panel-head">
-                  <div className="analysis-page__panel-head-text">
-                    <span className="analysis-page__panel-icon analysis-page__panel-icon--purple">
-                      <IconSparkle />
-                    </span>
-                    <div>
-                      <h3 className="analysis-page__ai-panel-title">AI Analysis Suggestions</h3>
-                      <p className="analysis-page__ai-panel-hint">
-                        The agent looks at this data's columns (including engineered ones) and proposes
-                        analysis tables it can compute -- you choose which ones to add.
-                      </p>
-                    </div>
+          const customPivotSection = report && (
+            <div className="analysis-page__custom-pivot">
+              <div className="analysis-page__custom-pivot-head">
+                <div className="analysis-page__panel-head-text">
+                  <span className="analysis-page__panel-icon analysis-page__panel-icon--blue">
+                    <IconGrid />
+                  </span>
+                  <div>
+                    <h3 className="analysis-page__custom-pivot-title">Add a Custom Analysis</h3>
+                    <p className="analysis-page__custom-pivot-hint">
+                      Define your own group-by + aggregation logic straight from this data's columns --
+                      no need to edit and re-upload the Analysis Profile file.
+                    </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  className="analysis-page__btn analysis-page__btn--primary analysis-page__panel-btn"
-                  disabled={suggestLoading[id]}
-                  onClick={() => {
-                    if (slotSuggestions.length === 0) runSuggest(id);
-                    setShowSuggestionsModal((prev) => ({ ...prev, [id]: true }));
-                  }}
-                >
-                  <IconSparkle />{" "}
-                  {suggestLoading[id]
-                    ? "Thinking…"
-                    : slotSuggestions.length > 0
-                      ? `View Suggestions (${slotSuggestions.length})`
-                      : "Suggest Analyses"}
-                </button>
-
-                {suggestError[id] && <p className="analysis-page__error">{suggestError[id]}</p>}
-
-                {showSuggestionsModal[id] && (
-                  <Modal title="AI Analysis Suggestions" onClose={() => setShowSuggestionsModal((prev) => ({ ...prev, [id]: false }))}>
-                    <div className="analysis-page__panel-btn-row">
-                      {pendingSuggestionCount > 0 && (
-                        <button
-                          type="button"
-                          className="analysis-page__btn analysis-page__btn--secondary analysis-page__panel-btn"
-                          disabled={!!applyingAll[id]}
-                          onClick={() => acceptAllSuggestions(id)}
-                        >
-                          {applyingAll[id] ? "Applying…" : `Apply All (${pendingSuggestionCount})`}
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        className="analysis-page__btn analysis-page__btn--secondary analysis-page__panel-btn"
-                        disabled={suggestLoading[id]}
-                        onClick={() => runSuggest(id)}
-                      >
-                        {suggestLoading[id] ? "Thinking…" : "Suggest More"}
-                      </button>
-                    </div>
-
-                    {slotSuggestions.length === 0 ? (
-                      <p className="analysis-page__ai-panel-hint">No suggestions yet.</p>
-                    ) : (
-                      <div className="analysis-page__ai-grid">
-                        {slotSuggestions.map((s) => (
-                          <PivotSuggestionCard
-                            key={s.id}
-                            suggestion={s}
-                            added={acceptedIds.has(s.id)}
-                            busy={applyingSuggestionId[id] === s.id || !!applyingAll[id]}
-                            onAdd={() => acceptSuggestion(id, s)}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </Modal>
-                )}
               </div>
-
-              <div className="analysis-page__custom-pivot">
-                <div className="analysis-page__custom-pivot-head">
-                  <div className="analysis-page__panel-head-text">
-                    <span className="analysis-page__panel-icon analysis-page__panel-icon--blue">
-                      <IconGrid />
-                    </span>
-                    <div>
-                      <h3 className="analysis-page__custom-pivot-title">Add a Custom Analysis</h3>
-                      <p className="analysis-page__custom-pivot-hint">
-                        Define your own group-by + aggregation logic straight from this data's columns --
-                        no need to edit and re-upload the Analysis Profile file.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="analysis-page__btn analysis-page__btn--secondary analysis-page__panel-btn"
-                  onClick={() => setShowAddPivotForm((prev) => ({ ...prev, [id]: true }))}
-                >
-                  + Add Custom Analysis
-                </button>
-                {showAddPivotForm[id] && (
-                  <Modal title="Add a Custom Analysis" onClose={() => setShowAddPivotForm((prev) => ({ ...prev, [id]: false }))}>
-                    <AddPivotForm
-                      columns={featureColumns}
-                      busy={!!addingPivot[id]}
-                      onAdd={(pivot) => addCustomPivot(id, pivot)}
-                      onCancel={() => setShowAddPivotForm((prev) => ({ ...prev, [id]: false }))}
-                    />
-                  </Modal>
-                )}
-              </div>
+              <button
+                type="button"
+                className="analysis-page__btn analysis-page__btn--secondary analysis-page__panel-btn"
+                onClick={() => setShowAddPivotForm((prev) => ({ ...prev, [id]: true }))}
+              >
+                + Add Custom Analysis
+              </button>
+              {showAddPivotForm[id] && (
+                <Modal title="Add a Custom Analysis" onClose={() => setShowAddPivotForm((prev) => ({ ...prev, [id]: false }))}>
+                  <AddPivotForm
+                    columns={featureColumns}
+                    busy={!!addingPivot[id]}
+                    onAdd={(pivot) => addCustomPivot(id, pivot)}
+                    onCancel={() => setShowAddPivotForm((prev) => ({ ...prev, [id]: false }))}
+                  />
+                </Modal>
+              )}
             </div>
           );
 
@@ -506,7 +360,6 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
                     <StatTile icon={<IconDoc />} color="blue" value={report.row_count.toLocaleString()} label="Rows" />
                     <StatTile icon={<IconGrid />} color="teal" value={report.column_count} label="Columns" />
                     <StatTile icon={<IconLayers />} color="purple" value={report.pivots.length} label="Analysis Tables" />
-                    {aiPivotCount > 0 && <StatTile icon={<IconSparkle />} color="amber" value={aiPivotCount} label="AI Suggested" />}
                     {customPivotCount > 0 && <StatTile icon={<IconGrid />} color="blue" value={customPivotCount} label="Custom Analyses" />}
                     {report.skipped_notes.length > 0 && (
                       <StatTile icon={<IconWarnTriangle />} color="error" value={report.skipped_notes.length} label="Skipped" />
@@ -519,8 +372,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
                         ✓ {report.pivots.length} {report.pivots.length === 1 ? "analysis" : "analyses"} added in total
                       </p>
                       {[
-                        { label: "Defined", items: report.pivots.filter((p) => !p.id.startsWith("ai_pivot_") && !p.id.startsWith("custom_pivot_")) },
-                        { label: "AI Suggested", items: report.pivots.filter((p) => p.id.startsWith("ai_pivot_")) },
+                        { label: "Defined", items: report.pivots.filter((p) => !p.id.startsWith("custom_pivot_")) },
                         { label: "User Added", items: report.pivots.filter((p) => p.id.startsWith("custom_pivot_")) },
                       ]
                         .filter((group) => group.items.length > 0)
@@ -575,7 +427,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
                     </ul>
                   )}
 
-                  {panelsSection}
+                  {customPivotSection}
                 </>
               )}
             </section>

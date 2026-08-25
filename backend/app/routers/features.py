@@ -2,10 +2,8 @@ import json
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from app.schemas import FeatureDefinitionsSummary, FeatureSuggestionsResponse, SuggestFeaturesRequest
+from app.schemas import FeatureDefinitionsSummary
 from app.services import feature_definitions_store as defs_store
-from app.services import feature_suggester
-from app.services.audit_store import store as audit_store
 
 router = APIRouter(prefix="/api/features", tags=["features"])
 
@@ -45,16 +43,3 @@ def get_feature_definitions() -> FeatureDefinitionsSummary:
         feature_count=len(defs_store.store.definitions),
         feature_names=[f["name"] for f in defs_store.store.definitions],
     )
-
-
-@router.post("/suggest", response_model=FeatureSuggestionsResponse)
-def suggest_features(body: SuggestFeaturesRequest) -> FeatureSuggestionsResponse:
-    session = audit_store.get(body.session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Audit session not found.")
-    base_df = session.pre_feature_df if session.pre_feature_df is not None else session.df
-    try:
-        suggestions = feature_suggester.suggest_features(base_df)
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Feature suggestion agent (Groq) is unavailable: {exc}") from exc
-    return FeatureSuggestionsResponse(session_id=body.session_id, suggestions=suggestions)
