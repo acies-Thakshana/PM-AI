@@ -179,6 +179,9 @@ export interface OverallAnalysisReport {
   session_id: string;
   row_count: number;
   highlights: OverallHighlight[];
+  // AI-written (Groq) executive-summary paragraph, or its deterministic
+  // fallback sentence if Groq isn't configured/available.
+  narrative: string;
 }
 
 export interface LanguageOption {

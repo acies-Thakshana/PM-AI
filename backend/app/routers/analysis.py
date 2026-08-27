@@ -20,7 +20,7 @@ from app.schemas import (
     SetReportTitleRequest,
     SupportedLanguagesResponse,
 )
-from app.services import overall_analysis, pivot_engine, report_generator, translation_service
+from app.services import overall_analysis, overall_narrative, pivot_engine, report_generator, translation_service
 from app.services import pivot_definitions_store as pivot_defs_store
 from app.services import report_template_store
 from app.services.audit_store import AuditSession, store
@@ -228,7 +228,8 @@ def set_report_title(session_id: str, body: SetReportTitleRequest) -> ReportTitl
 def get_overall_analysis(session_id: str) -> OverallAnalysisReport:
     session = _get_session_or_404(session_id)
     highlights = overall_analysis.build_highlights(len(session.df), session.features, session.pivots)
-    report = OverallAnalysisReport(session_id=session_id, row_count=len(session.df), highlights=highlights)
+    narrative = overall_narrative.generate_narrative(len(session.df), highlights)
+    report = OverallAnalysisReport(session_id=session_id, row_count=len(session.df), highlights=highlights, narrative=narrative)
     session.overall_analysis = report
     return report
 

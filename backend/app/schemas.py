@@ -230,6 +230,12 @@ class OverallAnalysisReport(BaseModel):
     session_id: str
     row_count: int
     highlights: list[OverallHighlight]
+    # AI-written (Groq) executive-summary paragraph -- see
+    # overall_narrative.generate_narrative -- or its deterministic fallback
+    # sentence if Groq isn't configured/available. Reused verbatim by the
+    # downloaded report's summary slide (see report_generator.py) rather
+    # than regenerated at export time.
+    narrative: str
 
 
 class LanguageOption(BaseModel):

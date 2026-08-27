@@ -15,6 +15,12 @@ RAW_DATA_DIR = DATA_DIR / "raw"
 # download still succeeds without this set; it just stays in English.
 DEEPL_API_KEY = os.getenv("DEEPL_API_KEY", "")
 
+# Optional -- the audit/analysis summary narratives only (see audit_summary.py
+# and overall_narrative.py). Without this set, both fall back to their own
+# deterministic, rule-based sentence -- nothing else in the app depends on it.
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+
 CORS_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:5174",

@@ -9,8 +9,9 @@ _add_pivot_slides) needing to know or care which one it's talking to.
 
 Content is placed into the TEMPLATE's own named layouts and their
 placeholders -- title/subtitle on a "Cover" layout, a chart into a "Single
-Chart" layout's content placeholder, highlight bullets into a "Single
-Column" layout -- rather than fixed Inches() coordinates, since the template's own
+Chart" layout's content placeholder, the executive-summary narrative +
+highlight bullets into a "Single Column" layout -- rather than fixed
+Inches() coordinates, since the template's own
 slide size and branding (colors, fonts, footer, logo) aren't ours to assume.
 Chart styling (data-label size, gridlines, axis titles) still goes through
 report_generator's module-level style_* helpers so a template-based deck
@@ -267,12 +268,21 @@ class TemplateReportBuilder:
         if overall is None or not overall.highlights:
             tf.text = self.phrases.get(rg.NO_HIGHLIGHTS_CAPTION, rg.NO_HIGHLIGHTS_CAPTION)
             return
-        first_label = rg.translate_highlight_label(overall.highlights[0].label, self.phrases)
-        tf.text = f"•  {first_label}: {overall.highlights[0].value}"
-        for h in overall.highlights[1:]:
-            p = tf.add_paragraph()
+
+        paragraphs_used = False
+        if overall.narrative:
+            tf.text = overall.narrative
+            paragraphs_used = True
+
+        for h in overall.highlights:
             label = rg.translate_highlight_label(h.label, self.phrases)
-            p.text = f"•  {label}: {h.value}"
+            bullet = f"•  {label}: {h.value}"
+            if not paragraphs_used:
+                tf.text = bullet
+                paragraphs_used = True
+            else:
+                p = tf.add_paragraph()
+                p.text = bullet
 
     def save_bytes(self) -> bytes:
         buffer = io.BytesIO()

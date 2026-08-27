@@ -152,7 +152,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
       .catch((err) =>
         setOverallError((prev) => ({
           ...prev,
-          [id]: err instanceof AuditApiError ? err.message : "Could not compute highlights.",
+          [id]: err instanceof AuditApiError ? err.message : "Could not generate the analysis summary.",
         }))
       )
       .finally(() => setOverallLoading((prev) => ({ ...prev, [id]: false })));

@@ -453,7 +453,19 @@ class ReportBuilder:
             self._footer(slide)
             return
 
-        list_box = slide.shapes.add_textbox(Inches(0.5), Inches(0.75), style.SLIDE_W - Inches(1.0), style.SLIDE_H - Inches(1.25))
+        if overall.narrative:
+            box = slide.shapes.add_textbox(Inches(0.5), Inches(0.75), style.SLIDE_W - Inches(1.0), Inches(1.5))
+            tf = box.text_frame
+            tf.word_wrap = True
+            tf.text = overall.narrative
+            tf.paragraphs[0].font.size = Pt(12)
+            tf.paragraphs[0].font.color.rgb = DARK_TEXT
+            tf.paragraphs[0].font.name = style.FONT_BODY
+            list_top = Inches(2.4)
+        else:
+            list_top = Inches(0.75)
+
+        list_box = slide.shapes.add_textbox(Inches(0.5), list_top, style.SLIDE_W - Inches(1.0), style.SLIDE_H - list_top - Inches(0.5))
         tf = list_box.text_frame
         tf.word_wrap = True
         for i, h in enumerate(overall.highlights):
@@ -639,13 +651,22 @@ def build_report(
 
     `language` is a translation_service.SUPPORTED_LANGUAGES code (or "en",
     the default/no-op). Only the report's own fixed English phrases --
-    TRANSLATABLE_PHRASES -- are ever translated; every data value (pivot
-    names, column names, category values from the uploaded spreadsheet)
-    stays exactly as it appears in the source data. Falls back to English
-    silently if translation isn't available for any reason (see
-    translation_service.translate_many) -- never blocks the download.
+    TRANSLATABLE_PHRASES -- plus the AI-written `overall.narrative` are ever
+    translated; every data value (pivot names, column names, category
+    values from the uploaded spreadsheet) stays exactly as it appears in the
+    source data. Falls back to English silently if translation isn't
+    available for any reason (see translation_service.translate_many) --
+    never blocks the download.
     """
     phrases = translation_service.translate_many(TRANSLATABLE_PHRASES, language)
+
+    # The narrative is free-form AI-authored prose (see overall_narrative.py),
+    # not a data value, so -- unlike everything else this module translates --
+    # it's safe to hand the WHOLE paragraph to the translator rather than
+    # only a fixed keyword within it.
+    if overall is not None and overall.narrative and language != "en":
+        translated = translation_service.translate_many([overall.narrative], language)
+        overall = overall.model_copy(update={"narrative": translated[overall.narrative]})
 
     if not template_bytes and style.DEFAULT_TEMPLATE_PATH.exists():
         template_bytes = style.DEFAULT_TEMPLATE_PATH.read_bytes()

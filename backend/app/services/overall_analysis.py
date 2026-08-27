@@ -3,8 +3,8 @@ Deterministic dataset-wide summary. Rolls up the already-computed feature
 stats/distributions and pivot results into a short list of headline
 highlights -- no LLM involved, same rule as feature_engineering.py and
 pivot_engine.py: the numbers a PM puts in a report need to be reliable, not
-a plausible-sounding guess. Nothing downstream turns this into prose; the
-highlights themselves are the report.
+a plausible-sounding guess. overall_narrative.py turns this list into prose;
+it never adds a number that isn't already here.
 """
 from app.schemas import FeatureResult, OverallHighlight, PivotResult
 
