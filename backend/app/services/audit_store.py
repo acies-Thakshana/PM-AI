@@ -80,9 +80,22 @@ class AuditStore:
         self._sessions: dict[str, AuditSession] = {}
         self._lock = threading.Lock()
 
-    def create(self, source: str, filename: str, df: pd.DataFrame, issues: list[AuditIssue], summary: str) -> AuditSession:
+    def next_session_id(self) -> str:
+        """Generate a session ID that can be used before the session is created."""
+        return uuid.uuid4().hex
+
+    def create(
+        self,
+        source: str,
+        filename: str,
+        df: pd.DataFrame,
+        issues: list[AuditIssue],
+        summary: str,
+        session_id: str | None = None,
+    ) -> AuditSession:
         session = AuditSession(
-            session_id=uuid.uuid4().hex, source=source, filename=filename, df=df, issues=issues, summary=summary
+            session_id=session_id or uuid.uuid4().hex,
+            source=source, filename=filename, df=df, issues=issues, summary=summary,
         )
         with self._lock:
             self._sessions[session.session_id] = session

@@ -5,7 +5,8 @@ import pandas as pd
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 
-from app.schemas import ApplyFeaturesRequest, AuditIssue, AuditReport, FeatureReport, ResolveRequest
+from app import config
+from app.schemas import ApplyFeaturesRequest, AuditIssue, AuditReport, FeatureReport, IssueOption, OutlierChart, ResolveRequest
 from app.services import data_audit, feature_engineering
 from app.services import feature_definitions_store as defs_store
 from app.services.audit_agent import generate_audit_analysis
@@ -59,6 +60,70 @@ def _get_session_or_404(session_id: str) -> AuditSession:
     return session
 
 
+def _issues_from_dataiku(raw_issues: list[dict]) -> list[AuditIssue]:
+    result = []
+    for i in raw_issues:
+        chart_data = i.get("chart")
+        chart = OutlierChart(**chart_data) if chart_data else None
+        result.append(AuditIssue(
+            id=i["id"],
+            category=i["category"],
+            severity=i["severity"],
+            title=i["title"],
+            description=i["description"],
+            affected_row_count=i["affected_row_count"],
+            sample=i.get("sample", []),
+            selectable_items=i.get("selectable_items", []),
+            requires_decision=i["requires_decision"],
+            options=[IssueOption(**o) for o in i.get("options", [])],
+            chart=chart,
+        ))
+    return result
+
+
+async def _upload_via_dataiku(raw: bytes, filename: str, source: str, df: pd.DataFrame, parse_warnings: list[str]) -> AuditReport:
+    from app.services import dataiku_client as dku
+
+    session_id = store.next_session_id()
+    upload_path = f"{session_id}/{filename}"
+
+    try:
+        dku.upload_to_folder(upload_path, raw)
+        dku.set_audit_variables(session_id, source, filename)
+        outcome = dku.trigger_and_wait(config.DATAIKU_AUDIT_SCENARIO_ID)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Dataiku scenario failed: {exc}") from exc
+
+    if outcome != "SUCCESS":
+        raise HTTPException(status_code=502, detail=f"Dataiku audit scenario ended with outcome: {outcome}")
+
+    try:
+        result = dku.fetch_audit_result(session_id)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Could not fetch Dataiku audit result: {exc}") from exc
+
+    issues = _issues_from_dataiku(result.get("issues", []))
+
+    try:
+        summary, recommendations = generate_audit_analysis(source, filename, len(df), len(df.columns), issues)
+    except Exception as exc:
+        summary = f"Dataiku audit found {len(issues)} issue(s) in {len(df)} rows."
+        recommendations = {}
+
+    for issue in issues:
+        action, note = recommendations.get(issue.id, (None, None))
+        issue.recommended_action = action
+        issue.recommendation = note
+
+    if parse_warnings:
+        summary = " ".join(parse_warnings) + " " + summary
+
+    session = store.create(
+        session_id=session_id, source=source, filename=filename, df=df, issues=issues, summary=summary
+    )
+    return _to_report(session)
+
+
 @router.post("/upload", response_model=AuditReport)
 async def upload_for_audit(file: UploadFile = File(...), source: str = Form(...)) -> AuditReport:
     raw = await file.read()
@@ -70,11 +135,14 @@ async def upload_for_audit(file: UploadFile = File(...), source: str = Form(...)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    filename = file.filename or "upload"
+
+    if config.DATAIKU_ENABLED and config.DATAIKU_AUDIT_SCENARIO_ID:
+        return await _upload_via_dataiku(raw, filename, source, df, parse_warnings)
+
     issues = data_audit.run_audit(df)
     try:
-        summary, recommendations = generate_audit_analysis(
-            source, file.filename or "upload", len(df), len(df.columns), issues
-        )
+        summary, recommendations = generate_audit_analysis(source, filename, len(df), len(df.columns), issues)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Data audit agent (Groq) is unavailable: {exc}") from exc
     for issue in issues:
@@ -84,7 +152,7 @@ async def upload_for_audit(file: UploadFile = File(...), source: str = Form(...)
     if parse_warnings:
         summary = " ".join(parse_warnings) + " " + summary
 
-    session = store.create(source=source, filename=file.filename or "upload", df=df, issues=issues, summary=summary)
+    session = store.create(source=source, filename=filename, df=df, issues=issues, summary=summary)
     return _to_report(session)
 
 
