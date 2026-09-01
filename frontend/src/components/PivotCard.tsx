@@ -1,4 +1,4 @@
-import type { PivotResult } from "../api/audit";
+import type { PivotResult } from "../api/types";
 import { IconChevronRight, IconBarChart, IconCalendar, IconPercent, IconLayers } from "./icons";
 import "./PivotCard.css";
 

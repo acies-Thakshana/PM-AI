@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import type { FeatureSuggestion } from "../api/audit";
+import type { FeatureSuggestion } from "../api/types";
 import "./AddKpiForm.css";
 
 interface AddKpiFormProps {

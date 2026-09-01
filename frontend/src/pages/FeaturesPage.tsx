@@ -11,20 +11,13 @@ import FeatureSuggestionCard from "../components/FeatureSuggestionCard";
 import AddKpiForm from "../components/AddKpiForm";
 import DataPreviewTable from "../components/DataPreviewTable";
 import { IconDoc, IconGrid, IconSparkle, IconWarnTriangle, IconShieldCheck, IconDownload, IconClipboard, IconChevronLeft, IconChevronRight } from "../components/icons";
-import {
-  applyFeatures,
-  downloadCleansedFileUrl,
-  fetchPreview,
-  suggestFeatures,
-  uploadFeatureDefinitions,
-  AuditApiError,
-  type DataPreview,
-  type FeatureDefinitionsSummary,
-  type FeatureReport,
-  type FeatureSuggestion,
-} from "../api/audit";
+import { downloadCleansedFileUrl, fetchPreview } from "../api/audit";
+import { AuditApiError } from "../api/client";
+import { applyFeatures, suggestFeatures, uploadFeatureDefinitions } from "../api/features";
+import type { DataPreview, FeatureDefinitionsSummary, FeatureReport, FeatureSuggestion } from "../api/types";
 import { AUDITED_SLOTS, UPLOAD_SLOTS } from "../constants/uploadSlots";
 import type { UploadSlotId } from "../types/upload";
+import { useSlotState } from "../hooks/useSlotState";
 import type { AuditReportsState, FilesState } from "../App";
 import "./FeaturesPage.css";
 
@@ -33,31 +26,22 @@ interface FeaturesPageProps {
   auditReports: AuditReportsState;
 }
 
-type FeatureReportsState = Partial<Record<UploadSlotId, FeatureReport>>;
-type LoadingState = Partial<Record<UploadSlotId, boolean>>;
-type ErrorsState = Partial<Record<UploadSlotId, string>>;
-type PreviewsState = Partial<Record<UploadSlotId, DataPreview>>;
-type PreviewOpenState = Partial<Record<UploadSlotId, boolean>>;
-type SuggestionsState = Partial<Record<UploadSlotId, FeatureSuggestion[]>>;
-type AcceptedState = Partial<Record<UploadSlotId, FeatureSuggestion[]>>;
-type BusyIdState = Partial<Record<UploadSlotId, string>>;
-
 export default function FeaturesPage({ files, auditReports }: FeaturesPageProps) {
   const navigate = useNavigate();
-  const [reports, setReports] = useState<FeatureReportsState>({});
-  const [loading, setLoading] = useState<LoadingState>({});
-  const [errors, setErrors] = useState<ErrorsState>({});
-  const [previews, setPreviews] = useState<PreviewsState>({});
-  const [previewOpen, setPreviewOpen] = useState<PreviewOpenState>({});
+  const [reports, reportsApi] = useSlotState<FeatureReport>();
+  const [loading, loadingApi] = useSlotState<boolean>();
+  const [errors, errorsApi] = useSlotState<string>();
+  const [previews, previewsApi] = useSlotState<DataPreview>();
+  const [previewOpen, previewOpenApi] = useSlotState<boolean>();
 
-  const [suggestions, setSuggestions] = useState<SuggestionsState>({});
-  const [suggestLoading, setSuggestLoading] = useState<LoadingState>({});
-  const [suggestError, setSuggestError] = useState<ErrorsState>({});
-  const [accepted, setAccepted] = useState<AcceptedState>({});
-  const [applyingSuggestionId, setApplyingSuggestionId] = useState<BusyIdState>({});
-  const [showAddKpiForm, setShowAddKpiForm] = useState<LoadingState>({});
-  const [addingKpi, setAddingKpi] = useState<LoadingState>({});
-  const [showSuggestionsModal, setShowSuggestionsModal] = useState<LoadingState>({});
+  const [suggestions, suggestionsApi] = useSlotState<FeatureSuggestion[]>();
+  const [suggestLoading, suggestLoadingApi] = useSlotState<boolean>();
+  const [suggestError, suggestErrorApi] = useSlotState<string>();
+  const [accepted, acceptedApi] = useSlotState<FeatureSuggestion[]>();
+  const [applyingSuggestionId, applyingSuggestionIdApi] = useSlotState<string>();
+  const [showAddKpiForm, showAddKpiFormApi] = useSlotState<boolean>();
+  const [addingKpi, addingKpiApi] = useSlotState<boolean>();
+  const [showSuggestionsModal, showSuggestionsModalApi] = useSlotState<boolean>();
 
   const [defsSummary, setDefsSummary] = useState<FeatureDefinitionsSummary | null>(null);
   const [defsLoading, setDefsLoading] = useState(false);
@@ -85,42 +69,36 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
     for (const id of slotsReady) {
       if (reports[id] || loading[id] || errors[id]) continue;
       const sessionId = auditReports[id]!.session_id;
-      setLoading((prev) => ({ ...prev, [id]: true }));
+      loadingApi.set(id, true);
       applyFeatures(sessionId)
-        .then((report) => setReports((prev) => ({ ...prev, [id]: report })))
+        .then((report) => reportsApi.set(id, report))
         .catch((err) =>
-          setErrors((prev) => ({
-            ...prev,
-            [id]: err instanceof AuditApiError ? err.message : "Could not compute features.",
-          }))
+          errorsApi.set(id, err instanceof AuditApiError ? err.message : "Could not compute features.")
         )
-        .finally(() => setLoading((prev) => ({ ...prev, [id]: false })));
+        .finally(() => loadingApi.set(id, false));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defsSummary, files, auditReports]);
 
   const togglePreview = (id: UploadSlotId) => {
     const willOpen = !previewOpen[id];
-    setPreviewOpen((prev) => ({ ...prev, [id]: willOpen }));
+    previewOpenApi.set(id, willOpen);
     if (willOpen && !previews[id]) {
       const sessionId = auditReports[id]!.session_id;
-      fetchPreview(sessionId, 30).then((preview) => setPreviews((prev) => ({ ...prev, [id]: preview })));
+      fetchPreview(sessionId, 30).then((preview) => previewsApi.set(id, preview));
     }
   };
 
   const runSuggest = (id: UploadSlotId) => {
     const sessionId = auditReports[id]!.session_id;
-    setSuggestLoading((prev) => ({ ...prev, [id]: true }));
-    setSuggestError((prev) => ({ ...prev, [id]: undefined }));
+    suggestLoadingApi.set(id, true);
+    suggestErrorApi.set(id, undefined);
     suggestFeatures(sessionId)
-      .then((res) => setSuggestions((prev) => ({ ...prev, [id]: res.suggestions })))
+      .then((res) => suggestionsApi.set(id, res.suggestions))
       .catch((err) =>
-        setSuggestError((prev) => ({
-          ...prev,
-          [id]: err instanceof AuditApiError ? err.message : "Could not reach the suggestion agent.",
-        }))
+        suggestErrorApi.set(id, err instanceof AuditApiError ? err.message : "Could not reach the suggestion agent.")
       )
-      .finally(() => setSuggestLoading((prev) => ({ ...prev, [id]: false })));
+      .finally(() => suggestLoadingApi.set(id, false));
   };
 
   // Shared by both the AI suggester and the manual "Add Custom KPI" form --
@@ -133,32 +111,29 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
     const nextAccepted = [...(accepted[id] ?? []), feature];
     return applyFeatures(sessionId, nextAccepted)
       .then((report) => {
-        setReports((prev) => ({ ...prev, [id]: report }));
-        setAccepted((prev) => ({ ...prev, [id]: nextAccepted }));
-        setPreviews((prev) => ({ ...prev, [id]: undefined }));
+        reportsApi.set(id, report);
+        acceptedApi.set(id, nextAccepted);
+        previewsApi.set(id, undefined);
       })
       .catch((err) => {
-        setErrors((prev) => ({
-          ...prev,
-          [id]: err instanceof AuditApiError ? err.message : "Could not add that feature.",
-        }));
+        errorsApi.set(id, err instanceof AuditApiError ? err.message : "Could not add that feature.");
         throw err;
       });
   };
 
   const acceptSuggestion = (id: UploadSlotId, suggestion: FeatureSuggestion) => {
-    setApplyingSuggestionId((prev) => ({ ...prev, [id]: suggestion.id }));
+    applyingSuggestionIdApi.set(id, suggestion.id);
     addFeature(id, suggestion)
       .catch(() => {})
-      .finally(() => setApplyingSuggestionId((prev) => ({ ...prev, [id]: undefined })));
+      .finally(() => applyingSuggestionIdApi.set(id, undefined));
   };
 
   const addCustomKpi = (id: UploadSlotId, kpi: FeatureSuggestion) => {
-    setAddingKpi((prev) => ({ ...prev, [id]: true }));
+    addingKpiApi.set(id, true);
     addFeature(id, kpi)
-      .then(() => setShowAddKpiForm((prev) => ({ ...prev, [id]: false })))
+      .then(() => showAddKpiFormApi.set(id, false))
       .catch(() => {})
-      .finally(() => setAddingKpi((prev) => ({ ...prev, [id]: false })));
+      .finally(() => addingKpiApi.set(id, false));
   };
 
   if (AUDITED_SLOTS.every((id) => !files[id])) {
@@ -265,7 +240,7 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
                   disabled={suggestLoading[id]}
                   onClick={() => {
                     if (slotSuggestions.length === 0) runSuggest(id);
-                    setShowSuggestionsModal((prev) => ({ ...prev, [id]: true }));
+                    showSuggestionsModalApi.set(id, true);
                   }}
                 >
                   <IconSparkle />{" "}
@@ -281,7 +256,7 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
                 {showSuggestionsModal[id] && (
                   <Modal
                     title="AI Feature Suggestions"
-                    onClose={() => setShowSuggestionsModal((prev) => ({ ...prev, [id]: false }))}
+                    onClose={() => showSuggestionsModalApi.set(id, false)}
                     headerExtra={
                       <button
                         type="button"
@@ -330,17 +305,17 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
                 <button
                   type="button"
                   className="features-page__btn features-page__btn--secondary features-page__panel-btn"
-                  onClick={() => setShowAddKpiForm((prev) => ({ ...prev, [id]: true }))}
+                  onClick={() => showAddKpiFormApi.set(id, true)}
                 >
                   + Add Custom KPI
                 </button>
                 {showAddKpiForm[id] && (
-                  <Modal title="Add a Custom KPI" onClose={() => setShowAddKpiForm((prev) => ({ ...prev, [id]: false }))}>
+                  <Modal title="Add a Custom KPI" onClose={() => showAddKpiFormApi.set(id, false)}>
                     <AddKpiForm
                       columns={report.columns}
                       busy={!!addingKpi[id]}
                       onAdd={(kpi) => addCustomKpi(id, kpi)}
-                      onCancel={() => setShowAddKpiForm((prev) => ({ ...prev, [id]: false }))}
+                      onCancel={() => showAddKpiFormApi.set(id, false)}
                     />
                   </Modal>
                 )}

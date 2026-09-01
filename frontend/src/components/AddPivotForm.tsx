@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { PivotAgg, PivotFilter, PivotMetric, PivotSuggestion } from "../api/audit";
+import type { PivotAgg, PivotFilter, PivotMetric, PivotSuggestion } from "../api/types";
 import "./AddPivotForm.css";
 
 interface AddPivotFormProps {

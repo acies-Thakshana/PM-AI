@@ -1,4 +1,4 @@
-import type { DataPreview } from "../api/audit";
+import type { DataPreview } from "../api/types";
 import "./DataPreviewTable.css";
 
 interface DataPreviewTableProps {

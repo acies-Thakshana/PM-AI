@@ -1,4 +1,4 @@
-import type { FeatureResult } from "../api/audit";
+import type { FeatureResult } from "../api/types";
 import { IconExpand, IconTag, IconShieldCheck, IconClock, IconPercent, IconCalendar } from "./icons";
 import "./FeatureCard.css";
 

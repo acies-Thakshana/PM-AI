@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { PivotResult } from "../api/audit";
+import type { PivotResult } from "../api/types";
 import { IconChevronDown } from "./icons";
 import "./PivotTableCard.css";
 

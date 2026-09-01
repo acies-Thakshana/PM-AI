@@ -1,4 +1,4 @@
-import type { FeatureResult } from "../api/audit";
+import type { FeatureResult } from "../api/types";
 import Modal from "./Modal";
 import { Distribution, STAT_LABELS, displayStats } from "./FeatureCard";
 import "./FeatureCard.css";

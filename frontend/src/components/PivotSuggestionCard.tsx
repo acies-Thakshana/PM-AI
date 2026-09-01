@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { PivotSuggestion } from "../api/audit";
+import type { PivotSuggestion } from "../api/types";
 import { IconExpand } from "./icons";
 import Modal from "./Modal";
 import "./PivotSuggestionCard.css";

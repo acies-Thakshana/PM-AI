@@ -1,4 +1,4 @@
-import type { OverallAnalysisReport } from "../api/audit";
+import type { OverallAnalysisReport } from "../api/types";
 import { IconSparkle } from "./icons";
 import "./OverallAnalysisCard.css";
 

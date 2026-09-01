@@ -12,37 +12,7 @@ import re
 import pandas as pd
 
 from app.services.groq_client import chat_text
-
-SYSTEM_PROMPT = """You are a data engineer writing a short Python snippet \
-to compute one new column on an operational cold-chain shipment dataset.
-
-A pandas DataFrame is already available as the variable `df`, and the \
-`pandas` module is already available as `pd`. Write vectorized pandas code \
-(no explicit for/while loops, no function or class definitions, no \
-imports) that computes the requested calculation and assigns the final \
-result -- a pandas Series with exactly one value per row of `df`, aligned \
-to `df.index` -- to a variable named exactly `result`.
-
-Rules:
-- Only reference columns that actually appear in the column list given below.
-- Never read or write files, never use eval/exec/open, never import \
-anything, never call any to_csv/to_excel/read_csv/etc-style I/O method -- \
-everything you need is already available as `df` and `pd`.
-- If the calculation naturally produces one value per group (e.g. an \
-average per lane) rather than one value per row, broadcast it back to \
-every row of that group (e.g. with `.transform(...)` or `.map(...)`), \
-since `result` must have exactly one value per row.
-- Respond with ONLY the Python code. No markdown fences, no explanation, \
-no comments."""
-
-
-def _columns_block(df: pd.DataFrame) -> str:
-    lines = []
-    for col in df.columns:
-        sample = df[col].dropna().astype(str).head(3).tolist()
-        preview = ", ".join(sample) if sample else "(all null)"
-        lines.append(f"- {col} ({df[col].dtype}): e.g. {preview}")
-    return "\n".join(lines)
+from app.services.prompts import AI_FEATURE_CODEGEN_SYSTEM_PROMPT as SYSTEM_PROMPT, describe_columns as _columns_block
 
 
 def _strip_code_fence(text: str) -> str:

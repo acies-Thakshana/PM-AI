@@ -6,9 +6,10 @@ import PageHeader from "../components/PageHeader";
 import StatTile from "../components/StatTile";
 import PivotFilterBar from "../components/PivotFilterBar";
 import { IconClipboard, IconChevronLeft, IconDoc, IconDownload, IconGrid, IconLayers, IconSparkle, IconWarnTriangle } from "../components/icons";
+import { AuditApiError } from "../api/client";
+import { fetchPivotReport } from "../api/pivots";
 import {
   downloadReportUrl,
-  fetchPivotReport,
   fetchReportFilters,
   fetchReportFilterScope,
   fetchReportTitles,
@@ -16,14 +17,22 @@ import {
   saveReportFilterScope,
   saveReportTitle,
   uploadReportTemplate,
-  AuditApiError,
-  type PivotFilter,
-  type PivotReport,
-  type PivotResult,
-  type ReportTemplateSummary,
-} from "../api/audit";
+} from "../api/report";
+import type { PivotFilter, PivotReport, ReportTemplateSummary } from "../api/types";
 import { AUDITED_SLOTS, UPLOAD_SLOTS } from "../constants/uploadSlots";
 import type { UploadSlotId } from "../types/upload";
+import { useSlotState } from "../hooks/useSlotState";
+import {
+  DEPARTURE_COLUMN,
+  activeColumns,
+  columnLabel,
+  globalColumnsFor,
+  globalCombinationsFor,
+  globalOptionsFor,
+  pivotSlidePreviews,
+  rangeFromFilters,
+  selectionsFromFilters,
+} from "../utils/reportFilters";
 import type { AuditReportsState, FilesState } from "../App";
 import "./ReportPage.css";
 
@@ -32,101 +41,24 @@ interface ReportPageProps {
   auditReports: AuditReportsState;
 }
 
-type PivotReportsState = Partial<Record<UploadSlotId, PivotReport>>;
-type ReportFiltersState = Partial<Record<UploadSlotId, PivotFilter[]>>;
-type LoadingState = Partial<Record<UploadSlotId, boolean>>;
-type ErrorsState = Partial<Record<UploadSlotId, string>>;
-
-// The raw column the data uses for a shipment's departure -- not one of the
-// categorical filterable_columns slicers, so it gets its own date-range
-// control alongside them.
-const DEPARTURE_COLUMN = "Actual Departure Time CET";
-// Mirrors the backend's report_generator.MAX_COMBOS_PER_PIVOT.
-const MAX_COMBOS = 12;
-
-function selectionsFromFilters(filters: PivotFilter[], filterableColumns: string[]): Record<string, string[] | undefined> {
-  const selections: Record<string, string[] | undefined> = {};
-  for (const f of filters) {
-    if (f.op === "in" && filterableColumns.includes(f.column)) {
-      selections[f.column] = (Array.isArray(f.value) ? f.value : [f.value]).map(String);
-    }
-  }
-  return selections;
-}
-
-function globalColumnsFor(pivots: PivotResult[]): string[] {
-  const columns = new Set<string>();
-  for (const p of pivots) for (const c of p.filterable_columns) columns.add(c);
-  return [...columns];
-}
-
-function globalOptionsFor(pivots: PivotResult[], columns: string[]): Record<string, string[]> {
-  const options: Record<string, string[]> = {};
-  for (const column of columns) {
-    const values = new Set<string>();
-    for (const p of pivots) for (const v of p.filter_options[column] ?? []) values.add(v);
-    options[column] = [...values].sort();
-  }
-  return options;
-}
-
-function globalCombinationsFor(pivots: PivotResult[]): Record<string, string>[] {
-  return pivots.flatMap((p) => p.filter_combinations);
-}
-
-function rangeFromFilters(filters: PivotFilter[]): { start: string; end: string } {
-  const gte = filters.find((f) => f.column === DEPARTURE_COLUMN && f.op === "gte");
-  const lte = filters.find((f) => f.column === DEPARTURE_COLUMN && f.op === "lte");
-  return {
-    start: typeof gte?.value === "string" ? gte.value.slice(0, 10) : "",
-    end: typeof lte?.value === "string" ? lte.value.slice(0, 10) : "",
-  };
-}
-
-// Which columns the shared filter is actually constraining right now --
-// only these are worth a per-pivot "apply this to me?" toggle.
-function activeColumns(filters: PivotFilter[]): string[] {
-  return [...new Set(filters.map((f) => f.column))];
-}
-
-function columnLabel(column: string): string {
-  return column === DEPARTURE_COLUMN ? "Departure time" : column;
-}
-
-// Mirrors the backend's report_generator._report_filter_combos + _combo_label
-// exactly, so the UI shows one row per ACTUAL output slide instead of
-// collapsing them into a single "N slides" summary -- e.g. 2 selected
-// Origins -> 2 rows, each labeled with the specific Origin it resolves to.
-function pivotSlidePreviews(filters: PivotFilter[], allowed: string[] | undefined): string[] {
-  const scoped = allowed === undefined ? filters : filters.filter((f) => allowed.includes(f.column));
-  const multipliers = scoped.filter((f) => f.op === "in" && Array.isArray(f.value) && f.value.length > 1);
-  if (multipliers.length === 0) return [""];
-  let combos: string[][] = [[]];
-  for (const f of multipliers) {
-    const values = (f.value as unknown[]).map(String);
-    combos = combos.flatMap((c) => values.map((v) => [...c, v]));
-  }
-  return combos.slice(0, MAX_COMBOS).map((c) => c.join(" / "));
-}
-
 export default function ReportPage({ files, auditReports }: ReportPageProps) {
   const navigate = useNavigate();
 
-  const [reports, setReports] = useState<PivotReportsState>({});
-  const [loading, setLoading] = useState<LoadingState>({});
-  const [errors, setErrors] = useState<ErrorsState>({});
+  const [reports, reportsApi] = useSlotState<PivotReport>();
+  const [loading, loadingApi] = useSlotState<boolean>();
+  const [errors, errorsApi] = useSlotState<string>();
 
-  const [reportFilters, setReportFilters] = useState<ReportFiltersState>({});
-  const [filtersLoading, setFiltersLoading] = useState<LoadingState>({});
-  const [savingFilters, setSavingFilters] = useState<LoadingState>({});
-  const [rangeDraft, setRangeDraft] = useState<Partial<Record<UploadSlotId, { start: string; end: string }>>>({});
+  const [reportFilters, reportFiltersApi] = useSlotState<PivotFilter[]>();
+  const [filtersLoading, filtersLoadingApi] = useSlotState<boolean>();
+  const [savingFilters, savingFiltersApi] = useSlotState<boolean>();
+  const [rangeDraft, rangeDraftApi] = useSlotState<{ start: string; end: string }>();
 
-  const [filterScope, setFilterScope] = useState<Partial<Record<UploadSlotId, Record<string, string[]>>>>({});
-  const [scopeLoading, setScopeLoading] = useState<LoadingState>({});
+  const [filterScope, filterScopeApi] = useSlotState<Record<string, string[]>>();
+  const [scopeLoading, scopeLoadingApi] = useSlotState<boolean>();
   const [savingScope, setSavingScope] = useState<Record<string, boolean>>({});
 
-  const [titles, setTitles] = useState<Partial<Record<UploadSlotId, Record<string, string>>>>({});
-  const [titlesLoading, setTitlesLoading] = useState<LoadingState>({});
+  const [titles, titlesApi] = useSlotState<Record<string, string>>();
+  const [titlesLoading, titlesLoadingApi] = useSlotState<boolean>();
   const [savingTitle, setSavingTitle] = useState<Record<string, boolean>>({});
 
   const [templateSummary, setTemplateSummary] = useState<ReportTemplateSummary | null>(null);
@@ -153,16 +85,13 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
     for (const id of auditedReady) {
       if (reports[id] || loading[id]) continue;
       const sessionId = auditReports[id]!.session_id;
-      setLoading((prev) => ({ ...prev, [id]: true }));
+      loadingApi.set(id, true);
       fetchPivotReport(sessionId)
-        .then((report) => setReports((prev) => ({ ...prev, [id]: report })))
+        .then((report) => reportsApi.set(id, report))
         .catch((err) =>
-          setErrors((prev) => ({
-            ...prev,
-            [id]: err instanceof AuditApiError ? err.message : "Could not check the analysis for this source.",
-          }))
+          errorsApi.set(id, err instanceof AuditApiError ? err.message : "Could not check the analysis for this source.")
         )
-        .finally(() => setLoading((prev) => ({ ...prev, [id]: false })));
+        .finally(() => loadingApi.set(id, false));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auditedReady, auditReports]);
@@ -173,13 +102,13 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
     for (const id of slotsReady) {
       if (reportFilters[id] || filtersLoading[id]) continue;
       const sessionId = auditReports[id]!.session_id;
-      setFiltersLoading((prev) => ({ ...prev, [id]: true }));
+      filtersLoadingApi.set(id, true);
       fetchReportFilters(sessionId)
-        .then((res) => setReportFilters((prev) => ({ ...prev, [id]: res.filters })))
+        .then((res) => reportFiltersApi.set(id, res.filters))
         .catch((err) =>
-          setErrors((prev) => ({ ...prev, [id]: err instanceof AuditApiError ? err.message : "Could not load report filters." }))
+          errorsApi.set(id, err instanceof AuditApiError ? err.message : "Could not load report filters.")
         )
-        .finally(() => setFiltersLoading((prev) => ({ ...prev, [id]: false })));
+        .finally(() => filtersLoadingApi.set(id, false));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slotsReady, auditReports]);
@@ -188,13 +117,13 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
     for (const id of slotsReady) {
       if (filterScope[id] || scopeLoading[id]) continue;
       const sessionId = auditReports[id]!.session_id;
-      setScopeLoading((prev) => ({ ...prev, [id]: true }));
+      scopeLoadingApi.set(id, true);
       fetchReportFilterScope(sessionId)
-        .then((res) => setFilterScope((prev) => ({ ...prev, [id]: res.scope })))
+        .then((res) => filterScopeApi.set(id, res.scope))
         .catch((err) =>
-          setErrors((prev) => ({ ...prev, [id]: err instanceof AuditApiError ? err.message : "Could not load filter scope." }))
+          errorsApi.set(id, err instanceof AuditApiError ? err.message : "Could not load filter scope.")
         )
-        .finally(() => setScopeLoading((prev) => ({ ...prev, [id]: false })));
+        .finally(() => scopeLoadingApi.set(id, false));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slotsReady, auditReports]);
@@ -203,13 +132,13 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
     for (const id of slotsReady) {
       if (titles[id] || titlesLoading[id]) continue;
       const sessionId = auditReports[id]!.session_id;
-      setTitlesLoading((prev) => ({ ...prev, [id]: true }));
+      titlesLoadingApi.set(id, true);
       fetchReportTitles(sessionId)
-        .then((res) => setTitles((prev) => ({ ...prev, [id]: res.titles })))
+        .then((res) => titlesApi.set(id, res.titles))
         .catch((err) =>
-          setErrors((prev) => ({ ...prev, [id]: err instanceof AuditApiError ? err.message : "Could not load slide titles." }))
+          errorsApi.set(id, err instanceof AuditApiError ? err.message : "Could not load slide titles.")
         )
-        .finally(() => setTitlesLoading((prev) => ({ ...prev, [id]: false })));
+        .finally(() => titlesLoadingApi.set(id, false));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slotsReady, auditReports]);
@@ -218,9 +147,9 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
     const sessionId = auditReports[id]!.session_id;
     setSavingTitle((prev) => ({ ...prev, [pivotId]: true }));
     saveReportTitle(sessionId, pivotId, title)
-      .then((res) => setTitles((prev) => ({ ...prev, [id]: res.titles })))
+      .then((res) => titlesApi.set(id, res.titles))
       .catch((err) =>
-        setErrors((prev) => ({ ...prev, [id]: err instanceof AuditApiError ? err.message : "Could not rename the slide." }))
+        errorsApi.set(id, err instanceof AuditApiError ? err.message : "Could not rename the slide.")
       )
       .finally(() => setSavingTitle((prev) => ({ ...prev, [pivotId]: false })));
   };
@@ -239,22 +168,22 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
     const next = baseline.includes(column) ? baseline.filter((c) => c !== column) : [...baseline, column];
     setSavingScope((prev) => ({ ...prev, [pivotId]: true }));
     saveReportFilterScope(sessionId, pivotId, next)
-      .then((res) => setFilterScope((prev) => ({ ...prev, [id]: res.scope })))
+      .then((res) => filterScopeApi.set(id, res.scope))
       .catch((err) =>
-        setErrors((prev) => ({ ...prev, [id]: err instanceof AuditApiError ? err.message : "Could not save filter scope." }))
+        errorsApi.set(id, err instanceof AuditApiError ? err.message : "Could not save filter scope.")
       )
       .finally(() => setSavingScope((prev) => ({ ...prev, [pivotId]: false })));
   };
 
   const saveFilters = (id: UploadSlotId, filters: PivotFilter[]) => {
     const sessionId = auditReports[id]!.session_id;
-    setSavingFilters((prev) => ({ ...prev, [id]: true }));
+    savingFiltersApi.set(id, true);
     saveReportFilters(sessionId, filters)
-      .then((res) => setReportFilters((prev) => ({ ...prev, [id]: res.filters })))
+      .then((res) => reportFiltersApi.set(id, res.filters))
       .catch((err) =>
-        setErrors((prev) => ({ ...prev, [id]: err instanceof AuditApiError ? err.message : "Could not save filters." }))
+        errorsApi.set(id, err instanceof AuditApiError ? err.message : "Could not save filters.")
       )
-      .finally(() => setSavingFilters((prev) => ({ ...prev, [id]: false })));
+      .finally(() => savingFiltersApi.set(id, false));
   };
 
   const handleSaveCategorical = (id: UploadSlotId, nextSelections: Record<string, string[] | undefined>) => {
@@ -404,7 +333,7 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
               {(() => {
                 const range = rangeDraft[id] ?? rangeFromFilters(filters);
                 const setField = (field: "start" | "end", value: string) =>
-                  setRangeDraft((prev) => ({ ...prev, [id]: { ...range, [field]: value } }));
+                  rangeDraftApi.set(id, { ...range, [field]: value });
                 return (
                   <div className="report-page__range">
                     <span className="report-page__range-label">Departure time (applies to every table above)</span>
@@ -426,7 +355,7 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
                           className="report-page__btn report-page__btn--secondary report-page__range-btn"
                           disabled={!!savingFilters[id]}
                           onClick={() => {
-                            setRangeDraft((prev) => ({ ...prev, [id]: { start: "", end: "" } }));
+                            rangeDraftApi.set(id, { start: "", end: "" });
                             handleApplyRange(id, "", "");
                           }}
                         >

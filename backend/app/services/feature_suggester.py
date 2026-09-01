@@ -13,49 +13,9 @@ import pandas as pd
 
 from app.schemas import FeatureSuggestion
 from app.services.groq_client import chat_json
+from app.services.prompts import FEATURE_SUGGESTION_SYSTEM_PROMPT as SYSTEM_PROMPT, describe_columns as _columns_block
 
 VALID_TYPES = {"duration_hours", "ratio", "extract_month"}
-
-SYSTEM_PROMPT = """You are a data engineer proposing new engineered columns \
-for an operational cold-chain shipment dataset, to help a program manager \
-build KPIs and reports. You'll be given the current column names, dtypes, \
-and a few sample values per column.
-
-Propose up to 5 NEW feature ideas that would be genuinely useful for \
-cold-chain reporting (e.g. transit duration, percentage breakdowns of time \
-in/out of spec, seasonality). Every suggestion MUST be exactly one of these \
-three computable types, and MUST reference only columns that appear in the \
-given column list -- never invent a column name:
-
-1. "duration_hours" -- the difference between two datetime-like columns.
-   Required fields: start_column, end_column, unit ("hours" or "days").
-2. "ratio" -- percentage of a sum of numerator column(s) over a sum of \
-denominator column(s). Both must be numeric columns.
-   Required fields: numerator_columns (list), denominator_columns (list).
-3. "extract_month" -- calendar month extracted from one or more datetime \
-columns (first non-null one wins).
-   Required fields: source_columns (list).
-
-Respond with ONLY a JSON object of this exact shape, no markdown, no \
-commentary:
-{"suggestions": [
-  {
-    "name": "short title, e.g. 'Time in Transit'",
-    "description": "one plain-English sentence on why this is useful",
-    "output_column": "short column name for the new field",
-    "type": "duration_hours | ratio | extract_month",
-    ... the required fields for that type ...
-  }
-]}"""
-
-
-def _columns_block(df: pd.DataFrame) -> str:
-    lines = []
-    for col in df.columns:
-        sample = df[col].dropna().astype(str).head(3).tolist()
-        preview = ", ".join(sample) if sample else "(all null)"
-        lines.append(f"- {col} ({df[col].dtype}): e.g. {preview}")
-    return "\n".join(lines)
 
 
 def _formula_text(spec: dict) -> str:

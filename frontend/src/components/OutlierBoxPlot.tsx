@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { OutlierChart } from "../api/audit";
+import type { OutlierChart } from "../api/types";
 import "./OutlierBoxPlot.css";
 
 interface OutlierBoxPlotProps {

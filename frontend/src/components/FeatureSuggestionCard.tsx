@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { FeatureSuggestion } from "../api/audit";
+import type { FeatureSuggestion } from "../api/types";
 import { IconExpand } from "./icons";
 import Modal from "./Modal";
 import "./FeatureSuggestionCard.css";

@@ -14,52 +14,7 @@ import pandas as pd
 from app.schemas import PivotSuggestion
 from app.services.groq_client import chat_json
 from app.services.pivot_definitions_store import SUPPORTED_AGGS
-
-SYSTEM_PROMPT = """You are a data analyst proposing pivot tables for an \
-operational cold-chain shipment dataset, to help a program manager spot \
-trends and outliers for a recurring report. You'll be given the current \
-column names, dtypes, and a few sample values per column (some columns may \
-be engineered fields like "Country of Origin", "Arrival Month", or \
-"% In Spec").
-
-Propose up to 5 NEW pivot table ideas that would be genuinely useful for \
-cold-chain reporting (e.g. performance by carrier, seasonality by product, \
-exception hours by lane). Every suggestion MUST reference only columns that \
-appear in the given column list -- never invent a column name -- and every \
-metric's "agg" MUST be exactly one of: sum, mean, count, min, max, median, \
-distinct_count, pct_of_total.
-
-- "group_by": 1-2 column names to group rows by.
-- "metrics": 1-3 objects, each {"column": <name>, "agg": <one of the above>, \
-"output_label": <short display label>}. Only pick numeric columns for sum/ \
-mean/min/max/median. "count", "distinct_count", and "pct_of_total" work on \
-any column and describe row counts/shares, so prefer an identifier-like \
-column (e.g. a trip/shipment id) for those.
-- "sort_by" (optional): {"metric": <one of this pivot's output_label \
-values>, "direction": "asc" or "desc"}.
-- "top_n" (optional): integer cap on rows returned.
-
-Respond with ONLY a JSON object of this exact shape, no markdown, no \
-commentary:
-{"suggestions": [
-  {
-    "name": "short title, e.g. 'Exception Hours by Carrier'",
-    "description": "one plain-English sentence on why this is useful",
-    "group_by": ["Carrier"],
-    "metrics": [{"column": "Trip ID", "agg": "count", "output_label": "Shipments"}],
-    "sort_by": {"metric": "Shipments", "direction": "desc"},
-    "top_n": 10
-  }
-]}"""
-
-
-def _columns_block(df: pd.DataFrame) -> str:
-    lines = []
-    for col in df.columns:
-        sample = df[col].dropna().astype(str).head(3).tolist()
-        preview = ", ".join(sample) if sample else "(all null)"
-        lines.append(f"- {col} ({df[col].dtype}): e.g. {preview}")
-    return "\n".join(lines)
+from app.services.prompts import PIVOT_SUGGESTION_SYSTEM_PROMPT as SYSTEM_PROMPT, describe_columns as _columns_block
 
 
 def _valid_metric(spec: dict, available_columns: set[str]) -> bool:

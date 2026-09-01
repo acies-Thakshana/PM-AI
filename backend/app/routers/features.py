@@ -5,7 +5,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from app.schemas import FeatureDefinitionsSummary, FeatureSuggestionsResponse, SuggestFeaturesRequest
 from app.services import feature_definitions_store as defs_store
 from app.services import feature_suggester
-from app.services.audit_store import store as audit_store
+from app.routers._common import get_session_or_404
 
 router = APIRouter(prefix="/api/features", tags=["features"])
 
@@ -49,9 +49,7 @@ def get_feature_definitions() -> FeatureDefinitionsSummary:
 
 @router.post("/suggest", response_model=FeatureSuggestionsResponse)
 def suggest_features(body: SuggestFeaturesRequest) -> FeatureSuggestionsResponse:
-    session = audit_store.get(body.session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Audit session not found.")
+    session = get_session_or_404(body.session_id)
     base_df = session.pre_feature_df if session.pre_feature_df is not None else session.df
     try:
         suggestions = feature_suggester.suggest_features(base_df)

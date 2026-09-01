@@ -6,8 +6,9 @@ import AuditPage from "./pages/AuditPage";
 import FeaturesPage from "./pages/FeaturesPage";
 import AnalysisPage from "./pages/AnalysisPage";
 import ReportPage from "./pages/ReportPage";
-import { AuditApiError, resolveIssue, revertIssue, uploadForAudit } from "./api/audit";
-import type { AuditReport as AuditReportData } from "./api/audit";
+import { resolveIssue, revertIssue, uploadForAudit } from "./api/audit";
+import { AuditApiError } from "./api/client";
+import type { AuditReport as AuditReportData } from "./api/types";
 import { isAudited } from "./constants/uploadSlots";
 import type { UploadSlotId } from "./types/upload";
 

@@ -11,6 +11,7 @@ from app.services import feature_definitions_store as defs_store
 from app.services.audit_agent import generate_audit_analysis
 from app.services.audit_store import AuditSession, store
 from app.services.excel_parser import load_spreadsheet
+from app.routers._common import get_session_or_404 as _get_session_or_404
 
 router = APIRouter(prefix="/api/audit", tags=["audit"])
 
@@ -50,13 +51,6 @@ def _to_feature_report(session: AuditSession) -> FeatureReport:
         features=session.features,
         skipped_notes=session.feature_skipped_notes,
     )
-
-
-def _get_session_or_404(session_id: str) -> AuditSession:
-    session = store.get(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Audit session not found.")
-    return session
 
 
 @router.post("/upload", response_model=AuditReport)

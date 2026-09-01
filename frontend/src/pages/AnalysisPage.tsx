@@ -11,22 +11,14 @@ import PivotSuggestionCard from "../components/PivotSuggestionCard";
 import AddPivotForm from "../components/AddPivotForm";
 import OverallAnalysisCard from "../components/OverallAnalysisCard";
 import { IconDoc, IconGrid, IconSparkle, IconWarnTriangle, IconChevronLeft, IconChevronRight, IconBarChart, IconLayers } from "../components/icons";
-import {
-  applyPivots,
-  fetchFeatureReport,
-  fetchOverallAnalysis,
-  suggestPivots,
-  uploadPivotDefinitions,
-  AuditApiError,
-  type FeatureReport,
-  type OverallAnalysisReport,
-  type PivotDefinitionsSummary,
-  type PivotFilter,
-  type PivotReport,
-  type PivotSuggestion,
-} from "../api/audit";
+import { AuditApiError } from "../api/client";
+import { fetchOverallAnalysis } from "../api/analysis";
+import { fetchFeatureReport } from "../api/features";
+import { applyPivots, suggestPivots, uploadPivotDefinitions } from "../api/pivots";
+import type { FeatureReport, OverallAnalysisReport, PivotDefinitionsSummary, PivotFilter, PivotReport, PivotSuggestion } from "../api/types";
 import { AUDITED_SLOTS, UPLOAD_SLOTS } from "../constants/uploadSlots";
 import type { UploadSlotId } from "../types/upload";
+import { useSlotState } from "../hooks/useSlotState";
 import type { AuditReportsState, FilesState } from "../App";
 import "./AnalysisPage.css";
 
@@ -35,45 +27,35 @@ interface AnalysisPageProps {
   auditReports: AuditReportsState;
 }
 
-type FeatureReportsState = Partial<Record<UploadSlotId, FeatureReport>>;
-type PivotReportsState = Partial<Record<UploadSlotId, PivotReport>>;
-type OverallReportsState = Partial<Record<UploadSlotId, OverallAnalysisReport>>;
-type LoadingState = Partial<Record<UploadSlotId, boolean>>;
-type ErrorsState = Partial<Record<UploadSlotId, string>>;
-type SuggestionsState = Partial<Record<UploadSlotId, PivotSuggestion[]>>;
-type AcceptedState = Partial<Record<UploadSlotId, PivotSuggestion[]>>;
-type BusyIdState = Partial<Record<UploadSlotId, string>>;
 // slot -> pivot id -> column -> selected values (undefined column entry = "all", no filter)
 type PivotFilterSelections = Record<string, string[] | undefined>;
-type FilterSelectionsState = Partial<Record<UploadSlotId, Record<string, PivotFilterSelections>>>;
-
 
 export default function AnalysisPage({ files, auditReports }: AnalysisPageProps) {
   const navigate = useNavigate();
 
-  const [featureReports, setFeatureReports] = useState<FeatureReportsState>({});
-  const [featureCheckLoading, setFeatureCheckLoading] = useState<LoadingState>({});
-  const [featureCheckFailed, setFeatureCheckFailed] = useState<LoadingState>({});
+  const [featureReports, featureReportsApi] = useSlotState<FeatureReport>();
+  const [featureCheckLoading, featureCheckLoadingApi] = useSlotState<boolean>();
+  const [featureCheckFailed, featureCheckFailedApi] = useSlotState<boolean>();
 
-  const [reports, setReports] = useState<PivotReportsState>({});
-  const [loading, setLoading] = useState<LoadingState>({});
-  const [errors, setErrors] = useState<ErrorsState>({});
+  const [reports, reportsApi] = useSlotState<PivotReport>();
+  const [loading, loadingApi] = useSlotState<boolean>();
+  const [errors, errorsApi] = useSlotState<string>();
 
-  const [suggestions, setSuggestions] = useState<SuggestionsState>({});
-  const [suggestLoading, setSuggestLoading] = useState<LoadingState>({});
-  const [suggestError, setSuggestError] = useState<ErrorsState>({});
-  const [accepted, setAccepted] = useState<AcceptedState>({});
-  const [applyingSuggestionId, setApplyingSuggestionId] = useState<BusyIdState>({});
-  const [applyingAll, setApplyingAll] = useState<LoadingState>({});
-  const [showAddPivotForm, setShowAddPivotForm] = useState<LoadingState>({});
-  const [addingPivot, setAddingPivot] = useState<LoadingState>({});
-  const [showSuggestionsModal, setShowSuggestionsModal] = useState<LoadingState>({});
+  const [suggestions, suggestionsApi] = useSlotState<PivotSuggestion[]>();
+  const [suggestLoading, suggestLoadingApi] = useSlotState<boolean>();
+  const [suggestError, suggestErrorApi] = useSlotState<string>();
+  const [accepted, acceptedApi] = useSlotState<PivotSuggestion[]>();
+  const [applyingSuggestionId, applyingSuggestionIdApi] = useSlotState<string>();
+  const [applyingAll, applyingAllApi] = useSlotState<boolean>();
+  const [showAddPivotForm, showAddPivotFormApi] = useSlotState<boolean>();
+  const [addingPivot, addingPivotApi] = useSlotState<boolean>();
+  const [showSuggestionsModal, showSuggestionsModalApi] = useSlotState<boolean>();
 
-  const [overallReports, setOverallReports] = useState<OverallReportsState>({});
-  const [overallLoading, setOverallLoading] = useState<LoadingState>({});
-  const [overallError, setOverallError] = useState<ErrorsState>({});
+  const [overallReports, overallReportsApi] = useSlotState<OverallAnalysisReport>();
+  const [overallLoading, overallLoadingApi] = useSlotState<boolean>();
+  const [overallError, overallErrorApi] = useSlotState<string>();
 
-  const [filterSelections, setFilterSelections] = useState<FilterSelectionsState>({});
+  const [filterSelections, filterSelectionsApi] = useSlotState<Record<string, PivotFilterSelections>>();
   const [savingFilters, setSavingFilters] = useState<Record<string, boolean>>({});
   const [openPivot, setOpenPivot] = useState<{ slotId: UploadSlotId; pivotId: string } | null>(null);
 
@@ -92,11 +74,11 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
     for (const id of auditedReady) {
       if (featureReports[id] || featureCheckLoading[id] || featureCheckFailed[id]) continue;
       const sessionId = auditReports[id]!.session_id;
-      setFeatureCheckLoading((prev) => ({ ...prev, [id]: true }));
+      featureCheckLoadingApi.set(id, true);
       fetchFeatureReport(sessionId)
-        .then((report) => setFeatureReports((prev) => ({ ...prev, [id]: report })))
-        .catch(() => setFeatureCheckFailed((prev) => ({ ...prev, [id]: true })))
-        .finally(() => setFeatureCheckLoading((prev) => ({ ...prev, [id]: false })));
+        .then((report) => featureReportsApi.set(id, report))
+        .catch(() => featureCheckFailedApi.set(id, true))
+        .finally(() => featureCheckLoadingApi.set(id, false));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auditedReady, auditReports]);
@@ -120,33 +102,27 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
     for (const id of slotsReady) {
       if (reports[id] || loading[id] || errors[id]) continue;
       const sessionId = auditReports[id]!.session_id;
-      setLoading((prev) => ({ ...prev, [id]: true }));
+      loadingApi.set(id, true);
       applyPivots(sessionId)
-        .then((report) => setReports((prev) => ({ ...prev, [id]: report })))
+        .then((report) => reportsApi.set(id, report))
         .catch((err) =>
-          setErrors((prev) => ({
-            ...prev,
-            [id]: err instanceof AuditApiError ? err.message : "Could not compute analysis tables.",
-          }))
+          errorsApi.set(id, err instanceof AuditApiError ? err.message : "Could not compute analysis tables.")
         )
-        .finally(() => setLoading((prev) => ({ ...prev, [id]: false })));
+        .finally(() => loadingApi.set(id, false));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defsSummary, slotsReady, auditReports]);
 
   const runSuggest = (id: UploadSlotId) => {
     const sessionId = auditReports[id]!.session_id;
-    setSuggestLoading((prev) => ({ ...prev, [id]: true }));
-    setSuggestError((prev) => ({ ...prev, [id]: undefined }));
+    suggestLoadingApi.set(id, true);
+    suggestErrorApi.set(id, undefined);
     suggestPivots(sessionId)
-      .then((res) => setSuggestions((prev) => ({ ...prev, [id]: res.suggestions })))
+      .then((res) => suggestionsApi.set(id, res.suggestions))
       .catch((err) =>
-        setSuggestError((prev) => ({
-          ...prev,
-          [id]: err instanceof AuditApiError ? err.message : "Could not reach the suggestion agent.",
-        }))
+        suggestErrorApi.set(id, err instanceof AuditApiError ? err.message : "Could not reach the suggestion agent.")
       )
-      .finally(() => setSuggestLoading((prev) => ({ ...prev, [id]: false })));
+      .finally(() => suggestLoadingApi.set(id, false));
   };
 
   // Shared by both the AI suggester and the manual "Add Pivot" form.
@@ -155,23 +131,20 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
     const nextAccepted = [...(accepted[id] ?? []), pivot];
     return applyPivots(sessionId, nextAccepted)
       .then((report) => {
-        setReports((prev) => ({ ...prev, [id]: report }));
-        setAccepted((prev) => ({ ...prev, [id]: nextAccepted }));
+        reportsApi.set(id, report);
+        acceptedApi.set(id, nextAccepted);
       })
       .catch((err) => {
-        setErrors((prev) => ({
-          ...prev,
-          [id]: err instanceof AuditApiError ? err.message : "Could not add that analysis.",
-        }));
+        errorsApi.set(id, err instanceof AuditApiError ? err.message : "Could not add that analysis.");
         throw err;
       });
   };
 
   const acceptSuggestion = (id: UploadSlotId, suggestion: PivotSuggestion) => {
-    setApplyingSuggestionId((prev) => ({ ...prev, [id]: suggestion.id }));
+    applyingSuggestionIdApi.set(id, suggestion.id);
     addPivot(id, suggestion)
       .catch(() => {})
-      .finally(() => setApplyingSuggestionId((prev) => ({ ...prev, [id]: undefined })));
+      .finally(() => applyingSuggestionIdApi.set(id, undefined));
   };
 
   const acceptAllSuggestions = (id: UploadSlotId) => {
@@ -182,42 +155,36 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
 
     const sessionId = auditReports[id]!.session_id;
     const nextAccepted = [...currentAccepted, ...pending];
-    setApplyingAll((prev) => ({ ...prev, [id]: true }));
+    applyingAllApi.set(id, true);
     applyPivots(sessionId, nextAccepted)
       .then((report) => {
-        setReports((prev) => ({ ...prev, [id]: report }));
-        setAccepted((prev) => ({ ...prev, [id]: nextAccepted }));
+        reportsApi.set(id, report);
+        acceptedApi.set(id, nextAccepted);
       })
       .catch((err) =>
-        setErrors((prev) => ({
-          ...prev,
-          [id]: err instanceof AuditApiError ? err.message : "Could not add all analyses.",
-        }))
+        errorsApi.set(id, err instanceof AuditApiError ? err.message : "Could not add all analyses.")
       )
-      .finally(() => setApplyingAll((prev) => ({ ...prev, [id]: false })));
+      .finally(() => applyingAllApi.set(id, false));
   };
 
   const addCustomPivot = (id: UploadSlotId, pivot: PivotSuggestion) => {
-    setAddingPivot((prev) => ({ ...prev, [id]: true }));
+    addingPivotApi.set(id, true);
     addPivot(id, pivot)
-      .then(() => setShowAddPivotForm((prev) => ({ ...prev, [id]: false })))
+      .then(() => showAddPivotFormApi.set(id, false))
       .catch(() => {})
-      .finally(() => setAddingPivot((prev) => ({ ...prev, [id]: false })));
+      .finally(() => addingPivotApi.set(id, false));
   };
 
   const runOverallAnalysis = (id: UploadSlotId) => {
     const sessionId = auditReports[id]!.session_id;
-    setOverallLoading((prev) => ({ ...prev, [id]: true }));
-    setOverallError((prev) => ({ ...prev, [id]: undefined }));
+    overallLoadingApi.set(id, true);
+    overallErrorApi.set(id, undefined);
     fetchOverallAnalysis(sessionId)
-      .then((report) => setOverallReports((prev) => ({ ...prev, [id]: report })))
+      .then((report) => overallReportsApi.set(id, report))
       .catch((err) =>
-        setOverallError((prev) => ({
-          ...prev,
-          [id]: err instanceof AuditApiError ? err.message : "Could not reach the analysis agent.",
-        }))
+        overallErrorApi.set(id, err instanceof AuditApiError ? err.message : "Could not reach the analysis agent.")
       )
-      .finally(() => setOverallLoading((prev) => ({ ...prev, [id]: false })));
+      .finally(() => overallLoadingApi.set(id, false));
   };
 
   // Auto-generate the overall analysis as soon as pivots are computed, since
@@ -254,17 +221,14 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
   // saving here is what "reflects in the report" for that pivot.
   const handleSaveFilters = (id: UploadSlotId, pivotId: string, nextPivotSelections: PivotFilterSelections) => {
     const nextSlotSelections = { ...(filterSelections[id] ?? {}), [pivotId]: nextPivotSelections };
-    setFilterSelections((prev) => ({ ...prev, [id]: nextSlotSelections }));
+    filterSelectionsApi.set(id, nextSlotSelections);
 
     const sessionId = auditReports[id]!.session_id;
     setSavingFilters((prev) => ({ ...prev, [pivotId]: true }));
     applyPivots(sessionId, accepted[id] ?? [], buildPivotFiltersPayload(nextSlotSelections))
-      .then((report) => setReports((prev) => ({ ...prev, [id]: report })))
+      .then((report) => reportsApi.set(id, report))
       .catch((err) =>
-        setErrors((prev) => ({
-          ...prev,
-          [id]: err instanceof AuditApiError ? err.message : "Could not save filters.",
-        }))
+        errorsApi.set(id, err instanceof AuditApiError ? err.message : "Could not save filters.")
       )
       .finally(() => setSavingFilters((prev) => ({ ...prev, [pivotId]: false })));
   };
@@ -395,7 +359,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
                   disabled={suggestLoading[id]}
                   onClick={() => {
                     if (slotSuggestions.length === 0) runSuggest(id);
-                    setShowSuggestionsModal((prev) => ({ ...prev, [id]: true }));
+                    showSuggestionsModalApi.set(id, true);
                   }}
                 >
                   <IconSparkle />{" "}
@@ -409,7 +373,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
                 {suggestError[id] && <p className="analysis-page__error">{suggestError[id]}</p>}
 
                 {showSuggestionsModal[id] && (
-                  <Modal title="AI Analysis Suggestions" onClose={() => setShowSuggestionsModal((prev) => ({ ...prev, [id]: false }))}>
+                  <Modal title="AI Analysis Suggestions" onClose={() => showSuggestionsModalApi.set(id, false)}>
                     <div className="analysis-page__panel-btn-row">
                       {pendingSuggestionCount > 0 && (
                         <button
@@ -468,17 +432,17 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
                 <button
                   type="button"
                   className="analysis-page__btn analysis-page__btn--secondary analysis-page__panel-btn"
-                  onClick={() => setShowAddPivotForm((prev) => ({ ...prev, [id]: true }))}
+                  onClick={() => showAddPivotFormApi.set(id, true)}
                 >
                   + Add Custom Analysis
                 </button>
                 {showAddPivotForm[id] && (
-                  <Modal title="Add a Custom Analysis" onClose={() => setShowAddPivotForm((prev) => ({ ...prev, [id]: false }))}>
+                  <Modal title="Add a Custom Analysis" onClose={() => showAddPivotFormApi.set(id, false)}>
                     <AddPivotForm
                       columns={featureColumns}
                       busy={!!addingPivot[id]}
                       onAdd={(pivot) => addCustomPivot(id, pivot)}
-                      onCancel={() => setShowAddPivotForm((prev) => ({ ...prev, [id]: false }))}
+                      onCancel={() => showAddPivotFormApi.set(id, false)}
                     />
                   </Modal>
                 )}

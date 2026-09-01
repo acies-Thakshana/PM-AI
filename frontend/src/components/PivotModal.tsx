@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { PivotResult } from "../api/audit";
+import type { PivotResult } from "../api/types";
 import Modal from "./Modal";
 import PivotFilterBar from "./PivotFilterBar";
 import PivotTableCard from "./PivotTableCard";

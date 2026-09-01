@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { AuditIssue } from "../api/audit";
+import type { AuditIssue } from "../api/types";
 import { IconChevronRight, IconSparkle } from "./icons";
 import OutlierBoxPlot from "./OutlierBoxPlot";
 import IssueRowsModal from "./IssueRowsModal";

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { fetchIssueRows, AuditApiError } from "../api/audit";
+import { fetchIssueRows } from "../api/audit";
+import { AuditApiError } from "../api/client";
 import "./IssueRowsModal.css";
 
 interface IssueRowsModalProps {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { AuditIssue, AuditReport as AuditReportData } from "../api/audit";
+import type { AuditIssue, AuditReport as AuditReportData } from "../api/types";
 import AuditIssueCard, { COLUMN_SCOPED_CATEGORIES } from "./AuditIssueCard";
 import StatTile from "./StatTile";
 import { IconDoc, IconGrid, IconSearch, IconWarnTriangle, IconClipboard, IconInfo } from "./icons";
