@@ -1,6 +1,5 @@
-// Pure helpers for shaping ReportPage's shared/per-pivot filter state --
-// split out of ReportPage.tsx since these don't touch React state and are
-// independently testable.
+// Pure helpers for shaping ReportPage's shared/per-pivot filter state.
+// Kept free of React state so they're independently testable.
 import type { PivotFilter, PivotResult } from "../api/types";
 
 // The raw column the data uses for a shipment's departure -- not one of the

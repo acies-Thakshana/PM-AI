@@ -1,9 +1,8 @@
 """Turns one PivotResult into slide(s) on a builder, and the report-filter
 combo/scope logic that decides how many times each pivot gets multiplied
-across a shared filter set. Split out of report_generator.py -- this is the
-per-pivot "what slide shape fits this data" decision layer, distinct from
-both the low-level chart styling (chart_styling.py) and the pptx-builder
-mechanics (report_builder.py).
+across a shared filter set. This is the per-pivot "what slide shape fits
+this data" decision layer, distinct from both the low-level chart styling
+(chart_styling.py) and the pptx-builder mechanics (report_builder.py).
 """
 from app.schemas import PivotResult
 from app.services.report.chart_styling import (

@@ -1,9 +1,9 @@
 """Every Groq system prompt used by this app's AI agents, in one place, plus
-the one dataframe-preview helper three of them build their user prompt from.
-Prompt text and its consumer's parsing/validation logic stay coupled to the
-agent module that owns it (e.g. audit_agent.py still owns COLUMN_SCOPED_CATEGORIES
-and the JSON-shape validation for its own response) -- only the prompt
-strings themselves, and this one duplicated helper, move here.
+the one dataframe-preview helper several of them build their user prompt
+from. Each agent module still owns its own response-parsing/validation
+logic (e.g. audit_agent.py owns COLUMN_SCOPED_CATEGORIES and the JSON-shape
+validation for its own response) -- only the prompt text and the shared
+column-preview helper live here.
 """
 import pandas as pd
 

@@ -1,8 +1,8 @@
 """Pure/near-pure helpers for shaping pivot rows into chart data and styling
-native python-pptx chart objects. Split out of report_generator.py so the
-orchestration logic there isn't tangled up with pptx chart mechanics; kept
-module-level (not a class) so report_template_builder.py can reuse the same
-styling for a template-based deck.
+native python-pptx chart objects -- kept separate from slide-building and
+slide-shape-selection so a chart-styling change never risks touching either
+of those. Module-level (not a class) so report_template_builder.py can
+reuse the same styling for a template-based deck.
 """
 import re
 from collections import OrderedDict

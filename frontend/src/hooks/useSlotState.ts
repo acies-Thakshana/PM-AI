@@ -4,10 +4,9 @@ import type { UploadSlotId } from "../types/upload";
 export type SlotState<T> = Partial<Record<UploadSlotId, T>>;
 
 /** Wraps one `Partial<Record<UploadSlotId, T>>` state slice with per-slot
- * get/set/update helpers -- replaces the repeated
- * `setXxx((prev) => ({ ...prev, [id]: value }))` boilerplate that
- * AnalysisPage/FeaturesPage/ReportPage each redeclared independently for
- * their per-upload-slot state (loading flags, errors, fetched reports, etc). */
+ * get/set/update helpers, for the per-upload-slot state (loading flags,
+ * errors, fetched reports, etc.) that AnalysisPage, FeaturesPage, and
+ * ReportPage each need to track independently per slot. */
 export function useSlotState<T>(initial: SlotState<T> = {}) {
   const [state, setState] = useState<SlotState<T>>(initial);
 

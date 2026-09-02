@@ -1,5 +1,5 @@
 """Shared helpers for routers -- currently just the one every router that
-touches an audit session repeats: look it up or 404."""
+touches an audit session needs: look it up or 404."""
 from fastapi import HTTPException
 
 from app.services.audit_store import AuditSession, store

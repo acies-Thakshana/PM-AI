@@ -13,15 +13,15 @@ never reinterprets a raw number itself.
 This module is the orchestrator only: chart data-shaping/styling lives in
 report/chart_styling.py, the from-scratch pptx builder lives in
 report/report_builder.py, and per-pivot slide-shape/filter-combo logic
-lives in report/pivot_slides.py. Re-exports a few names below for backwards
-compatibility with report_template_builder.py and routers/analysis.py,
-which import them off this module directly.
+lives in report/pivot_slides.py. The chart-styling colors and helpers are
+re-exported below purely so report_template_builder.py can reach them as
+`rg.PRIMARY`, `rg.style_native_chart`, etc.
 """
 import pandas as pd
 
 from app.schemas import OverallAnalysisReport, PivotResult
 from app.services import pivot_engine, report_style as style
-from app.services.report.chart_styling import (  # noqa: F401 -- re-exported for report_template_builder
+from app.services.report.chart_styling import (  # noqa: F401 -- PRIMARY/WHITE/MUTED/DARK_TEXT/LINE_COLOR/BAR_PALETTE and the style_* helpers are used via `rg.` by report_template_builder.py, not directly in this file
     BAR_PALETTE,
     DARK_TEXT,
     LINE_COLOR,
@@ -39,7 +39,7 @@ from app.services.report.pivot_slides import (
     _report_filter_combos,
     resolve_default_scope,
 )
-from app.services.report.report_builder import ReportBuilder  # noqa: F401 -- re-exported
+from app.services.report.report_builder import ReportBuilder
 
 REPORT_NAME = "Eduka Report"  # standing report title/filename -- not derived from the uploaded source file's name
 

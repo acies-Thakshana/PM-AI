@@ -22,3 +22,6 @@ backend/generated_reports/
 .idea/
 .DS_Store
 ~$*
+
+# Bat file
+run-dev.bat

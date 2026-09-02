@@ -1,6 +1,6 @@
-// Shared request/response and domain types for the api/* modules. Split out
-// of the former single api/audit.ts so each domain module (audit, features,
-// pivots, report, analysis) can import just the types it needs.
+// Shared request/response and domain types for the api/* modules -- each
+// domain module (audit, features, pivots, report, analysis) imports just
+// the types it needs from here.
 
 export type Severity = "info" | "warning" | "critical";
 export type IssueStatus = "pending" | "resolved";
