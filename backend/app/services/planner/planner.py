@@ -7,7 +7,7 @@ import logging
 import re
 from concurrent.futures import ThreadPoolExecutor
 
-from app.config import PLANNER_AGENT_MODEL, model_for
+from app.config import DEFAULT_MAX_TOKENS, PLANNER_AGENT_MODEL, model_for
 from app.services.analysis import analysis_agent
 from app.services.common import column_meta, doc_store, llm, request_context
 from app.services.features import feature_agent
@@ -102,6 +102,10 @@ def suggest(session_id: str, additional_context: str = "") -> dict:
     ).strip()
 
     if not final_brief:
+        log.warning(
+            "planner_agent: no client brief text for session %s (BRIEF keys: %s, client_brief keys: %s)",
+            session_id, sorted(meta_data), sorted(brief_block) if isinstance(brief_block, dict) else type(brief_block).__name__,
+        )
         return {"recommendations": []}
 
     row_count = col_data.get("row_count", 0)
@@ -122,7 +126,7 @@ def suggest(session_id: str, additional_context: str = "") -> dict:
         model=model_for("planner_agent", PLANNER_AGENT_MODEL),
         temperature=0.2,
         call_name="planner_agent",
-        max_tokens=4096,
+        max_tokens=max(8192, DEFAULT_MAX_TOKENS),  # a reasoning model's thinking tokens count toward this
     )
     raw = llm.strip_json_fence(raw)
 
