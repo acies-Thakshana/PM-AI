@@ -3,6 +3,7 @@ and calls Bedrock to produce structured feature/analysis recommendations."""
 from __future__ import annotations
 
 import json
+import logging
 import re
 from concurrent.futures import ThreadPoolExecutor
 
@@ -11,6 +12,8 @@ from app.services.analysis import analysis_agent
 from app.services.common import column_meta, doc_store, llm, request_context
 from app.services.features import feature_agent
 from app.services.planner import planner_dependencies, planner_store
+
+log = logging.getLogger(__name__)
 
 _SYSTEM_PROMPT = None  # the system prompt lives in Amazon Bedrock Prompt Management (planner_agent); default text: backend/prompts/<name>.txt
 
@@ -125,7 +128,10 @@ def suggest(session_id: str, additional_context: str = "") -> dict:
 
     result = json.loads(raw)
     if "recommendations" not in result or not isinstance(result["recommendations"], list):
+        log.warning("planner_agent: model answer had no usable 'recommendations' list (%d chars): %.300s", len(raw), raw)
         result = {"recommendations": []}
+    elif not result["recommendations"]:
+        log.warning("planner_agent: model returned an empty recommendations list (%d chars): %.300s", len(raw), raw)
     result["recommendations"] = [r for r in result["recommendations"] if isinstance(r, dict) and r.get("name")]
 
     # Guarantee every array field the frontend renders actually exists, even

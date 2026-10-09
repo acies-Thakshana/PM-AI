@@ -93,12 +93,12 @@ def validate_token(token: str) -> dict:
         log.error("could not fetch Entra signing keys: %s", exc)
         raise HTTPException(status_code=503, detail="Sign-in service unavailable") from exc
     except jwt.PyJWTError as exc:
-        log.info("token rejected: %s", exc)
+        log.warning("token rejected: %s", exc)
         raise _unauthorized("Invalid token") from exc
 
     # Delegated user tokens carry `scp`; app-only (client-credential) tokens do not.
     if ENTRA_REQUIRED_SCOPE and ENTRA_REQUIRED_SCOPE not in str(claims.get("scp", "")).split():
-        log.info("token rejected: missing required scope %s", ENTRA_REQUIRED_SCOPE)
+        log.warning("token rejected: missing required scope %s", ENTRA_REQUIRED_SCOPE)
         raise HTTPException(status_code=403, detail="Token is not authorised for this API")
     return claims
 
