@@ -1,0 +1,2568 @@
+diff --git a/backend/.env.example b/backend/.env.example
+index b756b77..0ed5074 100644
+--- a/backend/.env.example
++++ b/backend/.env.example
+@@ -9,12 +9,10 @@ AWS_REGION=eu-north-1
+ # BEDROCK_REGION=eu-north-1
+ # TRANSLATE_REGION=eu-north-1
+ 
+-# --- Storage: set ALL THREE of S3_BUCKET, DDB_SESSIONS, DDB_DOCS to use AWS instead of local files
+-# S3_BUCKET=pmai-data-<account-id>-eu-north-1
+-# DDB_SESSIONS=pmai-sessions
+-# DDB_DOCS=pmai-docs
+-# DDB_PROFILES=pmai-profiles
+-# DDB_AUDIT=pmai-audit-log
++# --- Storage: set DDB_DOCS to use DynamoDB instead of local files (DataFrames then stay in memory: run ONE task)
++# DDB_DOCS=uda327-records-dev
++# DDB_PROFILES=uda327-profiles-dev
++# DDB_AUDIT=uda327-events-dev
+ # SESSION_TTL_DAYS=30
+ # UPLOAD_MAX_BYTES=209715200
+ 
+diff --git a/backend/app/config.py b/backend/app/config.py
+index bdf918c..7bf457b 100644
+--- a/backend/app/config.py
++++ b/backend/app/config.py
+@@ -15,7 +15,7 @@ RAW_DATA_DIR = DATA_DIR / "raw"
+ # =====================================================================================
+ # AWS
+ #
+-# STORAGE_BACKEND is "aws" only when BOTH the docs table and the bucket are configured;
++# STORAGE_BACKEND is "aws" only when the docs table is configured;
+ # otherwise everything falls back to local files (data/sessions/...), so `uvicorn` on a
+ # laptop still works with no AWS resources. In ECS, set the env vars below on the task.
+ # =====================================================================================
+@@ -23,21 +23,22 @@ AWS_REGION = os.getenv("AWS_REGION", "eu-north-1")
+ BEDROCK_REGION = os.getenv("BEDROCK_REGION", AWS_REGION)
+ TRANSLATE_REGION = os.getenv("TRANSLATE_REGION", AWS_REGION)
+ 
+-S3_BUCKET = os.getenv("S3_BUCKET", "")
+-DDB_SESSIONS = os.getenv("DDB_SESSIONS", "")
+ DDB_DOCS = os.getenv("DDB_DOCS", "")
+ DDB_PROFILES = os.getenv("DDB_PROFILES", "")
+ DDB_AUDIT = os.getenv("DDB_AUDIT", "")
+ 
+-USE_AWS_STORAGE = bool(S3_BUCKET and DDB_SESSIONS and DDB_DOCS)
++# DynamoDB mode: set DDB_DOCS (the session header is the docs table's "SESSIONS" item). There is no S3:
++# the DataFrames of a session stay in this process's memory (see services/common/session_repo.py).
++USE_AWS_STORAGE = bool(DDB_DOCS)
++# How many sessions' DataFrames one process keeps in memory before the least recently used go.
++MEMORY_FRAME_SESSIONS = int(os.getenv("MEMORY_FRAME_SESSIONS", "50"))
+ 
+ # Sessions and their documents expire (DynamoDB TTL) this many days after last write.
+ SESSION_TTL_DAYS = int(os.getenv("SESSION_TTL_DAYS", "30"))
+ AUDIT_LOG_TTL_DAYS = int(os.getenv("AUDIT_LOG_TTL_DAYS", "365"))
+ 
+-# Browser -> S3 direct uploads (the API Gateway body limit is 10 MB).
++# Uploaded files go through the API (multipart). Behind API Gateway the body limit is 10 MB.
+ UPLOAD_MAX_BYTES = int(os.getenv("UPLOAD_MAX_BYTES", str(200 * 1024 * 1024)))
+-PRESIGN_EXPIRY_SECONDS = int(os.getenv("PRESIGN_EXPIRY_SECONDS", "900"))
+ 
+ # =====================================================================================
+ # MICROSOFT ENTRA ID
+diff --git a/backend/app/main.py b/backend/app/main.py
+index 126e2db..e4a8e83 100644
+--- a/backend/app/main.py
++++ b/backend/app/main.py
+@@ -7,7 +7,7 @@ from app import config
+ from app.routers import analysis, analysis_paths, audit, brief, features, planner, report
+ from app.routers.deps import User, get_user
+ from app.services.audit.audit_store import SessionConflict
+-from app.services.common import doc_store, token_usage
++from app.services.common import doc_store, session_repo, token_usage
+ 
+ app = FastAPI(title="Cold Chain Data Audit API")
+ 
+@@ -34,6 +34,12 @@ async def _session_conflict_handler(request: Request, exc: SessionConflict):
+     )
+ 
+ 
++@app.exception_handler(session_repo.FramesUnavailable)
++async def _frames_unavailable_handler(request: Request, exc: session_repo.FramesUnavailable):
++    # The session's data lived in memory and is gone (restart, or another task served it).
++    return JSONResponse(status_code=410, content={"detail": str(exc)})
++
++
+ @app.exception_handler(doc_store.VersionConflict)
+ async def _doc_conflict_handler(request: Request, exc: doc_store.VersionConflict):
+     return JSONResponse(
+diff --git a/backend/app/routers/analysis_paths.py b/backend/app/routers/analysis_paths.py
+index 9a42bf2..736f4a8 100644
+--- a/backend/app/routers/analysis_paths.py
++++ b/backend/app/routers/analysis_paths.py
+@@ -280,7 +280,7 @@ def accept_path(session_id: str, path_id: str, user: User = Depends(get_user)) -
+     _set_levels(session_id, path, "approved")
+     path["status"] = "accepted"
+     analysis_paths.upsert(session_id, path)
+-    log_event(session_id, user.id, "drilldown_path_accepted", {"path_id": path_id})
++    log_event(session_id, user.id, "drilldown_path_accepted", {"entry_id": path.get("root_id"), "path_id": path_id})
+     return _response(session, session_id, path)
+ 
+ 
+@@ -296,5 +296,5 @@ def reject_path(session_id: str, path_id: str, user: User = Depends(get_user)) -
+     _set_levels(session_id, path, "rejected")
+     path["status"] = "rejected"
+     analysis_paths.upsert(session_id, path)
+-    log_event(session_id, user.id, "drilldown_path_rejected", {"path_id": path_id})
++    log_event(session_id, user.id, "drilldown_path_rejected", {"entry_id": path.get("root_id"), "path_id": path_id})
+     return _response(session, session_id, path)
+diff --git a/backend/app/routers/audit.py b/backend/app/routers/audit.py
+index 0207d16..b4ce03e 100644
+--- a/backend/app/routers/audit.py
++++ b/backend/app/routers/audit.py
+@@ -1,7 +1,6 @@
+ import io
+ import json
+ import re
+-import uuid
+ from typing import Literal
+ 
+ import pandas as pd
+@@ -16,10 +15,9 @@ from app.schemas import AuditIssue, AuditReport, FeatureReport, ResolveRequest,
+ from app.services.audit import data_audit
+ from app.services.audit.audit_agent import generate_audit_analysis
+ from app.services.audit.audit_store import AuditSession, store
+-from app.services.audit.column_profiler import profile_dataframe
+ from app.services.audit import outlier_audit
+ from app.services.audit.excel_parser import load_spreadsheet
+-from app.services.common import audit_log, aws_clients, doc_store, selections
++from app.services.common import audit_log, column_meta, selections
+ from app.services.features import feature_engineering, feature_repository
+ 
+ router = APIRouter(prefix="/api/audit", tags=["audit"])
+@@ -89,12 +87,6 @@ def _check_size(size: int) -> None:
+         )
+ 
+ 
+-def _sanitize_filename(filename: str) -> str:
+-    name = filename.replace("\\", "/").rsplit("/", 1)[-1]
+-    name = re.sub(r"[^A-Za-z0-9._-]+", "_", name).strip("._") or "upload"
+-    return name[:120]
+-
+-
+ def _create_session_from_bytes(
+     raw: bytes, filename: str, source: str, user: User, raw_key: str | None
+ ) -> UploadOnlyResponse:
+@@ -112,15 +104,7 @@ def _create_session_from_bytes(
+     session = store.create(source=source, filename=filename, df=df, user_id=user.id, raw_key=raw_key)
+ 
+     try:
+-        combined = {
+-            "session_id": session.session_id,
+-            "filename": session.filename,
+-            "source": source,
+-            "row_count": len(df),
+-            "column_count": len(df.columns),
+-            "columns": profile_dataframe(df),
+-        }
+-        doc_store.put(session.session_id, "COLUMN_META", combined)
++        column_meta.save(session.session_id, df)
+     except Exception:
+         pass
+ 
+@@ -143,8 +127,7 @@ async def upload_for_profiling(
+ ) -> UploadOnlyResponse:
+     """Upload a file, create a session, and profile its columns.
+     Does NOT run the audit agent -- call /{session_id}/run for that.
+-    (Legacy multipart path, used in local development; deployed clients use
+-    /upload-url + /upload/complete to send the file straight to S3.)"""
++    The file is sent to the API as a multipart form (there is no S3 upload path)."""
+     filename = file.filename or "upload"
+     _check_filename(filename)
+     raw = await file.read()
+@@ -157,47 +140,15 @@ class UploadUrlRequest(BaseModel):
+     size: int | None = None
+ 
+ 
+-class UploadCompleteRequest(BaseModel):
+-    key: str
+-    source: str
+-    filename: str
+-
+-
+ @router.post("/upload-url")
+ def create_upload_url(body: UploadUrlRequest, user: User = Depends(get_user)):
+-    """Where the browser should send the file: {"mode": "direct"} (use the multipart
+-    /upload) locally, or a presigned S3 PUT URL when AWS storage is configured."""
+-    if not config.USE_AWS_STORAGE:
+-        return {"mode": "direct"}
++    """Where the browser should send the file. There is no object storage, so the answer is
++    always {"mode": "direct"}: send the multipart form to /upload. (Kept so the page's
++    upload-url call keeps working; the size is checked here and again on the upload.)"""
+     _check_filename(body.filename)
+     if body.size is not None:
+         _check_size(body.size)
+-    key = f"uploads/{user.id}/{uuid.uuid4().hex}/{_sanitize_filename(body.filename)}"
+-    url = aws_clients.s3().generate_presigned_url(
+-        "put_object",
+-        Params={"Bucket": config.S3_BUCKET, "Key": key},
+-        ExpiresIn=config.PRESIGN_EXPIRY_SECONDS,
+-    )
+-    return {"mode": "s3", "url": url, "key": key, "expires_in": config.PRESIGN_EXPIRY_SECONDS}
+-
+-
+-@router.post("/upload/complete", response_model=UploadOnlyResponse)
+-def complete_upload(body: UploadCompleteRequest, user: User = Depends(get_user)) -> UploadOnlyResponse:
+-    """Called after the browser PUT the file to S3: read it back and create the session."""
+-    if not config.USE_AWS_STORAGE:
+-        raise HTTPException(status_code=400, detail="Direct-to-S3 upload is not enabled.")
+-    if not body.key.startswith(f"uploads/{user.id}/") or ".." in body.key:
+-        raise HTTPException(status_code=403, detail="Not allowed to use this upload key.")
+-    _check_filename(body.filename)
+-
+-    s3 = aws_clients.s3()
+-    try:
+-        head = s3.head_object(Bucket=config.S3_BUCKET, Key=body.key)
+-    except Exception as exc:  # noqa: BLE001 - botocore ClientError (404) and friends
+-        raise HTTPException(status_code=404, detail="Uploaded file not found.") from exc
+-    _check_size(int(head.get("ContentLength", 0)))
+-    raw = s3.get_object(Bucket=config.S3_BUCKET, Key=body.key)["Body"].read()
+-    return _create_session_from_bytes(raw, body.filename, body.source, user, body.key)
++    return {"mode": "direct"}
+ 
+ 
+ @router.post("/{session_id}/run", response_model=AuditReport)
+diff --git a/backend/app/routers/brief.py b/backend/app/routers/brief.py
+index 1884bd8..0375df0 100644
+--- a/backend/app/routers/brief.py
++++ b/backend/app/routers/brief.py
+@@ -143,7 +143,7 @@ def finalize(req: FinalizeRequest, user: User = Depends(get_user)):
+     """Merge brief + all uploaded datasets into one metadata.json.
+ 
+     Uses the first audit session as the canonical session: the brief is stored
+-    as that session's BRIEF_META document.
++    as that session's BRIEF document.
+     """
+     if not req.audit_session_ids:
+         raise HTTPException(status_code=400, detail="At least one audit_session_id is required.")
+@@ -152,20 +152,20 @@ def finalize(req: FinalizeRequest, user: User = Depends(get_user)):
+ 
+     primary_sid = req.audit_session_ids[0]
+ 
++    # Two texts are kept: what the client wrote, and the text the Planner reads (the English
++    # translation when the brief was translated, else the text as the PM confirmed it). The
++    # language fields the page sends are accepted but not stored.
+     metadata = {
+         "session_id": primary_sid,
+         "created_at": datetime.now(timezone.utc).isoformat(),
+         "client_brief": {
+             "raw_text": req.raw_brief,
+-            "final_text": req.final_brief,
+-            "original_language": req.original_language,
+-            "original_language_name": req.original_language_name,
+-            "translated_text": req.translated_text,
++            "understanding_text": (req.translated_text or req.final_brief or req.raw_brief or "").strip(),
+         },
+         "files": [f.model_dump() for f in req.files],
+     }
+ 
+-    doc_store.put(primary_sid, "BRIEF_META", metadata)
++    doc_store.put(primary_sid, "BRIEF", metadata)
+     audit_log.log_event(
+         primary_sid, user.id, "brief_finalize",
+         {"audit_session_ids": req.audit_session_ids, "files": [f.filename for f in req.files]},
+diff --git a/backend/app/routers/planner.py b/backend/app/routers/planner.py
+index 6d6532b..cd5f982 100644
+--- a/backend/app/routers/planner.py
++++ b/backend/app/routers/planner.py
+@@ -1,11 +1,11 @@
+-from datetime import datetime, timezone
+-
+ from fastapi import APIRouter, Depends, HTTPException
+ from pydantic import BaseModel
+ 
+ from app.routers.deps import User, get_user, require_owned
+-from app.services.common import audit_log, doc_store, selections
+-from app.services.planner import planner as planner_service
++from app.services.common import audit_log, selections
++from app.services.analysis import analysis_repository
++from app.services.features import feature_repository
++from app.services.planner import planner as planner_service, planner_store
+ 
+ router = APIRouter(prefix="/api/planner", tags=["planner"])
+ 
+@@ -36,7 +36,21 @@ def suggest(req: SuggestRequest, user: User = Depends(get_user)):
+     require_owned(req.session_id, user)
+     try:
+         result = planner_service.suggest(req.session_id, req.additional_context)
+-        audit_log.log_event(req.session_id, user.id, "planner_suggest", {})
++        recs = result.get("recommendations", [])
++        by_type: dict[str, int] = {}
++        for rec in recs:
++            by_type[rec.get("type", "other")] = by_type.get(rec.get("type", "other"), 0) + 1
++        audit_log.log_event(
++            req.session_id, user.id, "planner_suggest",
++            {
++                # a request typed into the "more suggestions" box appends to the list
++                "more": bool(req.additional_context.strip()),
++                "request": req.additional_context.strip()[:500],
++                "count": len(recs),
++                "by_type": by_type,
++                "names": [r.get("name") for r in recs],
++            },
++        )
+         return result
+     except FileNotFoundError as exc:
+         raise HTTPException(status_code=404, detail=str(exc)) from exc
+@@ -49,29 +63,21 @@ def suggest(req: SuggestRequest, user: User = Depends(get_user)):
+ @router.post("/save", response_model=SaveResponse)
+ def save_decisions(req: SaveRequest, user: User = Depends(get_user)):
+     require_owned(req.session_id, user)
+-    planner_data = doc_store.get(req.session_id, "PLANNER_SUGGEST")
+-
+-    if planner_data is None:
++    if not planner_store.load(req.session_id):
+         raise HTTPException(
+             status_code=404,
+             detail="No planner suggestions found for this session. Call /suggest first.",
+         )
+ 
+-    recommendations = planner_data.get("recommendations", [])
+-
+-    decision_map = {d.recommendation_index: d for d in req.decisions}
+-    for i, rec in enumerate(recommendations):
+-        decision = decision_map.get(i)
+-        rec["pm_decision"] = decision.pm_decision if decision else "pending"
+-        rec["pm_notes"] = decision.pm_notes if decision else ""
+-
+-    output = {
+-        "session_id": req.session_id,
+-        "saved_at": datetime.now(timezone.utc).isoformat(),
+-        "recommendations": recommendations,
+-    }
+-
+-    doc_store.put(req.session_id, "PLANNER_OUTPUT", output)
++    # The decision lands on the recommendation's own PLAN#<n> document.
++    planner_store.apply_decisions(
++        req.session_id, {d.recommendation_index: (d.pm_decision, d.pm_notes) for d in req.decisions}
++    )
++    try:  # keep the FEATURES / ANALYSES documents' planner snapshots current (not critical)
++        feature_repository.sync(req.session_id)
++        analysis_repository.sync(req.session_id)
++    except Exception as exc:  # noqa: BLE001
++        audit_log.log.warning("could not refresh planner snapshots: %s", exc)
+     audit_log.log_event(
+         req.session_id, user.id, "planner_save",
+         {"decisions": [d.model_dump() for d in req.decisions]},
+diff --git a/backend/app/services/analysis/analysis_cache.py b/backend/app/services/analysis/analysis_cache.py
+index dde8423..0c1420e 100644
+--- a/backend/app/services/analysis/analysis_cache.py
++++ b/backend/app/services/analysis/analysis_cache.py
+@@ -6,14 +6,20 @@ interpretation -- those are always recomputed fresh from a cache-replay of
+ the code (see analysis_engine.run_analysis), so they reflect the current
+ data even when the underlying computation itself doesn't need rethinking.
+ 
++Stored INSIDE the analysis's own record in the session's `ANALYSES` document (key `cache`), next to
++its definition and `source`, so one read gives the definition, status and final code (see
++services/common/entry_store.py).
++
+ Invalidated automatically if the entry's own calculation basis changes (a
+ different formula/calculation_intent for the same id) -- see `get`.
+ """
+-from app.services.common import doc_store
++from datetime import datetime, timezone
++
++from app.services.common.entry_store import ANALYSES
+ 
+ 
+-def _doc(entry_id: str) -> str:
+-    return f"ACACHE#{entry_id}"
++def _now() -> str:
++    return datetime.now(timezone.utc).isoformat()
+ 
+ 
+ def get(session_id: str, entry: dict) -> dict | None:
+@@ -21,7 +27,7 @@ def get(session_id: str, entry: dict) -> dict | None:
+     one exists and the entry's calculation basis (its formula if it has
+     one, else its calculation_intent) hasn't changed since it was cached.
+     None otherwise, so the caller computes fresh."""
+-    cached = doc_store.get(session_id, _doc(entry["id"]))
++    cached = ANALYSES.get_cache(session_id, entry["id"])
+     if not cached:
+         return None
+     basis = entry.get("formula") or entry["calculation_intent"]
+@@ -42,15 +48,16 @@ def set(
+     discovered alongside it -- both kept so a replay reuses them without
+     asking the LLM again. `entry` must be the entry as stored in the
+     repository, since its logic is the cache key (`basis`)."""
+-    doc_store.put(session_id, _doc(entry["id"]), {
++    ANALYSES.set_cache(session_id, entry, {
+         "basis": entry.get("formula") or entry["calculation_intent"],
+         "plan_text": plan_text,
+         "generated_code": generated_code,
+         "chart_recommendation": chart_recommendation,
+         "template": template,
+         "filters": filters,
++        "cached_at": _now(),
+     })
+ 
+ 
+ def invalidate(session_id: str, entry_id: str) -> None:
+-    doc_store.delete(session_id, _doc(entry_id))
++    ANALYSES.drop_cache(session_id, entry_id)
+diff --git a/backend/app/services/analysis/analysis_dependencies.py b/backend/app/services/analysis/analysis_dependencies.py
+index 93bb55c..be04528 100644
+--- a/backend/app/services/analysis/analysis_dependencies.py
++++ b/backend/app/services/analysis/analysis_dependencies.py
+@@ -21,7 +21,7 @@ import re
+ 
+ import pandas as pd
+ 
+-from app.services.common import doc_store
++from app.services.planner import planner_store
+ from app.services.features import feature_repository
+ 
+ SATISFIED = "satisfied"
+@@ -156,20 +156,7 @@ def select_feature(session_id: str, feature_id: str) -> bool:
+             index = int(feature_id.split("_", 1)[1])
+         except ValueError:
+             return False
+-        result = {"ok": False}
+-
+-        def _accept(data):
+-            recs = (data or {}).get("recommendations", []) if isinstance(data, dict) else []
+-            if not 0 <= index < len(recs) or recs[index].get("type") not in ("feature", "feature_and_analysis"):
+-                return data
+-            recs[index]["pm_decision"] = "accepted"
+-            result["ok"] = True
+-            return data
+-
+-        if doc_store.get(session_id, "PLANNER_OUTPUT") is None:
+-            return False
+-        doc_store.update(session_id, "PLANNER_OUTPUT", _accept)
+-        return result["ok"]
++        return planner_store.accept(session_id, index, ("feature", "feature_and_analysis"))
+     if feature_id.startswith("predefined_"):
+         return True
+     return feature_repository.set_entry_status(session_id, feature_id, "approved") is not None
+diff --git a/backend/app/services/analysis/analysis_paths.py b/backend/app/services/analysis/analysis_paths.py
+index 88143b2..2bca686 100644
+--- a/backend/app/services/analysis/analysis_paths.py
++++ b/backend/app/services/analysis/analysis_paths.py
+@@ -43,19 +43,23 @@ _SYSTEM = None  # the system prompt lives in Amazon Bedrock Prompt Management (d
+ # --- storage -----------------------------------------------------------------------------------------
+ 
+ 
+-PATHS_DOC = "PATHS"
++# One document per path: DRILL#<analysis id>#<path id> (the analysis is the path's `root_id`).
++DOC_PREFIX = "DRILL#"
++
++
++def _doc(path: dict) -> str:
++    return f"{DOC_PREFIX}{path['root_id']}#{path['path_id']}"
+ 
+ 
+ def load(session_id: str) -> list[dict]:
++    """Every drill-down path of the session, oldest first."""
+     try:
+-        data = doc_store.get(session_id, PATHS_DOC)
+-        return data.get("paths", []) if isinstance(data, dict) else []
++        docs = doc_store.list_docs(session_id, DOC_PREFIX)
+     except Exception:
+         return []
+-
+-
+-def save(session_id: str, paths: list[dict]) -> None:
+-    doc_store.put(session_id, PATHS_DOC, {"session_id": session_id, "paths": paths})
++    paths = [d for d in docs.values() if isinstance(d, dict) and "path_id" in d]
++    paths.sort(key=lambda p: (p.get("created_at", ""), p["path_id"]))
++    return paths
+ 
+ 
+ def get(session_id: str, path_id: str) -> dict | None:
+@@ -63,12 +67,7 @@ def get(session_id: str, path_id: str) -> dict | None:
+ 
+ 
+ def upsert(session_id: str, path: dict) -> None:
+-    def _merge(data):
+-        paths = [p for p in ((data or {}).get("paths") or []) if p["path_id"] != path["path_id"]]
+-        paths.append(path)
+-        return {"session_id": session_id, "paths": paths}
+-
+-    doc_store.update(session_id, PATHS_DOC, _merge, default={})
++    doc_store.put(session_id, _doc(path), path)
+ 
+ 
+ def new_path_id() -> str:
+diff --git a/backend/app/services/analysis/analysis_repository.py b/backend/app/services/analysis/analysis_repository.py
+index d3a3cd3..edf402f 100644
+--- a/backend/app/services/analysis/analysis_repository.py
++++ b/backend/app/services/analysis/analysis_repository.py
+@@ -13,7 +13,7 @@ whatever is currently in the global Analysis Profile store / that session's
+ planner_output.json, so re-uploading a profile or re-approving planner
+ recommendations is picked up automatically. `custom`, `ai_suggested`, and
+ `drilldown` are the only entries actually persisted to
+-analysis_repository.json (their accept/reject state and PM-authored/
++one ANALYSIS#<id> document each (their accept/reject state and PM-authored/
+ PM-triggered content can't be re-derived from anywhere else). Every read
+ rebuilds the full merged view.
+ """
+@@ -22,12 +22,13 @@ from __future__ import annotations
+ import uuid
+ 
+ from app.services.analysis import analysis_definitions_store as defs_store
+-from app.services.common import doc_store
++from app.services.common.entry_store import ANALYSES
++from app.services.planner import planner_store
+ 
+ _PERSISTED_SOURCES = {"custom", "ai_suggested", "drilldown"}
+ 
+-REPO_DOC = "ANALYSIS_REPO"
+-PLANNER_DOC = "PLANNER_OUTPUT"
++# Every analysis of the session is one record in the `ANALYSES` document (services/common/
++# entry_store.py); analysis_cache.py keeps the final code in the same record under "cache".
+ 
+ 
+ def _predefined_entries(session_id: str | None = None) -> list[dict]:
+@@ -82,15 +83,12 @@ def predefined_catalog_lines(session_id: str | None = None) -> list[str]:
+ 
+ def _planner_entries(session_id: str) -> list[dict]:
+     try:
+-        data = doc_store.get(session_id, PLANNER_DOC)
++        recs = planner_store.load(session_id)
+     except Exception:
+         return []
+-    if not isinstance(data, dict):
+-        return []
+     # Imported here: planner_dependencies itself reads this module's predefined entries.
+     from app.services.planner import planner_dependencies
+ 
+-    recs = data.get("recommendations", [])
+     slug_to_index = {
+         planner_dependencies.slug(r.get("name", "")): j
+         for j, r in enumerate(recs) if r.get("type") in ("feature", "feature_and_analysis")
+@@ -139,18 +137,27 @@ def _planner_entries(session_id: str) -> list[dict]:
+     return entries
+ 
+ 
++def _derived(session_id: str) -> list[dict]:
++    """The predefined + planner entries right now (snapshotted into the ANALYSES document)."""
++    return _predefined_entries(session_id) + _planner_entries(session_id)
++
++
+ def _load_persisted(session_id: str) -> list[dict]:
++    """The custom / AI-suggested / drill-down analyses of the session, oldest first."""
+     try:
+-        data = doc_store.get(session_id, REPO_DOC)
++        return ANALYSES.load_persisted(session_id)
+     except Exception:
+         return []
+-    if not isinstance(data, dict):
+-        return []
+-    return [e for e in data.get("entries", []) if e.get("source") in _PERSISTED_SOURCES]
+ 
+ 
+-def _save(session_id: str, entries: list[dict]) -> None:
+-    doc_store.put(session_id, REPO_DOC, {"session_id": session_id, "entries": entries})
++def sync(session_id: str) -> None:
++    """Refresh the predefined / planner snapshots in the ANALYSES document (call after the PM
++    saved planner decisions, so the JSON shows the current set)."""
++    ANALYSES.sync(session_id, _derived(session_id))
++
++
++def _store(session_id: str, entry: dict) -> None:
++    ANALYSES.add(session_id, [entry], _derived(session_id))
+ 
+ 
+ def get_repository(session_id: str) -> list[dict]:
+@@ -159,7 +166,7 @@ def get_repository(session_id: str) -> list[dict]:
+     persisted. Read-only (nothing is written). Returns definitions
+     only -- run results (table/chart/interpretation) live in-memory on the
+     audit session and are merged in by the router."""
+-    return _predefined_entries(session_id) + _planner_entries(session_id) + _load_persisted(session_id)
++    return _derived(session_id) + _load_persisted(session_id)
+ 
+ 
+ def add_custom_entry(
+@@ -185,10 +192,7 @@ def add_custom_entry(
+         "chart_recommendation": chart_recommendation,
+         "filters": filters or [],
+     }
+-    persisted = _load_persisted(session_id)
+-    persisted.append(entry)
+-    entries = _predefined_entries(session_id) + _planner_entries(session_id) + persisted
+-    _save(session_id, entries)
++    _store(session_id, entry)
+     return entry
+ 
+ 
+@@ -203,7 +207,6 @@ def add_ai_suggested_entries(session_id: str, suggestions: list[dict]) -> list[d
+     so re-running suggestions doesn't pile up duplicates."""
+     existing = get_repository(session_id)
+     existing_names = {_normalize_name(e["name"]) for e in existing}
+-    persisted = _load_persisted(session_id)
+ 
+     new_entries = []
+     for s in suggestions:
+@@ -220,12 +223,10 @@ def add_ai_suggested_entries(session_id: str, suggestions: list[dict]) -> list[d
+             "formula": None,
+             "parent_id": None,
+         }
+-        persisted.append(entry)
+         new_entries.append(entry)
+         existing_names.add(_normalize_name(entry["name"]))
+-
+-    entries = _predefined_entries(session_id) + _planner_entries(session_id) + persisted
+-    _save(session_id, entries)
++    if new_entries:
++        ANALYSES.add(session_id, new_entries, _derived(session_id))
+     return new_entries
+ 
+ 
+@@ -256,10 +257,7 @@ def add_drilldown_entry(session_id: str, parent_id: str, drilldown: dict) -> dic
+             if chart_type_hint else None
+         ),
+     }
+-    persisted = _load_persisted(session_id)
+-    persisted.append(entry)
+-    entries = _predefined_entries(session_id) + _planner_entries(session_id) + persisted
+-    _save(session_id, entries)
++    _store(session_id, entry)
+     return entry
+ 
+ 
+@@ -285,41 +283,18 @@ def add_chain_entry(
+         "filters": filters,
+         "chain": chain,
+     }
+-    persisted = _load_persisted(session_id)
+-    persisted.append(entry)
+-    _save(session_id, _predefined_entries(session_id) + _planner_entries(session_id) + persisted)
++    _store(session_id, entry)
+     return entry
+ 
+ 
+ def update_entry(session_id: str, entry_id: str, fields: dict) -> dict | None:
+     """Merges `fields` into one persisted entry (predefined and planner
+     entries are derived, so they can't be edited here)."""
+-    persisted = _load_persisted(session_id)
+-    found = None
+-    for e in persisted:
+-        if e["id"] == entry_id:
+-            e.update(fields)
+-            found = e
+-            break
+-    if found is None:
+-        return None
+-    _save(session_id, _predefined_entries(session_id) + _planner_entries(session_id) + persisted)
+-    return found
++    return ANALYSES.update_persisted(session_id, entry_id, fields, _derived(session_id))
+ 
+ 
+ def set_entry_status(session_id: str, entry_id: str, status: str) -> dict | None:
+-    persisted = _load_persisted(session_id)
+-    found = None
+-    for e in persisted:
+-        if e["id"] == entry_id:
+-            e["status"] = status
+-            found = e
+-            break
+-    if found is None:
+-        return None
+-    entries = _predefined_entries(session_id) + _planner_entries(session_id) + persisted
+-    _save(session_id, entries)
+-    return found
++    return update_entry(session_id, entry_id, {"status": status})
+ 
+ 
+ def get_entry(session_id: str, entry_id: str) -> dict | None:
+diff --git a/backend/app/services/audit/audit_store.py b/backend/app/services/audit/audit_store.py
+index 0f4acff..21aa334 100644
+--- a/backend/app/services/audit/audit_store.py
++++ b/backend/app/services/audit/audit_store.py
+@@ -1,4 +1,4 @@
+-"""Audit session store, backed by DynamoDB + S3 (or local files when AWS is not configured).
++"""Audit session store, backed by DynamoDB, with the DataFrames in memory (or local files when AWS is not configured).
+ 
+ What changed from the old in-memory dict: sessions now OUTLIVE the process and can be served
+ by any ECS task. What did NOT change is how callers use a session -- `store.get(id)` still
+@@ -6,8 +6,10 @@ returns a mutable `AuditSession` and routers still assign to its fields -- with
+ **after changing a session, call `store.save(session)`**. Nothing is written until then.
+ 
+ Where the pieces live (see services/common/session_repo.py and doc_store.py):
+-  * header  (owner, filename, issues, features, events, ...)  -> DynamoDB `DDB_SESSIONS`
+-  * df / pre_feature_df / audit_baseline (DataFrames)         -> S3 `frames/<id>/<name>.parquet`
++  * header  (owner, filename, features, events, ...)           -> doc `SESSIONS` in `DDB_DOCS`
++  * issues (all audit findings, one JSON)                     -> doc `ISSUES`
++  * proposals (drill-down suggestions)                        -> doc `PROPOSAL#<analysis id>#<nnn>`
++  * df / pre_feature_df / audit_baseline (DataFrames)         -> this process's memory (local mode: files)
+   * analysis_results (one per entry)                          -> doc `RESULT#<entry id>`
+   * overall_analysis                                          -> doc `OVERALL`
+   * feature_drafts (one per draft token)                      -> doc `DRAFT#<token>`
+@@ -39,6 +41,8 @@ from app.services.common.doc_store import VersionConflict
+ FRAME_NAMES = ("df", "pre_feature_df", "audit_baseline")
+ RESULT_PREFIX = "RESULT#"
+ DRAFT_PREFIX = "DRAFT#"
++ISSUES_DOC = "ISSUES"
++PROPOSAL_PREFIX = "PROPOSAL#"
+ OVERALL_DOC = "OVERALL"
+ # A feature draft is only meant to live for one editing sitting.
+ DRAFT_TTL_DAYS = 2
+@@ -104,6 +108,19 @@ def _now() -> str:
+     return datetime.now(timezone.utc).isoformat()
+ 
+ 
++def _proposal_doc_name(analysis_id: str, index: int) -> str:
++    return f"{PROPOSAL_PREFIX}{analysis_id}#{index:03d}"
++
++
++def _group_proposals(docs: dict[str, Any]) -> dict[str, list[dict]]:
++    """{analysis id: [proposal, ...] in order} from the PROPOSAL#<analysis id>#<nnn> documents."""
++    grouped: dict[str, list[dict]] = {}
++    for name in sorted(docs):
++        analysis_id = name[len(PROPOSAL_PREFIX):].rsplit("#", 1)[0]
++        grouped.setdefault(analysis_id, []).append(docs[name])
++    return grouped
++
++
+ class AuditSession:
+     """One uploaded file's audit/feature/analysis state. Same fields as before; the large ones
+     are lazy properties (see module docstring)."""
+@@ -127,6 +144,10 @@ class AuditSession:
+         self.raw_key = raw_key
+         self.issues: list[AuditIssue] = issues if issues is not None else []
+         self.summary = summary
++        # Size of the dataset as uploaded (the Planner reads these; the column profiles are the
++        # COLUMN#<name> documents).
++        self.row_count = len(df) if df is not None else 0
++        self.column_count = len(df.columns) if df is not None else 0
+         self.features: list[FeatureResult] = []
+         self.feature_skipped_notes: list[str] = []
+         # Snapshot of the PM's decisions and final selected features / analyses (see
+@@ -158,6 +179,11 @@ class AuditSession:
+         self._frames["pre_feature_df"] = None
+         self._frames["audit_baseline"] = None
+ 
++        # What is stored in the ISSUES document and in each result's PROPOSAL# documents, so
++        # save() writes only what changed.
++        self._issues_doc: dict | None = None
++        self._proposal_docs: dict[str, list[dict]] = {}
++
+         self._analysis_results: _TrackedDict | None = None
+         self._overall: Any = _UNLOADED
+         self._overall_dirty = False
+@@ -223,11 +249,17 @@ class AuditSession:
+             with self._lock:
+                 if self._analysis_results is None:
+                     loaded = _TrackedDict()
++                    # The drill-down proposals of each result are their own PROPOSAL# documents.
++                    proposals = _group_proposals(doc_store.list_docs(self.session_id, PROPOSAL_PREFIX))
+                     for doc, data in doc_store.list_docs(self.session_id, RESULT_PREFIX).items():
++                        key = doc[len(RESULT_PREFIX):]
+                         try:
+-                            dict.__setitem__(loaded, doc[len(RESULT_PREFIX):], AnalysisResult.model_validate(data))
++                            if key in proposals:
++                                data = {**data, "guided_proposals": proposals[key]}
++                            dict.__setitem__(loaded, key, AnalysisResult.model_validate(data))
+                         except Exception:  # a result from an older schema: drop it, it can be re-run
+                             continue
++                        self._proposal_docs[key] = list(proposals.get(key, []))
+                     self._analysis_results = loaded
+         return self._analysis_results
+ 
+@@ -286,7 +318,8 @@ class AuditSession:
+             "filename": self.filename,
+             "raw_key": self.raw_key,
+             "summary": self.summary,
+-            "issues": [i.model_dump(mode="json") for i in self.issues],
++            "row_count": self.row_count,
++            "column_count": self.column_count,
+             "features": [f.model_dump(mode="json") for f in self.features],
+             "feature_skipped_notes": list(self.feature_skipped_notes),
+             "selections": self.selections,
+@@ -297,6 +330,24 @@ class AuditSession:
+             "updated_at": _now(),
+         }
+ 
++    def _issue_entry(self, issue: AuditIssue) -> dict:
++        """One finding inside the ISSUES document: as shown to the PM (title, options, AI
++        recommendation, status, resolution) plus `applied`, the decision that was applied to the
++        data (also kept in `audit_events` of the header, which the undo replays)."""
++        doc = issue.model_dump(mode="json")
++        applied = None
++        if issue.status == "resolved":
++            applied = next(
++                (
++                    {"decision_id": e.get("decision_id"), "selected_items": e.get("selected_items")}
++                    for e in self.audit_events
++                    if e.get("type") == "decision" and e.get("issue_id") == issue.id
++                ),
++                None,
++            )
++        doc["applied"] = applied
++        return doc
++
+     @classmethod
+     def _from_header(cls, header: dict, version: int) -> "AuditSession":
+         session = cls(
+@@ -307,7 +358,15 @@ class AuditSession:
+             raw_key=header.get("raw_key"),
+         )
+         session.summary = header.get("summary", "")
+-        session.issues = [AuditIssue.model_validate(i) for i in header.get("issues", [])]
++        session.row_count = int(header.get("row_count", 0) or 0)
++        session.column_count = int(header.get("column_count", 0) or 0)
++        # All issues are ONE `ISSUES` document; a session saved before that still has them in its header.
++        stored = doc_store.get(session.session_id, ISSUES_DOC)
++        if isinstance(stored, dict) and "issues" in stored:
++            session.issues = [AuditIssue.model_validate(d) for d in stored["issues"]]
++            session._issues_doc = stored
++        else:
++            session.issues = [AuditIssue.model_validate(i) for i in header.get("issues", [])]
+         session.features = [FeatureResult.model_validate(f) for f in header.get("features", [])]
+         session.feature_skipped_notes = list(header.get("feature_skipped_notes", []))
+         session.selections = dict(header.get("selections") or {})
+@@ -408,10 +467,27 @@ class AuditStore:
+             results = session._analysis_results
+             if results is not None:
+                 for key in sorted(results.changed):
+-                    doc_store.put(session.session_id, RESULT_PREFIX + key, results[key].model_dump(mode="json"))
++                    data = results[key].model_dump(mode="json")
++                    proposals = data.pop("guided_proposals", None) or []  # stored as PROPOSAL# documents
++                    doc_store.put(session.session_id, RESULT_PREFIX + key, data)
++                    previous = session._proposal_docs.get(key)
++                    if previous != proposals:
++                        doc_store.put_many(
++                            session.session_id, {_proposal_doc_name(key, i): p for i, p in enumerate(proposals)}
++                        )
++                        for i in range(len(proposals), len(previous or [])):
++                            doc_store.delete(session.session_id, _proposal_doc_name(key, i))
++                        session._proposal_docs[key] = proposals
+                 for key in sorted(results.removed):
+                     doc_store.delete(session.session_id, RESULT_PREFIX + key)
++                    for i in range(len(session._proposal_docs.pop(key, []))):
++                        doc_store.delete(session.session_id, _proposal_doc_name(key, i))
+                 results.mark_clean()
++            # issues: one document, written only when something in it changed
++            issues_doc = {"issue_count": len(session.issues), "issues": [session._issue_entry(i) for i in session.issues]}
++            if session._issues_doc != issues_doc and (session.issues or session._issues_doc is not None):
++                doc_store.put(session.session_id, ISSUES_DOC, issues_doc)
++                session._issues_doc = issues_doc
+             drafts = session._feature_drafts
+             if drafts is not None:
+                 for key in sorted(drafts.changed):
+diff --git a/backend/app/services/audit/outlier_audit.py b/backend/app/services/audit/outlier_audit.py
+index d6f0661..1526e87 100644
+--- a/backend/app/services/audit/outlier_audit.py
++++ b/backend/app/services/audit/outlier_audit.py
+@@ -1,7 +1,7 @@
+ """Audit trail for the Segment and Mean Temperature outlier review.
+ 
+ Every outlier-related action is written twice: to the audit log as an `outlier_*` event (so it
+-shows on the Audit Log page next to everything else) and to the session's `OUTLIER_AUDIT` doc
++shows on the Audit Log page next to everything else) and to the session's `OUTLIER` doc
+ (one ordered list, so "what happened to the outliers in this session" is one read).
+ 
+ Actions recorded:
+@@ -17,7 +17,7 @@ from typing import Any
+ 
+ from app.services.common import audit_log, doc_store
+ 
+-DOC = "OUTLIER_AUDIT"
++DOC = "OUTLIER"
+ _MAX_ENTRIES = 2000
+ _MAX_TRIP_KEYS = 500
+ 
+diff --git a/backend/app/services/common/audit_log.py b/backend/app/services/common/audit_log.py
+index 1f5f482..4568686 100644
+--- a/backend/app/services/common/audit_log.py
++++ b/backend/app/services/common/audit_log.py
+@@ -1,9 +1,16 @@
+-"""Append-only log of what users did, per session: uploads, audit decisions, edits, analysis
+-runs, report downloads and every LLM call (with its token usage).
++"""Append-only log of what happened in a session: uploads, audit decisions, edits, feature and
++analysis changes, report downloads and every LLM call (with its token usage).
+ 
+-AWS: one item per event in the DDB_AUDIT table (partition `session_id`, sort `ts_event` =
+-"<ISO time>#<uuid>"), with a `by-user` GSI (`user_id`, `ts_event`) for "everything this user
+-did". Local: one JSON line per event in data/audit_log.jsonl.
++One item per event in the DDB_AUDIT table (partition `session_id`, sort `ts_event` =
++"<ISO time>#<uuid>"). Every event says WHAT happened (`event_type`), in WHICH area and wizard
++step (`category`, `step`), and to WHICH record (`target`, written exactly as that record's
++docs-table sort key, e.g. "FEATURE#coo"). Indexes: `by-user` (`user_id`, `ts_event`) for
++"everything this user did", and `by-target` (`target_key`, `ts_event`) for "the history of one
++record". Local mode: one JSON line per event in data/audit_log.jsonl.
++
++Callers pass only (session, user, event_type, payload). The category, step, target and summary
++come from EVENT_CATALOG below, so every event is classified the same way and existing call sites
++need no changes. A caller may still pass `target=` or `result=` to override.
+ 
+ Logging must never break a request, so every failure is swallowed (and printed).
+ """
+@@ -11,10 +18,11 @@ from __future__ import annotations
+ 
+ import json
+ import logging
++import re
+ import threading
+ import uuid
+ from datetime import datetime, timezone
+-from typing import Any
++from typing import Any, NamedTuple
+ 
+ from app.config import AUDIT_LOG_TTL_DAYS, DATA_DIR, DDB_AUDIT
+ from app.services.common.doc_store import dumps
+@@ -27,45 +35,175 @@ _lock = threading.Lock()
+ # Session id used for events that belong to no session (e.g. LLM calls made outside a request).
+ GLOBAL_SESSION = "_global"
+ 
++# --------------------------------------------------------------------------------------------
++# The wizard's steps (frontend/src/components/StepIndicator.tsx). 0 = not tied to one step.
++# --------------------------------------------------------------------------------------------
++STEPS: dict[int, str] = {0: "General", 1: "Upload", 2: "Planner", 3: "Audit", 4: "Features", 5: "Analysis", 6: "Report"}
++
++
++class EventSpec(NamedTuple):
++    category: str          # session | planner | audit | outlier | feature | analysis | report | ai
++    step: int              # wizard step 1-6 (0 = general)
++    target: str | None     # template over the payload, e.g. "FEATURES#{entry_id}"; None = no record
++    summary: str | None    # template over the payload; None = the event name
++
++
++EVENT_CATALOG: dict[str, EventSpec] = {
++    # -- step 1: Upload ----------------------------------------------------------------------
++    "upload": EventSpec("session", 1, "SESSIONS", "Uploaded {filename} ({rows} rows)"),
++    "brief_finalize": EventSpec("session", 1, "BRIEF", "Saved the client brief"),
++    # -- step 2: Planner ---------------------------------------------------------------------
++    "planner_suggest": EventSpec("planner", 2, None, "Planner proposed {count} recommendations"),
++    "planner_save": EventSpec("planner", 2, None, "Saved planner decisions"),
++    # -- step 3: Audit -----------------------------------------------------------------------
++    "audit_run": EventSpec("audit", 3, "SESSIONS", "Audit found {issues} issues"),
++    "decision": EventSpec("audit", 3, "ISSUES#{issue_id}", "Resolved audit issue {issue_id}"),
++    "revert": EventSpec("audit", 3, "ISSUES#{issue_id}", "Reverted audit issue {issue_id}"),
++    "download": EventSpec("audit", 3, "SESSIONS", "Downloaded {kind}"),
++    "edit": EventSpec("outlier", 3, "OUTLIER", "Edited {field} of trip {trip_id}"),
++    "outlier_detected": EventSpec("outlier", 3, "OUTLIER", "Outliers flagged"),
++    "outlier_edit": EventSpec("outlier", 3, "OUTLIER", "Corrected {field} of trip {trip_id}"),
++    "outlier_review": EventSpec("outlier", 3, "OUTLIER", "Reviewed the {tab} outliers"),
++    # -- step 4: Features --------------------------------------------------------------------
++    "feature_suggested": EventSpec("feature", 4, None, "AI suggested {count} features"),
++    "feature_draft": EventSpec("feature", 4, None, "Drafted feature {name}"),
++    "feature_custom_added": EventSpec("feature", 4, "FEATURES#{entry_id}", "Added feature {name}"),
++    "feature_accepted": EventSpec("feature", 4, "FEATURES#{entry_id}", "Approved feature {name}"),
++    "feature_rejected": EventSpec("feature", 4, "FEATURES#{entry_id}", "Rejected feature {name}"),
++    "apply_features": EventSpec("feature", 4, None, "Computed {cols} columns"),
++    # -- step 5: Analysis --------------------------------------------------------------------
++    "analysis_suggested": EventSpec("analysis", 5, None, "AI suggested {count} analyses"),
++    "analysis_custom_added": EventSpec("analysis", 5, "ANALYSES#{entry_id}", "Added analysis {name}"),
++    "analysis_accepted": EventSpec("analysis", 5, "ANALYSES#{entry_id}", "Approved analysis {name}"),
++    "analysis_rejected": EventSpec("analysis", 5, "ANALYSES#{entry_id}", "Rejected analysis {name}"),
++    "analysis_run": EventSpec("analysis", 5, "ANALYSES#{entry_id}", "Ran analysis {name}"),
++    "drilldown_suggested": EventSpec("analysis", 5, "ANALYSES#{entry_id}", "Suggested drill-downs for {name}"),
++    "drilldown_proposed": EventSpec("analysis", 5, "ANALYSES#{entry_id}", "Proposed guided drill-downs for {name}"),
++    "drilldown_run": EventSpec("analysis", 5, "ANALYSES#{entry_id}", "Ran a drill-down of {name}"),
++    "drilldown_path_accepted": EventSpec("analysis", 5, "DRILL#{entry_id}#{path_id}", "Accepted drill-down path {path_id}"),
++    "drilldown_path_rejected": EventSpec("analysis", 5, "DRILL#{entry_id}#{path_id}", "Rejected drill-down path {path_id}"),
++    # -- step 6: Report ----------------------------------------------------------------------
++    "report_downloaded": EventSpec("report", 6, "OVERALL", "Downloaded the report"),
++}
++
++# Code-generation events: step and target depend on whether a feature or an analysis was built.
++_CODE_EVENTS = {"code_attempt", "code_run", "code_fallback"}
++
++# The step an LLM call belongs to, by its call name.
++CALL_STEPS: dict[str, int] = {
++    "planner_agent": 2,
++    "audit_agent": 3,
++    "feature_agent_think": 4, "feature_agent_write_code": 4, "feature_agent_validate": 4, "feature_suggester": 4,
++    "analysis_agent_think": 5, "analysis_agent_write_code": 5, "analysis_agent_chart_suggestion": 5,
++    "analysis_agent_interpret": 5, "analysis_agent_drilldown": 5, "analysis_designer_template_match": 5,
++    "analysis_designer_chart": 5, "analysis_suggester": 5, "drilldown_agent": 5, "drilldown_agent_more": 5,
++    "drilldown_path": 5, "overall_analysis_agent": 5,
++    "report_final_summary_agent": 6,
++}
++
++_PLACEHOLDER = re.compile(r"\{(\w+)\}")
++
++
++def _fill(template: str | None, payload: dict[str, Any]) -> str | None:
++    """Fill `{key}` placeholders from the payload; None if the template is empty or a key is missing."""
++    if not template:
++        return None
++    missing = False
++
++    def sub(match: re.Match) -> str:
++        nonlocal missing
++        value = payload.get(match.group(1))
++        if value is None or value == "":
++            missing = True
++            return ""
++        return str(value)
++
++    text = _PLACEHOLDER.sub(sub, template)
++    return None if missing else text
++
++
++def classify(event_type: str, payload: dict[str, Any]) -> tuple[str, int, str | None, str]:
++    """(category, step, target, summary) for one event."""
++    if event_type == "llm_call":
++        call = str(payload.get("call_name") or "")
++        return "ai", CALL_STEPS.get(call, 0), payload.get("output_ref") or None, f"LLM call {call}".strip()
++    if event_type in _CODE_EVENTS:
++        kind = payload.get("kind")
++        step = 4 if kind == "feature" else 5 if kind == "analysis" else 0
++        prefix = "FEATURES" if kind == "feature" else "ANALYSES" if kind == "analysis" else None
++        entry_id = payload.get("entry_id")
++        target = f"{prefix}#{entry_id}" if prefix and entry_id else None
++        name = payload.get("entry_name") or entry_id or ""
++        return "ai", step, target, f"{event_type.replace('_', ' ')} for {name}".strip()
++    spec = EVENT_CATALOG.get(event_type)
++    if spec is None:
++        return "other", 0, None, event_type.replace("_", " ")
++    summary = _fill(spec.summary, payload) or event_type.replace("_", " ")
++    return spec.category, spec.step, _fill(spec.target, payload), summary
++
+ 
+ def _now_iso() -> str:
+     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f") + "Z"
+ 
+ 
++def _result_of(payload: dict[str, Any]) -> str:
++    status = str(payload.get("status") or "").lower()
++    return "failed" if status == "failed" or payload.get("error") else "ok"
++
++
+ def log_event(
+     session_id: str | None,
+     user_id: str | None,
+     event_type: str,
+     payload: dict[str, Any] | None = None,
++    *,
++    target: str | None = None,
++    result: str | None = None,
+ ) -> None:
+-    """Record one event. Safe to call from any thread; never raises."""
++    """Record one event. Safe to call from any thread; never raises.
++
++    `payload` holds the details. `target` overrides the record the event is about (default: from
++    EVENT_CATALOG); `result` overrides "ok"/"failed" (default: "failed" if the payload says so)."""
+     try:
+         session = session_id or GLOBAL_SESSION
+         user = user_id or "unknown"
+-        ts_event = f"{_now_iso()}#{uuid.uuid4().hex[:8]}"
+-        body = dumps(payload or {})
++        details = payload or {}
++        category, step, cat_target, summary = classify(event_type, details)
++        target = target or cat_target
++        result = result or _result_of(details)
++        event_id = uuid.uuid4().hex[:8]
++        ts_event = f"{_now_iso()}#{event_id}"
++        body = dumps(details)
+         if len(body.encode("utf-8")) > 200_000:
+             # DynamoDB items max out at 400 KB. Never cut the JSON text (that would leave
+             # unparseable JSON and break reading the log back): keep a small valid preview.
+             body = dumps({"truncated": True, "preview": body[:2000]})
++        record: dict[str, Any] = {
++            "session_id": session,
++            "ts_event": ts_event,
++            "event_id": event_id,
++            "user_id": user,
++            "event_type": event_type,
++            "category": category,
++            "step": step,
++            "step_name": STEPS.get(step, ""),
++            "result": result,
++            "summary": summary[:300],
++        }
++        if target:
++            record["target"] = target
++            record["target_key"] = f"{session}#{target}"
+         if DDB_AUDIT:
+             import time
+ 
+             from app.services.common import aws_clients
+ 
+-            item = {
+-                "session_id": {"S": session},
+-                "ts_event": {"S": ts_event},
+-                "user_id": {"S": user},
+-                "event_type": {"S": event_type},
+-                "payload": {"S": body},
+-                "ttl": {"N": str(int(time.time()) + 86400 * AUDIT_LOG_TTL_DAYS)},
+-            }
++            item = {k: ({"N": str(v)} if k == "step" else {"S": str(v)}) for k, v in record.items()}
++            item["payload"] = {"S": body}
++            item["ttl"] = {"N": str(int(time.time()) + 86400 * AUDIT_LOG_TTL_DAYS)}
+             aws_clients.dynamodb().put_item(TableName=DDB_AUDIT, Item=item)
+         else:
+-            line = json.dumps(
+-                {"session_id": session, "ts_event": ts_event, "user_id": user, "event_type": event_type, "payload": json.loads(body)}
+-            )
++            line = json.dumps({**record, "payload": json.loads(body)})
+             with _lock:
+                 LOCAL_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+                 with LOCAL_LOG_PATH.open("a", encoding="utf-8") as f:
+@@ -75,11 +213,22 @@ def log_event(
+ 
+ 
+ def _decode(item: dict) -> dict:
++    def s(name: str) -> str:
++        return item.get(name, {}).get("S", "")
++
++    step = int(item.get("step", {}).get("N", "0") or 0)
+     return {
+         "session_id": item["session_id"]["S"],
+         "ts_event": item["ts_event"]["S"],
+-        "user_id": item.get("user_id", {}).get("S", ""),
+-        "event_type": item.get("event_type", {}).get("S", ""),
++        "event_id": s("event_id"),
++        "user_id": s("user_id"),
++        "event_type": s("event_type"),
++        "category": s("category"),
++        "step": step,
++        "step_name": s("step_name") or STEPS.get(step, ""),
++        "target": s("target"),
++        "result": s("result") or "ok",
++        "summary": s("summary"),
+         "payload": json.loads(item.get("payload", {}).get("S", "{}")),
+     }
+ 
+@@ -119,6 +268,25 @@ def events_for_user(user_id: str, limit: int = 500) -> list[dict]:
+     return list(reversed([e for e in _read_local() if e["user_id"] == user_id]))[:limit]
+ 
+ 
++def events_for_target(session_id: str, target: str, limit: int = 200) -> list[dict]:
++    """Newest-first history of ONE record, e.g. target="FEATURE#coo": who approved, ran and
++    changed it, and when."""
++    if DDB_AUDIT:
++        from app.services.common import aws_clients
++
++        resp = aws_clients.dynamodb().query(
++            TableName=DDB_AUDIT,
++            IndexName="by-target",
++            KeyConditionExpression="target_key = :t",
++            ExpressionAttributeValues={":t": {"S": f"{session_id}#{target}"}},
++            ScanIndexForward=False,
++            Limit=limit,
++        )
++        return [_decode(i) for i in resp.get("Items", [])]
++    found = [e for e in _read_local() if e["session_id"] == session_id and e.get("target") == target]
++    return list(reversed(found))[:limit]
++
++
+ def _read_local() -> list[dict]:
+     if not LOCAL_LOG_PATH.exists():
+         return []
+diff --git a/backend/app/services/common/aws_clients.py b/backend/app/services/common/aws_clients.py
+index 25e0426..b5af944 100644
+--- a/backend/app/services/common/aws_clients.py
++++ b/backend/app/services/common/aws_clients.py
+@@ -32,19 +32,6 @@ def _get(key: str, factory):
+     return client
+ 
+ 
+-def s3():
+-    return _get(
+-        "s3",
+-        lambda: boto3.client(
+-            "s3",
+-            region_name=AWS_REGION,
+-            # Presigned URLs must use the regional endpoint + SigV4, or browsers get
+-            # redirected (and the CORS preflight fails) for buckets outside us-east-1.
+-            config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}),
+-        ),
+-    )
+-
+-
+ def dynamodb():
+     """The low-level DynamoDB client (items are passed as {"S": "..."} etc.)."""
+     return _get(
+diff --git a/backend/app/services/common/code_run_log.py b/backend/app/services/common/code_run_log.py
+index 085a094..743e6ab 100644
+--- a/backend/app/services/common/code_run_log.py
++++ b/backend/app/services/common/code_run_log.py
+@@ -2,8 +2,9 @@
+ 
+ The agents retry code generation against validator / executor feedback; without a trace the
+ only evidence of that is the final winning code. Each attempt is written to the audit log as a
+-`code_attempt` event (attempt number, which path, the code, the stage that failed, the error or
+-validator verdict), and each finished run as a `code_run` event (total attempts, final status).
++`code_attempt` event (attempt number, which path, ok/failed, the stage that failed -- no code or
++error text; the winning code is kept in the analysis cache doc), and each finished run as a
++`code_run` event (total attempts, final status).
+ 
+ Session and user come from `request_context`, so the agents need no extra parameters. Logging
+ never raises (see audit_log.log_event).
+@@ -51,9 +52,6 @@ def attempt(
+             "attempt": attempt_no,
+             "status": status,
+             "stage": stage,
+-            "code": _clip(code, _MAX_CODE_CHARS),
+-            "error": _clip(error, _MAX_TEXT_CHARS),
+-            "validation": _clip(validation, _MAX_TEXT_CHARS),
+         },
+     )
+ 
+diff --git a/backend/app/services/common/column_meta.py b/backend/app/services/common/column_meta.py
+new file mode 100644
+index 0000000..f95694f
+--- /dev/null
++++ b/backend/app/services/common/column_meta.py
+@@ -0,0 +1,42 @@
++"""Column metadata of an uploaded dataset: ONE `COLUMNS` document per session.
++
++Written once at upload (the Planner reads all of it to know what the data holds). The document is
++`{"column_count": n, "columns": {<column name>: <profile>, ...}}` -- every column's full profile
++(type, role, missing/unique counts, ranges, samples ...) in file order. A very wide file can make
++the document large; doc_store gzip-compresses anything over ~300 KB on its own, so the item stays
++under DynamoDB's 400 KB limit. The session's row count lives on the session header (`SESSIONS`).
++"""
++from __future__ import annotations
++
++from typing import Any
++
++import pandas as pd
++
++from app.services.audit.column_profiler import profile_dataframe
++from app.services.common import doc_store
++
++DOC = "COLUMNS"
++
++
++def save(session_id: str, df: pd.DataFrame) -> int:
++    """Profile every column and store them as one document; returns how many columns."""
++    columns = profile_dataframe(df)
++    doc_store.put(session_id, DOC, {"column_count": len(columns), "columns": columns})
++    return len(columns)
++
++
++def load(session_id: str) -> dict[str, Any] | None:
++    """{"row_count", "column_count", "columns": {name: profile}} in file order, or None if the
++    session has no column metadata."""
++    from app.services.audit.audit_store import store
++
++    data = doc_store.get(session_id, DOC)
++    if not isinstance(data, dict) or "columns" not in data:
++        return None
++    session = store.get(session_id)
++    return {
++        "session_id": session_id,
++        "row_count": getattr(session, "row_count", 0) if session else 0,
++        "column_count": len(data["columns"]),
++        "columns": data["columns"],
++    }
+diff --git a/backend/app/services/common/doc_store.py b/backend/app/services/common/doc_store.py
+index a627839..310cc0f 100644
+--- a/backend/app/services/common/doc_store.py
++++ b/backend/app/services/common/doc_store.py
+@@ -1,12 +1,13 @@
+ """Per-session JSON documents: the replacement for the `data/sessions/<id>/*.json` files.
+ 
+ A document is addressed by (session_id, doc) -- `doc` is a short name such as
+-"PLANNER_OUTPUT" or "ACACHE#<entry id>". Two backends, chosen once by config:
++"BRIEF", "FEATURE#<id>" or "PLAN#<nnn>". Two backends, chosen once by config:
+ 
+   * AWS   -- one DynamoDB item per document in the DDB_DOCS table. The JSON is stored as a
+              string (`payload`) so floats / big numbers never hit DynamoDB's number rules.
+-             A payload over ~300 KB (DynamoDB items max out at 400 KB) is written to S3
+-             under `overflow/` and the item keeps only a pointer (`s3_key`).
++             A payload over ~300 KB (DynamoDB items max out at 400 KB) is gzip-compressed
++             into a binary attribute (`gz`) instead; if it still would not fit, the write
++             fails with a clear error.
+   * local -- plain files under data/sessions/<id>/ (the pre-AWS layout), so a laptop with no
+              AWS resources keeps working.
+ 
+@@ -16,6 +17,8 @@ two tasks or two threads race.
+ """
+ from __future__ import annotations
+ 
++import gzip
++import hashlib
+ import json
+ import re
+ import threading
+@@ -24,10 +27,13 @@ from datetime import date, datetime
+ from pathlib import Path
+ from typing import Any, Callable
+ 
+-from app.config import DATA_DIR, DDB_DOCS, S3_BUCKET, SESSION_TTL_DAYS, USE_AWS_STORAGE
++from app.config import DATA_DIR, DDB_DOCS, SESSION_TTL_DAYS, USE_AWS_STORAGE
+ 
+-# DynamoDB caps an item at 400 KB; stay well under it.
+-OVERFLOW_BYTES = 300_000
++# DynamoDB caps an item at 400 KB; stay well under it. Past COMPRESS_OVER_BYTES the JSON is
++# gzip-compressed (JSON of this kind shrinks 5-10x); past MAX_ITEM_BYTES even compressed, the
++# write is refused.
++COMPRESS_OVER_BYTES = 300_000
++MAX_ITEM_BYTES = 380_000
+ 
+ _SESSIONS_DIR = DATA_DIR / "sessions"
+ _SAFE_ID = re.compile(r"^[A-Za-z0-9_\-]{1,128}$")
+@@ -50,7 +56,12 @@ def safe_session_id(session_id: str) -> str:
+ 
+ 
+ def _safe_doc(doc: str) -> str:
+-    return re.sub(r"[^A-Za-z0-9_\-.]", "_", doc.replace("#", "__"))
++    """Local file stem for a doc name. If a character had to be replaced (e.g. a column called
++    "Temp (C)"), a short hash of the original keeps two different names from sharing a file."""
++    cleaned = re.sub(r"[^A-Za-z0-9_\-.]", "_", doc.replace("#", "__"))
++    if cleaned != doc.replace("#", "__"):
++        cleaned += "~" + hashlib.sha1(doc.encode("utf-8")).hexdigest()[:6]
++    return cleaned
+ 
+ 
+ def json_default(o: Any):
+@@ -78,10 +89,9 @@ def _ttl(days: int | None = None) -> int:
+ 
+ 
+ # =====================================================================================
+-# Generic DynamoDB blob item (shared with session_repo, which stores session headers in
+-# its own table the same way).
++# Generic DynamoDB blob item (shared with session_repo and profile_store).
+ # =====================================================================================
+-def blob_get(table: str, key: dict[str, str], *, s3_prefix: str) -> tuple[Any, int | None]:
++def blob_get(table: str, key: dict[str, str]) -> tuple[Any, int | None]:
+     """Return (data, version) for one item, or (None, None) if it does not exist."""
+     from app.services.common import aws_clients
+ 
+@@ -93,9 +103,8 @@ def blob_get(table: str, key: dict[str, str], *, s3_prefix: str) -> tuple[Any, i
+     version = int(item.get("version", {"N": "0"})["N"])
+     if "payload" in item:
+         return json.loads(item["payload"]["S"]), version
+-    if "s3_key" in item:
+-        obj = aws_clients.s3().get_object(Bucket=S3_BUCKET, Key=item["s3_key"]["S"])
+-        return json.loads(obj["Body"].read().decode("utf-8")), version
++    if "gz" in item:
++        return json.loads(gzip.decompress(bytes(item["gz"]["B"])).decode("utf-8")), version
+     return None, version
+ 
+ 
+@@ -104,7 +113,6 @@ def blob_put(
+     key: dict[str, str],
+     data: Any,
+     *,
+-    s3_prefix: str,
+     expected_version: Any = ANY,
+     ttl_days: int | None = None,
+     extra: dict[str, str] | None = None,
+@@ -129,18 +137,21 @@ def blob_put(
+     sets = ["#t = :t", "#u = :u"]
+     removes: list[str] = []
+ 
+-    if len(payload.encode("utf-8")) > OVERFLOW_BYTES:
+-        s3_key = f"{s3_prefix}.json"
+-        aws_clients.s3().put_object(
+-            Bucket=S3_BUCKET, Key=s3_key, Body=payload.encode("utf-8"), ContentType="application/json"
+-        )
+-        values[":k"] = {"S": s3_key}
+-        sets.append("s3_key = :k")
++    raw = payload.encode("utf-8")
++    if len(raw) > COMPRESS_OVER_BYTES:
++        packed = gzip.compress(raw)
++        if len(packed) > MAX_ITEM_BYTES:
++            raise ValueError(
++                f"{table} {key} is too large to store ({len(raw) // 1024} KB, {len(packed) // 1024} KB compressed; "
++                f"DynamoDB items are limited to 400 KB)."
++            )
++        values[":g"] = {"B": packed}
++        sets.append("gz = :g")
+         removes.append("payload")
+     else:
+         values[":p"] = {"S": payload}
+         sets.append("payload = :p")
+-        removes.append("s3_key")
++        removes.append("gz")
+ 
+     for i, (attr, val) in enumerate((extra or {}).items()):
+         names[f"#x{i}"] = attr
+@@ -184,10 +195,6 @@ def _local_path(session_id: str, doc: str) -> Path:
+     return _SESSIONS_DIR / safe_session_id(session_id) / f"{_safe_doc(doc)}.json"
+ 
+ 
+-def _s3_prefix(session_id: str, doc: str) -> str:
+-    return f"overflow/{safe_session_id(session_id)}/{_safe_doc(doc)}"
+-
+-
+ def get(session_id: str, doc: str) -> Any | None:
+     """The document's data (whatever JSON was stored), or None if it does not exist."""
+     return get_with_version(session_id, doc)[0]
+@@ -195,7 +202,7 @@ def get(session_id: str, doc: str) -> Any | None:
+ 
+ def get_with_version(session_id: str, doc: str) -> tuple[Any | None, int | None]:
+     if USE_AWS_STORAGE:
+-        return blob_get(DDB_DOCS, {"session_id": safe_session_id(session_id), "doc": doc}, s3_prefix=_s3_prefix(session_id, doc))
++        return blob_get(DDB_DOCS, {"session_id": safe_session_id(session_id), "doc": doc})
+     path = _local_path(session_id, doc)
+     with _local_lock:
+         if not path.exists():
+@@ -218,7 +225,6 @@ def put(session_id: str, doc: str, data: Any, *, expected_version: Any = ANY, tt
+             DDB_DOCS,
+             {"session_id": safe_session_id(session_id), "doc": doc},
+             data,
+-            s3_prefix=_s3_prefix(session_id, doc),
+             expected_version=expected_version,
+             ttl_days=ttl_days,
+             extra={"user_id": user_id} if user_id else None,
+@@ -234,10 +240,33 @@ def put(session_id: str, doc: str, data: Any, *, expected_version: Any = ANY, tt
+         if expected_version is not ANY and expected_version != current:
+             raise VersionConflict(f"{session_id}/{doc} changed since it was read")
+         path.parent.mkdir(parents=True, exist_ok=True)
+-        path.write_text(dumps({"version": current + 1, "data": data}), encoding="utf-8")
++        path.write_text(dumps({"version": current + 1, "doc": doc, "data": data}), encoding="utf-8")
+         return current + 1
+ 
+ 
++def put_many(session_id: str, docs: dict[str, Any], *, ttl_days: int | None = None, workers: int = 8) -> None:
++    """Write several documents of one session. On AWS the writes run in parallel (a session can
++    have many PROPOSAL# / PLAN# items); each worker carries the request's user, which put()
++    stamps on the item."""
++    if len(docs) <= 1 or not USE_AWS_STORAGE:
++        for name, data in docs.items():
++            put(session_id, name, data, ttl_days=ttl_days)
++        return
++    from concurrent.futures import ThreadPoolExecutor
++
++    from app.services.common import request_context
++
++    with ThreadPoolExecutor(max_workers=workers) as pool:
++        # One wrap() per task, made here on the request thread: a wrapped context can only run
++        # on one thread at a time.
++        futures = [
++            pool.submit(request_context.wrap(put), session_id, name, data, ttl_days=ttl_days)
++            for name, data in docs.items()
++        ]
++        for f in futures:
++            f.result()
++
++
+ def update(
+     session_id: str,
+     doc: str,
+@@ -294,9 +323,8 @@ def list_docs(session_id: str, prefix: str = "") -> dict[str, Any]:
+                 name = item["doc"]["S"]
+                 if "payload" in item:
+                     out[name] = json.loads(item["payload"]["S"])
+-                elif "s3_key" in item:
+-                    obj = aws_clients.s3().get_object(Bucket=S3_BUCKET, Key=item["s3_key"]["S"])
+-                    out[name] = json.loads(obj["Body"].read().decode("utf-8"))
++                elif "gz" in item:
++                    out[name] = json.loads(gzip.decompress(bytes(item["gz"]["B"])).decode("utf-8"))
+             if "LastEvaluatedKey" not in resp:
+                 break
+             kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
+@@ -315,6 +343,15 @@ def list_docs(session_id: str, prefix: str = "") -> dict[str, Any]:
+             except (OSError, json.JSONDecodeError):
+                 continue
+             if isinstance(wrapper, dict) and "data" in wrapper and "version" in wrapper:
+-                # local names are the sanitized form ("ACACHE__<id>"); map "__" back to "#".
+-                out[path.stem.replace("__", "#", 1)] = wrapper["data"]
++                # the wrapper keeps the real doc name; older files only have the sanitized stem
++                # ("FEATURE__<id>"), so map "__" back to "#" for those.
++                out[wrapper.get("doc") or path.stem.replace("__", "#", 1)] = wrapper["data"]
+     return out
++
++
++def delete_prefix(session_id: str, prefix: str) -> int:
++    """Delete every document of a session whose name starts with `prefix`; returns how many."""
++    names = list(list_docs(session_id, prefix))
++    for name in names:
++        delete(session_id, name)
++    return len(names)
+diff --git a/backend/app/services/common/entry_store.py b/backend/app/services/common/entry_store.py
+new file mode 100644
+index 0000000..e5bbfcf
+--- /dev/null
++++ b/backend/app/services/common/entry_store.py
+@@ -0,0 +1,158 @@
++"""One JSON document per session holding every feature (`FEATURES`) or every analysis (`ANALYSES`).
++
++  {"feature_count": 9, "by_source": {"predefined": 3, "planner": 1, "custom": 1, "ai_suggested": 4},
++   "updated_at": "...", "features": [ {entry}, {entry}, ... ]}
++
++Each entry is the feature/analysis as the app knows it (id, name, formula, status ...) plus:
++
++  source     where it came from -- the "column" that tells them apart:
++               predefined    the uploaded KPI / Analysis profile
++               planner       a Planner recommendation the PM accepted
++               custom        defined by the user (typed in, or a drill-down the PM started)
++               ai_suggested  proposed by the AI suggestion agent
++             `status` marks what happened to it: pending / approved / rejected, so the accepted
++             AI suggestions are the `ai_suggested` entries whose status is `approved`.
++  cache      the final working code (and plan / chart / template) once it has been computed
++  persisted  true for what only this document knows (custom, ai_suggested, drilldown);
++             false for a snapshot of a predefined / planner entry, which the app re-derives from
++             the profile / the PLAN# documents on every read. The snapshots are refreshed whenever
++             the document is written, so the JSON shows the whole set at that moment.
++  created_at keeps the creation order of the persisted entries.
++
++Every change is an atomic read-modify-write of the one document (doc_store.update), so two
++requests changing different entries never overwrite each other.
++"""
++from __future__ import annotations
++
++from datetime import datetime, timezone
++from typing import Any, Callable
++
++from app.services.common import doc_store
++
++INTERNAL_KEYS = ("cache", "persisted", "created_at", "snapshot_at")
++
++
++def _now() -> str:
++    return datetime.now(timezone.utc).isoformat()
++
++
++def public(entry: dict) -> dict:
++    """The entry as the rest of the app knows it (without this module's bookkeeping keys)."""
++    return {k: v for k, v in entry.items() if k not in INTERNAL_KEYS}
++
++
++def _merge_derived(items: list[dict], derived: list[dict]) -> list[dict]:
++    """Replace the snapshots of predefined / planner entries with the current ones, keeping the
++    code already cached for entries that still exist."""
++    old = {e["id"]: e for e in items if not e.get("persisted")}
++    now = _now()
++    fresh = []
++    for d in derived:
++        before = old.get(d["id"], {})
++        snap = {**d, "persisted": False, "created_at": before.get("created_at") or now, "snapshot_at": now}
++        if before.get("cache"):
++            snap["cache"] = before["cache"]
++        fresh.append(snap)
++    return fresh + [e for e in items if e.get("persisted")]
++
++
++def _update(session_id: str, doc: str, key: str, count_key: str, fn: Callable[[list[dict]], None], derived: list[dict] | None) -> dict:
++    def wrapper(current: Any) -> dict:
++        data = current if isinstance(current, dict) else {}
++        items = list(data.get(key) or [])
++        fn(items)
++        if derived is not None:
++            items = _merge_derived(items, derived)
++        by_source: dict[str, int] = {}
++        for e in items:
++            by_source[e.get("source", "other")] = by_source.get(e.get("source", "other"), 0) + 1
++        return {count_key: len(items), "by_source": by_source, "updated_at": _now(), key: items}
++
++    return doc_store.update(session_id, doc, wrapper)
++
++
++class EntryDoc:
++    """Reads and writes one kind of entry document (features or analyses)."""
++
++    def __init__(self, doc: str, key: str, count_key: str, persisted_sources: set[str]):
++        self.doc = doc
++        self.key = key
++        self.count_key = count_key
++        self.persisted_sources = persisted_sources
++
++    # ---- reads --------------------------------------------------------------------------------
++    def _items(self, session_id: str) -> list[dict]:
++        data = doc_store.get(session_id, self.doc)
++        return list(data.get(self.key) or []) if isinstance(data, dict) else []
++
++    def load_persisted(self, session_id: str) -> list[dict]:
++        """The entries only this document knows (custom / ai_suggested / drilldown), oldest first."""
++        rows = [e for e in self._items(session_id) if e.get("persisted") and e.get("source") in self.persisted_sources]
++        rows.sort(key=lambda e: (e.get("created_at", ""), e.get("id", "")))
++        return [public(e) for e in rows]
++
++    def get_cache(self, session_id: str, entry_id: str) -> dict | None:
++        found = next((e for e in self._items(session_id) if e.get("id") == entry_id), None)
++        return (found or {}).get("cache") or None
++
++    # ---- writes -------------------------------------------------------------------------------
++    def add(self, session_id: str, entries: list[dict], derived: list[dict] | None = None) -> None:
++        """Append new persisted entries (and refresh the predefined / planner snapshots)."""
++        now = _now()
++
++        def fn(items: list[dict]) -> None:
++            for n, entry in enumerate(entries):
++                items[:] = [e for e in items if e.get("id") != entry["id"]]
++                # "#nnn" keeps the order of entries added in one call (they share the timestamp)
++                items.append({**entry, "persisted": True, "created_at": f"{now}#{n:03d}"})
++
++        _update(session_id, self.doc, self.key, self.count_key, fn, derived)
++
++    def update_persisted(self, session_id: str, entry_id: str, fields: dict, derived: list[dict] | None = None) -> dict | None:
++        """Merge `fields` into one persisted entry; None if there is no such entry."""
++        found: dict = {}
++
++        def fn(items: list[dict]) -> None:
++            found.clear()
++            for e in items:
++                if e.get("id") == entry_id and e.get("persisted"):
++                    e.update(fields)
++                    found.update(public(e))
++
++        _update(session_id, self.doc, self.key, self.count_key, fn, derived)
++        return dict(found) or None
++
++    def sync(self, session_id: str, derived: list[dict]) -> None:
++        """Refresh the predefined / planner snapshots (e.g. after the PM saved planner decisions)."""
++        _update(session_id, self.doc, self.key, self.count_key, lambda items: None, derived)
++
++    def set_cache(self, session_id: str, entry: dict, cache: dict) -> None:
++        """Store the final code of one entry inside its own record. An entry the document does not
++        hold yet (a predefined / planner one computed before any snapshot) gets a snapshot."""
++
++        def fn(items: list[dict]) -> None:
++            for e in items:
++                if e.get("id") == entry["id"]:
++                    e["cache"] = cache
++                    return
++            items.append({**public(entry), "persisted": False, "created_at": _now(), "snapshot_at": _now(), "cache": cache})
++
++        _update(session_id, self.doc, self.key, self.count_key, fn, None)
++
++    def drop_cache(self, session_id: str, entry_id: str) -> None:
++        """Forget the cached code of one entry. A snapshot with no code has no purpose, so it goes too."""
++        if not any(e.get("id") == entry_id for e in self._items(session_id)):
++            return
++
++        def fn(items: list[dict]) -> None:
++            for e in list(items):
++                if e.get("id") == entry_id:
++                    e.pop("cache", None)
++                    if not e.get("persisted"):
++                        items.remove(e)
++
++        _update(session_id, self.doc, self.key, self.count_key, fn, None)
++
++
++FEATURES = EntryDoc("FEATURES", "features", "feature_count", {"custom", "ai_suggested"})
++ANALYSES = EntryDoc("ANALYSES", "analyses", "analysis_count", {"custom", "ai_suggested", "drilldown"})
+diff --git a/backend/app/services/common/profile_store.py b/backend/app/services/common/profile_store.py
+index 7c257c4..efd55b4 100644
+--- a/backend/app/services/common/profile_store.py
++++ b/backend/app/services/common/profile_store.py
+@@ -41,7 +41,7 @@ def load(user_id: str, kind: str) -> dict[str, Any] | None:
+     """The user's stored profile, or None if they have not uploaded one."""
+     if _use_ddb():
+         data, _ = blob_get(
+-            DDB_PROFILES, {"user_id": user_id, "profile": kind}, s3_prefix=f"overflow/profiles/{_SAFE.sub('_', user_id)}/{kind}"
++            DDB_PROFILES, {"user_id": user_id, "profile": kind}
+         )
+         return data
+     path = _local_path(user_id, kind)
+@@ -62,7 +62,6 @@ def save(user_id: str, kind: str, filename: str, definitions: list[dict]) -> Non
+             DDB_PROFILES,
+             {"user_id": user_id, "profile": kind},
+             profile,
+-            s3_prefix=f"overflow/profiles/{_SAFE.sub('_', user_id)}/{kind}",
+             expected_version=ANY,
+             ttl_days=365,
+         )
+diff --git a/backend/app/services/common/selections.py b/backend/app/services/common/selections.py
+index af06b1a..85da5b9 100644
+--- a/backend/app/services/common/selections.py
++++ b/backend/app/services/common/selections.py
+@@ -18,6 +18,7 @@ from datetime import datetime, timezone
+ from typing import Any
+ 
+ from app.services.common import doc_store
++from app.services.planner import planner_store
+ 
+ log = logging.getLogger(__name__)
+ 
+@@ -54,11 +55,11 @@ def build(session_id: str, user_id: str, session: Any | None = None) -> dict[str
+ 
+     session = session or store.get(session_id)
+ 
+-    planner = doc_store.get(session_id, "PLANNER_OUTPUT") or {}
++    planner_recs = planner_store.load(session_id)
+     planner_decisions = [
+         {"index": i, "name": r.get("name"), "type": r.get("type"),
+          "pm_decision": r.get("pm_decision", "pending"), "pm_notes": r.get("pm_notes", "")}
+-        for i, r in enumerate(planner.get("recommendations", []))
++        for i, r in enumerate(planner_recs)
+     ]
+ 
+     features = feature_repository.get_repository(session_id)
+@@ -100,7 +101,7 @@ def build(session_id: str, user_id: str, session: Any | None = None) -> dict[str
+             for r in session.analysis_results.values()
+         ]
+ 
+-    outlier = doc_store.get(session_id, "OUTLIER_AUDIT") or []
++    outlier = doc_store.get(session_id, "OUTLIER") or []
+     snapshot["outlier_review"] = {
+         "edits": sum(1 for e in outlier if e.get("action") == "edit"),
+         "reviews": [{"tab": e.get("tab"), "decision": e.get("decision"), "ts": e.get("ts")}
+diff --git a/backend/app/services/common/session_repo.py b/backend/app/services/common/session_repo.py
+index d51d610..8195fef 100644
+--- a/backend/app/services/common/session_repo.py
++++ b/backend/app/services/common/session_repo.py
+@@ -1,16 +1,15 @@
+-"""Persistence for an audit session: the small header (DynamoDB) and its DataFrames (S3).
+-
+-  header  -- JSON: owner, filename, issues, features, audit events, which frames exist, ...
+-             DynamoDB table DDB_SESSIONS (item overflows to S3 if it ever gets big).
+-  frames  -- the pandas DataFrames (`df`, `pre_feature_df`, `audit_baseline`), one object each
+-             at s3://<bucket>/frames/<session_id>/<name>.parquet.
+-
+-Parquet is used because it is compact and fast, but it cannot hold every DataFrame an Excel
+-upload can produce (mixed int/str columns, non-string column names, ...). When parquet
+-refuses, the frame is pickled instead and the header records which format was used. The
+-bucket is private and only the task role writes to it, so unpickling our own objects is safe.
+-
+-Without AWS configured (local dev) the same API reads and writes data/sessions/<id>/.
++"""Persistence for an audit session: the small header (DynamoDB) and its DataFrames (memory).
++
++  header  -- JSON: owner, filename, features, audit events, which frames exist, ...
++             DynamoDB table DDB_DOCS, item `SESSIONS`.
++  frames  -- the pandas DataFrames (`df`, `pre_feature_df`, `audit_baseline`). There is no S3:
++             in DynamoDB mode they live in this process's memory only, so a restart (or a
++             request served by another task) loses them and `FramesUnavailable` is raised; the
++             API answers 410 and the user uploads the file again. Run ONE task, or turn on ALB
++             stickiness, so a session's requests reach the task that holds its data.
++
++Without AWS configured (local dev) the frames are files under data/sessions/<id>/, written as
++parquet when the frame round-trips cleanly, else pickled (the header records which).
+ """
+ from __future__ import annotations
+ 
+@@ -21,7 +20,7 @@ from typing import Any
+ 
+ import pandas as pd
+ 
+-from app.config import DATA_DIR, DDB_SESSIONS, S3_BUCKET, USE_AWS_STORAGE
++from app.config import DATA_DIR, DDB_DOCS, MEMORY_FRAME_SESSIONS, USE_AWS_STORAGE
+ from app.services.common.doc_store import (
+     ANY,
+     VersionConflict,
+@@ -34,13 +33,20 @@ from app.services.common.doc_store import (
+ _SESSIONS_DIR = DATA_DIR / "sessions"
+ _local_lock = threading.RLock()
+ 
++# The header is one item of the docs table, next to the session's other records.
++HEADER_DOC = "SESSIONS"
++
++
++def _header_key(sid: str) -> dict[str, str]:
++    return {"session_id": sid, "doc": HEADER_DOC}
++
+ 
+ # --------------------------------------------------------------------------- header
+ def load_header(session_id: str) -> tuple[dict | None, int | None]:
+     """(header dict, version) or (None, None) if the session does not exist."""
+     sid = safe_session_id(session_id)
+     if USE_AWS_STORAGE:
+-        return blob_get(DDB_SESSIONS, {"session_id": sid}, s3_prefix=f"overflow/{sid}/__session")
++        return blob_get(DDB_DOCS, _header_key(sid))
+     path = _SESSIONS_DIR / sid / "session.json"
+     with _local_lock:
+         if not path.exists():
+@@ -58,10 +64,9 @@ def save_header(session_id: str, header: dict, *, expected_version: Any = ANY) -
+     sid = safe_session_id(session_id)
+     if USE_AWS_STORAGE:
+         return blob_put(
+-            DDB_SESSIONS,
+-            {"session_id": sid},
++            DDB_DOCS,
++            _header_key(sid),
+             header,
+-            s3_prefix=f"overflow/{sid}/__session",
+             expected_version=expected_version,
+             extra={"user_id": str(header.get("user_id", ""))} if header.get("user_id") else None,
+         )
+@@ -81,9 +86,53 @@ def save_header(session_id: str, header: dict, *, expected_version: Any = ANY) -
+ 
+ 
+ # --------------------------------------------------------------------------- frames
+-def _frame_key(session_id: str, name: str, fmt: str) -> str:
+-    ext = "parquet" if fmt == "parquet" else "pkl"
+-    return f"frames/{safe_session_id(session_id)}/{name}.{ext}"
++class FramesUnavailable(Exception):
++    """A session's DataFrame is no longer in this process's memory (the app restarted, the
++    session fell out of the memory limit, or another task served the upload). The API turns
++    this into HTTP 410: the user uploads the file again."""
++
++
++# DynamoDB mode keeps DataFrames in memory only: {session_id: {frame name: DataFrame}}. The dict
++# order is the order of last use, so when more than MEMORY_FRAME_SESSIONS sessions are held the
++# first (least recently used) ones are dropped. A frame is copied on the way in and out, so a
++# change made to a loaded frame is only kept once the session is saved again.
++_mem_lock = threading.RLock()
++_mem_frames: dict[str, dict[str, pd.DataFrame]] = {}
++
++
++def _mem_put(session_id: str, name: str, df: pd.DataFrame) -> None:
++    with _mem_lock:
++        frames = _mem_frames.pop(session_id, {})
++        frames[name] = df.copy()
++        _mem_frames[session_id] = frames
++        while len(_mem_frames) > max(MEMORY_FRAME_SESSIONS, 1):
++            del _mem_frames[next(iter(_mem_frames))]
++
++
++def _mem_get(session_id: str, name: str) -> pd.DataFrame:
++    with _mem_lock:
++        frames = _mem_frames.pop(session_id, None)
++        if frames is not None:
++            _mem_frames[session_id] = frames  # most recently used
++        if not frames or name not in frames:
++            raise FramesUnavailable(
++                "The data of this session is no longer in memory (the server restarted or the session was "
++                "moved out). Please upload the file again."
++            )
++        return frames[name].copy()
++
++
++def _mem_delete(session_id: str, name: str) -> None:
++    with _mem_lock:
++        frames = _mem_frames.get(session_id)
++        if frames:
++            frames.pop(name, None)
++            if not frames:
++                del _mem_frames[session_id]
++
++
++def _local_name(name: str, fmt: str) -> str:
++    return f"{name}.{'parquet' if fmt == 'parquet' else 'pkl'}"
+ 
+ 
+ def _to_bytes(df: pd.DataFrame) -> tuple[bytes, str]:
+@@ -106,49 +155,39 @@ def _from_bytes(raw: bytes, fmt: str) -> pd.DataFrame:
+ 
+ def save_frame(session_id: str, name: str, df: pd.DataFrame) -> dict:
+     """Store one DataFrame and return its reference, `{"fmt": ..., "rows": ...}`, which the
+-    caller keeps in the session header."""
+-    raw, fmt = _to_bytes(df)
+-    key = _frame_key(session_id, name, fmt)
++    caller keeps in the session header. DynamoDB mode: in memory (fmt "memory"). Local mode:
++    a file under data/sessions/<id>/."""
++    safe_session_id(session_id)
+     if USE_AWS_STORAGE:
+-        from app.services.common import aws_clients
+-
+-        client = aws_clients.s3()
+-        client.put_object(Bucket=S3_BUCKET, Key=key, Body=raw, ContentType="application/octet-stream")
+-        # A frame that switched format leaves the other object behind; remove it.
+-        other = _frame_key(session_id, name, "pickle" if fmt == "parquet" else "parquet")
+-        client.delete_object(Bucket=S3_BUCKET, Key=other)
+-    else:
+-        path = _SESSIONS_DIR / safe_session_id(session_id) / key.split("/", 2)[2]
+-        with _local_lock:
+-            path.parent.mkdir(parents=True, exist_ok=True)
+-            path.write_bytes(raw)
+-            other = path.with_suffix(".pkl" if fmt == "parquet" else ".parquet")
+-            other.unlink(missing_ok=True)
++        _mem_put(session_id, name, df)
++        return {"fmt": "memory", "rows": int(len(df))}
++    raw, fmt = _to_bytes(df)
++    folder = _SESSIONS_DIR / safe_session_id(session_id)
++    with _local_lock:
++        folder.mkdir(parents=True, exist_ok=True)
++        (folder / _local_name(name, fmt)).write_bytes(raw)
++        # A frame that switched format leaves the other file behind; remove it.
++        (folder / _local_name(name, "pickle" if fmt == "parquet" else "parquet")).unlink(missing_ok=True)
+     return {"fmt": fmt, "rows": int(len(df))}
+ 
+ 
+ def load_frame(session_id: str, name: str, ref: dict) -> pd.DataFrame:
+-    fmt = ref.get("fmt", "parquet")
+-    key = _frame_key(session_id, name, fmt)
++    safe_session_id(session_id)
+     if USE_AWS_STORAGE:
+-        from app.services.common import aws_clients
+-
+-        obj = aws_clients.s3().get_object(Bucket=S3_BUCKET, Key=key)
+-        return _from_bytes(obj["Body"].read(), fmt)
+-    path = _SESSIONS_DIR / safe_session_id(session_id) / key.split("/", 2)[2]
++        return _mem_get(session_id, name)
++    fmt = ref.get("fmt", "parquet")
++    path = _SESSIONS_DIR / safe_session_id(session_id) / _local_name(name, fmt)
+     with _local_lock:
+         return _from_bytes(path.read_bytes(), fmt)
+ 
+ 
+ def delete_frame(session_id: str, name: str, ref: dict | None = None) -> None:
++    safe_session_id(session_id)
++    if USE_AWS_STORAGE:
++        _mem_delete(session_id, name)
++        return
+     fmts = [ref.get("fmt", "parquet")] if ref else ["parquet", "pickle"]
+     for fmt in fmts:
+-        key = _frame_key(session_id, name, fmt)
+-        if USE_AWS_STORAGE:
+-            from app.services.common import aws_clients
+-
+-            aws_clients.s3().delete_object(Bucket=S3_BUCKET, Key=key)
+-        else:
+-            path = _SESSIONS_DIR / safe_session_id(session_id) / key.split("/", 2)[2]
+-            with _local_lock:
+-                path.unlink(missing_ok=True)
++        path = _SESSIONS_DIR / safe_session_id(session_id) / _local_name(name, fmt)
++        with _local_lock:
++            path.unlink(missing_ok=True)
+diff --git a/backend/app/services/common/token_usage.py b/backend/app/services/common/token_usage.py
+index 114ff69..ddaa4ed 100644
+--- a/backend/app/services/common/token_usage.py
++++ b/backend/app/services/common/token_usage.py
+@@ -39,24 +39,24 @@ class TokenUsage:
+ # Where the output of each kind of call is stored. `{e}` is the feature / analysis entry being
+ # computed (request_context.current_entry_id); a call with no stored output maps to None.
+ _OUTPUT_REFS: dict[str, str | None] = {
+-    "feature_agent_think": "FCACHE#{e}",
+-    "feature_agent_write_code": "FCACHE#{e}",
+-    "feature_agent_validate": "FCACHE#{e}",
+-    "analysis_agent_think": "ACACHE#{e}",
+-    "analysis_agent_write_code": "ACACHE#{e}",
+-    "analysis_agent_chart_suggestion": "ACACHE#{e}",
+-    "analysis_designer_template_match": "ACACHE#{e}",
+-    "analysis_designer_chart": "ACACHE#{e}",
++    "feature_agent_think": "FEATURES#{e}",
++    "feature_agent_write_code": "FEATURES#{e}",
++    "feature_agent_validate": "FEATURES#{e}",
++    "analysis_agent_think": "ANALYSES#{e}",
++    "analysis_agent_write_code": "ANALYSES#{e}",
++    "analysis_agent_chart_suggestion": "ANALYSES#{e}",
++    "analysis_designer_template_match": "ANALYSES#{e}",
++    "analysis_designer_chart": "ANALYSES#{e}",
+     "analysis_agent_interpret": "RESULT#{e}",
+     "analysis_agent_drilldown": "RESULT#{e}",
+     "drilldown_agent": "RESULT#{e}",
+     "drilldown_agent_more": "RESULT#{e}",
+-    "drilldown_path": "PATHS",
+-    "planner_agent": "PLANNER_SUGGEST",
+-    "feature_suggester": "FEATURE_REPO",
+-    "analysis_suggester": "ANALYSIS_REPO",
++    "drilldown_path": "DRILL#{e}",
++    "planner_agent": "PLAN",
++    "feature_suggester": "FEATURES",
++    "analysis_suggester": "ANALYSES",
+     "overall_analysis_agent": "OVERALL",
+-    "audit_agent": "session.json",
++    "audit_agent": "SESSIONS",
+     "report_final_summary_agent": None,
+ }
+ 
+diff --git a/backend/app/services/features/feature_cache.py b/backend/app/services/features/feature_cache.py
+index 5674743..a892d12 100644
+--- a/backend/app/services/features/feature_cache.py
++++ b/backend/app/services/features/feature_cache.py
+@@ -1,5 +1,7 @@
+ """Per-session cache of Feature Agent results that already passed
+-validation once, keyed by entry id.
++validation once, keyed by entry id. It lives INSIDE the feature's own record in the session's
++`FEATURES` document (key `cache`), next to the feature's definition and `source`, so one read
++gives the definition, status and final code (see services/common/entry_store.py).
+ 
+ Every recompute (e.g. accepting one more AI suggestion re-runs the WHOLE
+ approved set, not just the new entry -- see feature_engineering.apply_
+@@ -16,11 +18,13 @@ The cache is invalidated automatically if the entry's own calculation
+ basis changes (a re-uploaded KPI Profile with a different formula for the
+ same id, say) -- see `get`.
+ """
+-from app.services.common import doc_store
++from datetime import datetime, timezone
+ 
++from app.services.common.entry_store import FEATURES
+ 
+-def _doc(entry_id: str) -> str:
+-    return f"FCACHE#{entry_id}"
++
++def _now() -> str:
++    return datetime.now(timezone.utc).isoformat()
+ 
+ 
+ def get(session_id: str, entry: dict) -> dict | None:
+@@ -28,7 +32,7 @@ def get(session_id: str, entry: dict) -> dict | None:
+     one exists and the entry's calculation basis (its formula if it has
+     one, else its calculation_intent) and output column haven't changed
+     since it was cached. None otherwise, so the caller computes fresh."""
+-    cached = doc_store.get(session_id, _doc(entry["id"]))
++    cached = FEATURES.get_cache(session_id, entry["id"])
+     if not cached:
+         return None
+     basis = entry.get("formula") or entry["calculation_intent"]
+@@ -38,13 +42,14 @@ def get(session_id: str, entry: dict) -> dict | None:
+ 
+ 
+ def set(session_id: str, entry: dict, plan_text: str | None, generated_code: str) -> None:
+-    doc_store.put(session_id, _doc(entry["id"]), {
++    FEATURES.set_cache(session_id, entry, {
+         "basis": entry.get("formula") or entry["calculation_intent"],
+         "output_column": entry["output_column"],
+         "plan_text": plan_text,
+         "generated_code": generated_code,
++        "cached_at": _now(),
+     })
+ 
+ 
+ def invalidate(session_id: str, entry_id: str) -> None:
+-    doc_store.delete(session_id, _doc(entry_id))
++    FEATURES.drop_cache(session_id, entry_id)
+diff --git a/backend/app/services/features/feature_repository.py b/backend/app/services/features/feature_repository.py
+index 52816b3..1c65767 100644
+--- a/backend/app/services/features/feature_repository.py
++++ b/backend/app/services/features/feature_repository.py
+@@ -7,10 +7,10 @@ lands, regardless of which of the four sources proposed it --
+   ai_suggested -- proposed by the AI feature-suggestion agent
+ 
+ `predefined` and `planner` are derived, not stored -- they always reflect
+-whatever is currently in the global KPI-profile store / that session's
+-planner_output.json, so re-uploading a KPI Profile or re-approving planner
++whatever is currently in the user's KPI-profile store / that session's
++PLAN#<n> documents, so re-uploading a KPI Profile or re-approving planner
+ recommendations is picked up automatically. `custom` and `ai_suggested`
+-are the only entries actually persisted to feature_repository.json (their
++are the only entries actually persisted, one FEATURE#<id> document each (their
+ accept/reject state and PM-authored content can't be re-derived from
+ anywhere else). Every read rebuilds the full merged view.
+ """
+@@ -19,13 +19,14 @@ from __future__ import annotations
+ import re
+ import uuid
+ 
+-from app.services.common import doc_store
++from app.services.common.entry_store import FEATURES
+ from app.services.features import feature_definitions_store as defs_store
++from app.services.planner import planner_store
+ 
+ _PERSISTED_SOURCES = {"custom", "ai_suggested"}
+ 
+-REPO_DOC = "FEATURE_REPO"
+-PLANNER_OUTPUT_DOC = "PLANNER_OUTPUT"
++# Every feature of the session is one record in the `FEATURES` document (services/common/
++# entry_store.py); feature_cache.py keeps the final code in the same record under "cache".
+ 
+ 
+ # --- describing a structured spec in plain English -----------------------
+@@ -116,13 +117,11 @@ def predefined_catalog_lines(session_id: str) -> list[str]:
+ 
+ def _planner_entries(session_id: str) -> list[dict]:
+     try:
+-        data = doc_store.get(session_id, PLANNER_OUTPUT_DOC)
++        recs = planner_store.load(session_id)
+     except Exception:
+         return []
+-    if not isinstance(data, dict):
+-        return []
+     entries = []
+-    for i, rec in enumerate(data.get("recommendations", [])):
++    for i, rec in enumerate(recs):
+         if rec.get("pm_decision") != "accepted":
+             continue
+         if rec.get("type") not in ("feature", "feature_and_analysis"):
+@@ -155,23 +154,28 @@ def _planner_entries(session_id: str) -> list[dict]:
+     return entries
+ 
+ 
++def _derived(session_id: str) -> list[dict]:
++    """The predefined + planner entries right now (snapshotted into the FEATURES document)."""
++    return _predefined_entries(session_id) + _planner_entries(session_id)
++
++
+ def _load_persisted(session_id: str) -> list[dict]:
+-    data = doc_store.get(session_id, REPO_DOC)
+-    if not isinstance(data, dict):
+-        return []
+-    return [e for e in data.get("entries", []) if e.get("source") in _PERSISTED_SOURCES]
++    """The custom / AI-suggested features of the session, oldest first."""
++    return FEATURES.load_persisted(session_id)
+ 
+ 
+-def _save(session_id: str, entries: list[dict]) -> None:
+-    doc_store.put(session_id, REPO_DOC, {"session_id": session_id, "entries": entries})
++def sync(session_id: str) -> None:
++    """Refresh the predefined / planner snapshots in the FEATURES document (call after the PM
++    saved planner decisions, so the JSON shows the current set)."""
++    FEATURES.sync(session_id, _derived(session_id))
+ 
+ 
+ def get_repository(session_id: str) -> list[dict]:
+     """The full merged view: freshly-derived predefined + planner entries,
+     plus whatever custom/ai_suggested entries this session has persisted.
+-    Read-only: the stored document is only rewritten when an entry is added
+-    or changes status (the derived entries are recomputed on every read)."""
+-    return _predefined_entries(session_id) + _planner_entries(session_id) + _load_persisted(session_id)
++    Read-only: the document is only written when an entry is added or
++    changes status (the derived entries are recomputed on every read)."""
++    return _derived(session_id) + _load_persisted(session_id)
+ 
+ 
+ def get_approved_entries(session_id: str) -> list[dict]:
+@@ -198,10 +202,7 @@ def add_custom_entry(
+         # like a Planner-generated one. None = the agent thinks at compute time.
+         "formula": formula,
+     }
+-    persisted = _load_persisted(session_id)
+-    persisted.append(entry)
+-    entries = _predefined_entries(session_id) + _planner_entries(session_id) + persisted
+-    _save(session_id, entries)
++    FEATURES.add(session_id, [entry], _derived(session_id))
+     return entry
+ 
+ 
+@@ -212,7 +213,6 @@ def add_ai_suggested_entries(session_id: str, suggestions: list[dict]) -> list[d
+     pile up duplicates."""
+     existing = get_repository(session_id)
+     existing_cols = {e["output_column"] for e in existing}
+-    persisted = _load_persisted(session_id)
+ 
+     new_entries = []
+     for s in suggestions:
+@@ -229,25 +229,13 @@ def add_ai_suggested_entries(session_id: str, suggestions: list[dict]) -> list[d
+             "input_columns": s.get("input_columns", []),
+             "formula": None,
+         }
+-        persisted.append(entry)
+         new_entries.append(entry)
+         existing_cols.add(entry["output_column"])
+-
+-    entries = _predefined_entries(session_id) + _planner_entries(session_id) + persisted
+-    _save(session_id, entries)
++    if new_entries:
++        FEATURES.add(session_id, new_entries, _derived(session_id))
+     return new_entries
+ 
+ 
+ def set_entry_status(session_id: str, entry_id: str, status: str) -> dict | None:
+-    persisted = _load_persisted(session_id)
+-    found = None
+-    for e in persisted:
+-        if e["id"] == entry_id:
+-            e["status"] = status
+-            found = e
+-            break
+-    if found is None:
+-        return None
+-    entries = _predefined_entries(session_id) + _planner_entries(session_id) + persisted
+-    _save(session_id, entries)
+-    return found
++    """Approve / reject a custom or AI-suggested feature (derived ones are re-derived, so None)."""
++    return FEATURES.update_persisted(session_id, entry_id, {"status": status}, _derived(session_id))
+diff --git a/backend/app/services/planner/planner.py b/backend/app/services/planner/planner.py
+index 4fb41e6..95302cd 100644
+--- a/backend/app/services/planner/planner.py
++++ b/backend/app/services/planner/planner.py
+@@ -1,4 +1,4 @@
+-"""Planner Agent service: reads the BRIEF_META + COLUMN_META documents for a session
++"""Planner Agent service: reads the BRIEF + COLUMN#<name> documents for a session
+ and calls Bedrock to produce structured feature/analysis recommendations."""
+ from __future__ import annotations
+ 
+@@ -8,9 +8,9 @@ from concurrent.futures import ThreadPoolExecutor
+ 
+ from app.config import PLANNER_AGENT_MODEL, model_for
+ from app.services.analysis import analysis_agent
+-from app.services.common import doc_store, llm, request_context
++from app.services.common import column_meta, doc_store, llm, request_context
+ from app.services.features import feature_agent
+-from app.services.planner import planner_dependencies
++from app.services.planner import planner_dependencies, planner_store
+ 
+ _SYSTEM_PROMPT = None  # the system prompt lives in Amazon Bedrock Prompt Management (planner_agent); default text: backend/prompts/<name>.txt
+ 
+@@ -82,17 +82,19 @@ def _build_user_prompt(
+ 
+ def suggest(session_id: str, additional_context: str = "") -> dict:
+     """Call the Planner LLM and return the structured recommendations dict."""
+-    col_data = doc_store.get(session_id, "COLUMN_META")
+-    meta_data = doc_store.get(session_id, "BRIEF_META")
++    col_data = column_meta.load(session_id)
++    meta_data = doc_store.get(session_id, "BRIEF")
+ 
+     if col_data is None:
+-        raise FileNotFoundError(f"COLUMN_META (column metadata) not found for session {session_id}")
++        raise FileNotFoundError(f"COLUMN# (column metadata) not found for session {session_id}")
+     if meta_data is None:
+-        raise FileNotFoundError(f"BRIEF_META (brief metadata) not found for session {session_id}")
++        raise FileNotFoundError(f"BRIEF (client brief) not found for session {session_id}")
+ 
+     brief_block = meta_data.get("client_brief", {})
+     final_brief = (
+-        brief_block.get("translated_text")
++        brief_block.get("understanding_text")
++        # briefs saved before the language fields were dropped
++        or brief_block.get("translated_text")
+         or brief_block.get("final_text")
+         or brief_block.get("raw_text")
+         or ""
+@@ -147,8 +149,9 @@ def suggest(session_id: str, additional_context: str = "") -> dict:
+     _prune_features(result["recommendations"])
+     _sync_feature_columns(result["recommendations"], set(col_data.get("columns", {})))
+ 
+-    # Cache the raw planner output so /save can attach decisions to it
+-    doc_store.put(session_id, "PLANNER_SUGGEST", result)
++    # One PLAN#<n> document per recommendation, so /save can attach the PM's decision to each.
++    # A request for MORE suggestions appends; the first call replaces the list.
++    planner_store.save_suggestions(session_id, result["recommendations"], append=bool(additional_context.strip()))
+ 
+     return result
+ 
+diff --git a/backend/app/services/planner/planner_store.py b/backend/app/services/planner/planner_store.py
+new file mode 100644
+index 0000000..193591f
+--- /dev/null
++++ b/backend/app/services/planner/planner_store.py
+@@ -0,0 +1,99 @@
++"""Planner recommendations: one `PLAN#<nnn>` document per recommendation.
++
++A document holds the AI's proposal (name, type, description, formula, required fields ...) AND
++the PM's decision on it (`pm_decision` = accepted | rejected | pending, `pm_notes`), so "what did
++the Planner propose and what did the PM decide" is one read. `<nnn>` is the recommendation's
++position, zero-padded so DynamoDB's sort order is the list order (PLAN#002 before PLAN#010);
++the position is what the rest of the app calls the recommendation's index (`planner_<index>`).
++
++  suggest (first call)      replaces the list; a decision already made on a recommendation with
++                            the same name is kept, so reopening the Planner never un-approves it
++  suggest (more, with a     appends after the existing recommendations
++  request in the text box)
++  save decisions            writes the PM's decision onto each recommendation by index
++"""
++from __future__ import annotations
++
++from datetime import datetime, timezone
++from typing import Any
++
++from app.services.common import doc_store
++
++PREFIX = "PLAN#"
++
++
++def doc_name(index: int) -> str:
++    return f"{PREFIX}{index:03d}"
++
++
++def _now() -> str:
++    return datetime.now(timezone.utc).isoformat()
++
++
++def load(session_id: str) -> list[dict]:
++    """Every recommendation of the session, in list order (empty if none)."""
++    docs = doc_store.list_docs(session_id, PREFIX)
++    return [docs[name] for name in sorted(docs)]
++
++
++def save_suggestions(session_id: str, recommendations: list[dict], *, append: bool) -> list[dict]:
++    """Store the Planner's new recommendations as pending PLAN documents. Returns the stored list
++    (the whole list when appending)."""
++    existing = load(session_id)
++    if append:
++        base = len(existing)
++        stored = list(existing)
++        previous: dict[str, dict] = {}
++    else:
++        base = 0
++        stored = []
++        previous = {str(r.get("name", "")).strip().lower(): r for r in existing}
++
++    for offset, rec in enumerate(recommendations):
++        index = base + offset
++        doc = dict(rec)
++        kept = previous.get(str(rec.get("name", "")).strip().lower())
++        doc["pm_decision"] = kept.get("pm_decision", "pending") if kept else "pending"
++        doc["pm_notes"] = kept.get("pm_notes", "") if kept else ""
++        doc["index"] = index
++        doc["proposed_at"] = _now()
++        doc_store.put(session_id, doc_name(index), doc)
++        stored.append(doc)
++
++    if not append:
++        # A shorter list than before: drop the leftover documents.
++        for index in range(len(recommendations), len(existing)):
++            doc_store.delete(session_id, doc_name(index))
++    return stored
++
++
++def apply_decisions(session_id: str, decisions: dict[int, tuple[str, str]]) -> list[dict]:
++    """Write the PM's decisions ({index: (decision, notes)}); a recommendation with no entry goes
++    back to pending. Returns the updated list."""
++    recs = load(session_id)
++    for i, rec in enumerate(recs):
++        decision, notes = decisions.get(i, ("pending", ""))
++        rec["pm_decision"] = decision
++        rec["pm_notes"] = notes
++        rec["decided_at"] = _now()
++        doc_store.put(session_id, doc_name(i), rec)
++    return recs
++
++
++def accept(session_id: str, index: int, allowed_types: tuple[str, ...]) -> bool:
++    """Mark one recommendation accepted (used when an analysis needs the feature it proposes).
++    False if there is no such recommendation or it is not one of `allowed_types`."""
++    result = {"ok": False}
++
++    def _accept(rec: Any) -> Any:
++        if not isinstance(rec, dict) or rec.get("type") not in allowed_types:
++            return rec
++        rec["pm_decision"] = "accepted"
++        rec["decided_at"] = _now()
++        result["ok"] = True
++        return rec
++
++    if doc_store.get(session_id, doc_name(index)) is None:
++        return False
++    doc_store.update(session_id, doc_name(index), _accept)
++    return result["ok"]
+diff --git a/deploy/README.md b/deploy/README.md
+index 8b87bd5..5f1aeed 100644
+--- a/deploy/README.md
++++ b/deploy/README.md
+@@ -3,7 +3,7 @@
+ | File | Use |
+ |---|---|
+ | `taskdef.json` | ECS Fargate task definition. Replace every `<PLACEHOLDER>`, then `aws ecs register-task-definition --cli-input-json file://deploy/taskdef.json`. |
+-| `iam/pmai-task-role.json` | One policy for the **task role** `pmai-task-role` (S3, DynamoDB, Bedrock, Translate). IAM -> Roles -> `pmai-task-role` -> Add permissions -> Create inline policy -> JSON. |
++| `iam/pmai-task-role.json` | One policy for the **task role** `pmai-task-role` (DynamoDB, Bedrock, Translate). IAM -> Roles -> `pmai-task-role` -> Add permissions -> Create inline policy -> JSON. |
+ 
+ The **execution role** (`pmai-task-exec-role`) is separate: it only pulls the image and writes logs.
+ The OpenRouter and DeepL secrets are no longer used, so the task definition has no `secrets` block.
+@@ -12,7 +12,8 @@ The OpenRouter and DeepL secrets are no longer used, so the task definition has
+ 
+ | Variable | Purpose |
+ |---|---|
+-| `S3_BUCKET`, `DDB_SESSIONS`, `DDB_DOCS` | If **all three** are set, sessions use S3 + DynamoDB. Otherwise local files (dev). |
++| `DDB_DOCS` | If set, sessions use DynamoDB and the DataFrames stay **in memory** (no S3). Otherwise local files (dev). |
++| `MEMORY_FRAME_SESSIONS` | Optional. How many sessions' DataFrames one task keeps in memory (default 50). |
+ | `DDB_PROFILES`, `DDB_AUDIT` | Per-user KPI/Analysis profiles; the audit log. |
+ | `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID` | If **both** are set, every `/api` request needs a valid Entra bearer token. |
+ | `CORS_ORIGINS` | Comma-separated allowed browser origins (your Amplify URL). |
+@@ -22,10 +23,11 @@ The OpenRouter and DeepL secrets are no longer used, so the task definition has
+ 
+ ## Resources the backend expects
+ 
+-DynamoDB (on-demand): `pmai-sessions` (`session_id`), `pmai-docs` (`session_id`, `doc`),
+-`pmai-profiles` (`user_id`, `profile`), `pmai-audit-log` (`session_id`, `ts_event`, plus GSI
+-`by-user` on `user_id`, `ts_event`). TTL attribute `ttl` on sessions, docs and the audit log.
+-S3: one private bucket with CORS allowing `PUT`/`GET` from the Amplify origin.
++DynamoDB (on-demand), three tables: `uda327-records-dev` (`DDB_DOCS`; `session_id`, `doc`; also holds the session header as
++doc `SESSIONS`), `uda327-profiles-dev` (`DDB_PROFILES`; `user_id`, `profile`), `uda327-events-dev` (`DDB_AUDIT`; `session_id`, `ts_event`, plus
++GSI `by-user` on `user_id`, `ts_event` and GSI `by-target` on `target_key`, `ts_event`, both projecting all
++attributes). TTL attribute `ttl` on docs, profiles and the audit log. See `docs/DYNAMODB_REDESIGN_PLAN.md`.
++No S3 bucket is needed. Uploaded files go to the API as a multipart form and the DataFrames live in the memory of the task that received them, so **run exactly one backend task** (or turn on ALB stickiness) and expect a restart or deploy to drop open sessions' data: the user is told to upload again (HTTP 410).
+ 
+ ## Prompts in Amazon Bedrock Prompt Management (optional)
+ 
+diff --git a/deploy/iam/pmai-task-role.json b/deploy/iam/pmai-task-role.json
+index 30bdb75..5fe3035 100644
+--- a/deploy/iam/pmai-task-role.json
++++ b/deploy/iam/pmai-task-role.json
+@@ -1,18 +1,6 @@
+ {
+   "Version": "2012-10-17",
+   "Statement": [
+-    {
+-      "Sid": "S3Data",
+-      "Effect": "Allow",
+-      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+-      "Resource": "arn:aws:s3:::pmai-data-<ACCOUNT_ID>-eu-north-1/*"
+-    },
+-    {
+-      "Sid": "S3List",
+-      "Effect": "Allow",
+-      "Action": "s3:ListBucket",
+-      "Resource": "arn:aws:s3:::pmai-data-<ACCOUNT_ID>-eu-north-1"
+-    },
+     {
+       "Sid": "DynamoDB",
+       "Effect": "Allow",
+@@ -25,8 +13,8 @@
+         "dynamodb:BatchWriteItem"
+       ],
+       "Resource": [
+-        "arn:aws:dynamodb:eu-north-1:<ACCOUNT_ID>:table/pmai-*",
+-        "arn:aws:dynamodb:eu-north-1:<ACCOUNT_ID>:table/pmai-*/index/*"
++        "arn:aws:dynamodb:eu-north-1:<ACCOUNT_ID>:table/uda327-*-dev",
++        "arn:aws:dynamodb:eu-north-1:<ACCOUNT_ID>:table/uda327-*-dev/index/*"
+       ]
+     },
+     {
+diff --git a/deploy/taskdef.json b/deploy/taskdef.json
+index d7100fa..d476db7 100644
+--- a/deploy/taskdef.json
++++ b/deploy/taskdef.json
+@@ -17,11 +17,9 @@
+         { "name": "AWS_REGION", "value": "eu-north-1" },
+         { "name": "BEDROCK_REGION", "value": "eu-north-1" },
+         { "name": "TRANSLATE_REGION", "value": "eu-north-1" },
+-        { "name": "S3_BUCKET", "value": "pmai-data-<ACCOUNT_ID>-eu-north-1" },
+-        { "name": "DDB_SESSIONS", "value": "pmai-sessions" },
+-        { "name": "DDB_DOCS", "value": "pmai-docs" },
+-        { "name": "DDB_PROFILES", "value": "pmai-profiles" },
+-        { "name": "DDB_AUDIT", "value": "pmai-audit-log" },
++        { "name": "DDB_DOCS", "value": "uda327-records-dev" },
++        { "name": "DDB_PROFILES", "value": "uda327-profiles-dev" },
++        { "name": "DDB_AUDIT", "value": "uda327-events-dev" },
+         { "name": "ENTRA_TENANT_ID", "value": "<TENANT_ID>" },
+         { "name": "ENTRA_CLIENT_ID", "value": "<PMAI_API_CLIENT_ID>" },
+         { "name": "CORS_ORIGINS", "value": "https://<BRANCH>.<APP_ID>.amplifyapp.com" },
+diff --git a/docs/DYNAMODB_REDESIGN_PLAN.md b/docs/DYNAMODB_REDESIGN_PLAN.md
+new file mode 100644
+index 0000000..23dbd1f
+--- /dev/null
++++ b/docs/DYNAMODB_REDESIGN_PLAN.md
+@@ -0,0 +1,181 @@
++# PM-AI DynamoDB redesign: plan
++
++Goal: 3 tables (`pmai-docs`, `pmai-profiles`, `pmai-audit-log`), one item per record, and an event
++schema that says *what happened, in which wizard step, to which record*.
++
++## 1. Tables
++
++| Table | Partition key | Sort key | Notes |
++|---|---|---|---|
++| `pmai-docs` | `session_id` (S) | `doc` (S) | Everything about one session, one item per record. Also holds the session header (`SESSIONS`). TTL `ttl`. |
++| `pmai-profiles` | `user_id` (S) | `profile` (S) | `KPI` and `ANALYSIS` JSON a PM uploaded. TTL 365 days. Unchanged. |
++| `pmai-audit-log` | `session_id` (S) | `ts_event` (S) | One item per event. TTL 365 days. GSIs: `by-user`, `by-target`. |
++
++`pmai-sessions` is removed: its header moves into `pmai-docs` as the `SESSIONS` item.
++`DDB_SESSIONS` is removed from config, task definition, IAM and `.env.example`.
++`USE_AWS_STORAGE` becomes `bool(DDB_DOCS)`. **There is no S3**: see section 8.
++
++## 2. Docs: one item per record (`pmai-docs`)
++
++| `doc` (sort key) | Record | Holds | Replaces today |
++|---|---|---|---|
++| `SESSIONS` | session header | owner, filename, source, frame refs, created/updated, selections snapshot | `pmai-sessions` item |
++| `BRIEF` | client brief | raw brief, final text, translation, file list | `BRIEF_META` |
++| `COLUMNS` | all columns of the session | every column's full profile (type, stats, samples...) in one JSON, in file order | `COLUMN_META` |
++| `PLAN#<n>` | one planner recommendation | AI proposal, PM decision and notes | `PLANNER_SUGGEST` + `PLANNER_OUTPUT` |
++| `ISSUES` | all audit findings of the session, one JSON | per finding: title, options, AI recommendation, status, resolution, applied step | `issues` list inside the header |
++| `OUTLIER` | outlier flags | segment and mean-temperature outliers flagged, edits, reviews | `OUTLIER_AUDIT` |
++| `FEATURES` | every feature of the session, one JSON | per feature: `source` (predefined / planner / custom = user defined / ai_suggested), definition, formula, plan, final code, `status` (pending / approved / rejected, so accepted AI suggestions are marked in place) | `FEATURE_REPO` list + `FCACHE#` |
++| `ANALYSES` | every analysis and drill-down level of the session, one JSON | per analysis: `source` (predefined / planner / custom / ai_suggested / drilldown), definition, plan, final code, chart, filters, chain, `status` | `ANALYSIS_REPO` list + `ACACHE#` |
++| `PROPOSAL#<analysis id>#<n>` | one drill-down suggestion | columns, measure, ranking, focus values, status | `guided_proposals` inside `RESULT#` |
++| `DRILL#<analysis id>#<path id>` | one drill-down path | levels, accepted/rejected | `PATHS` list |
++| `OVERALL` | session summary | row count, KPI highlights, executive summary | unchanged |
++
++Not in your list, kept on purpose:
++
++- `RESULT#<analysis id>`: the computed table/chart/interpretation of a run. It is large and rewritten
++  on every run; keeping it apart stops a re-run from rewriting the analysis definition.
++- `DRAFT#<token>`: a custom-feature draft under review (2-day TTL).
++
++Removed: `STEP#<n>`. Each issue carries its own applied step, and any one can be undone on its own.
++
++Sort-key rule: every doc name is `TYPE` or `TYPE#id[#id2]`. `begins_with(doc, "PLAN#")` lists
++all planner recommendations of a session in one query.
++
++## 3. Events (`pmai-audit-log`)
++
++Append-only. One item per event.
++
++| Attribute | Type | Meaning |
++|---|---|---|
++| `session_id` | S, partition key | Session the event belongs to (`_global` if none) |
++| `ts_event` | S, sort key | `<ISO time>#<8-hex id>`, unique and time-ordered |
++| `event_id` | S | The 8-hex id from `ts_event` |
++| `user_id` | S | Who did it (GSI `by-user`) |
++| `event_type` | S | What happened (catalog below) |
++| `category` | S | Area: `session`, `planner`, `audit`, `outlier`, `feature`, `analysis`, `report`, `ai` |
++| `step` | N | Wizard step 1-6 (below); `0` = not tied to a step |
++| `step_name` | S | Name of that step |
++| `target` | S | The record the event is about, written exactly as its `pmai-docs` sort key, e.g. `FEATURES#coo` (a feature inside the `FEATURES` doc) or `OUTLIER` |
++| `target_key` | S | `<session_id>#<target>`: GSI `by-target` partition key = history of one record |
++| `result` | S | `ok` or `failed` |
++| `summary` | S | One readable line |
++| `payload` | S | JSON text with the details (kept as text so floats never hit DynamoDB number rules) |
++| `ttl` | N | Expiry (365 days) |
++
++Wizard steps (from the app's step indicator):
++
++| step | step_name | Pages |
++|---|---|---|
++| 1 | Upload | upload, client brief |
++| 2 | Planner | planner |
++| 3 | Audit | audit issues, outlier review |
++| 4 | Features | features |
++| 5 | Analysis | analysis and drill-downs |
++| 6 | Report | report |
++
++Input rule: callers pass `session_id`, `user_id`, `event_type`, `payload` (the details), and optionally
++`target` (to override) and `result`. `category`, `step`, `step_name`, `target` and `summary` come from
++one catalog (`audit_log.EVENT_CATALOG`), so existing call sites keep working unchanged and every event
++is classified the same way.
++
++Catalog:
++
++| event_type | category | step | target |
++|---|---|---|---|
++| `upload` | session | 1 | `SESSIONS` |
++| `brief_finalize` | session | 1 | `BRIEF` |
++| `planner_suggest` | planner | 2 | none |
++| `planner_save` | planner | 2 | none |
++| `audit_run` | audit | 3 | `SESSIONS` |
++| `decision` | audit | 3 | `ISSUES#{issue_id}` (a finding inside the `ISSUES` doc) |
++| `revert` | audit | 3 | `ISSUES#{issue_id}` |
++| `download` | audit | 3 | `SESSIONS` |
++| `edit` | outlier | 3 | `OUTLIER` |
++| `outlier_detected` / `outlier_edit` / `outlier_review` | outlier | 3 | `OUTLIER` |
++| `feature_suggested` / `feature_draft` / `apply_features` | feature | 4 | none |
++| `feature_custom_added` / `feature_accepted` / `feature_rejected` | feature | 4 | `FEATURES#{entry_id}` (a feature inside the `FEATURES` doc) |
++| `analysis_suggested` | analysis | 5 | none |
++| `analysis_custom_added` / `analysis_accepted` / `analysis_rejected` / `analysis_run` | analysis | 5 | `ANALYSES#{entry_id}` |
++| `drilldown_suggested` / `drilldown_proposed` / `drilldown_run` | analysis | 5 | `ANALYSES#{entry_id}` |
++| `drilldown_path_accepted` / `drilldown_path_rejected` | analysis | 5 | `DRILL#{entry_id}#{path_id}` |
++| `report_downloaded` | report | 6 | `OVERALL` |
++| `llm_call` | ai | by call name | the record the call wrote (`output_ref`) |
++| `code_attempt` / `code_run` / `code_fallback` | ai | 4 (feature) or 5 (analysis) | `FEATURES#` / `ANALYSES#{entry_id}` |
++
++Indexes: `by-user` (`user_id`, `ts_event`) and `by-target` (`target_key`, `ts_event`, sparse: events with
++no target are not indexed).
++
++## 4. Phases and status
++
++Each phase leaves the app working in local-file mode (no AWS) and in AWS mode.
++
++| Phase | What | Status |
++|---|---|---|
++| 1 | Event schema + catalog, `by-target` index, history of one record. `pmai-sessions` removed (header is the `SESSIONS` doc). `BRIEF_META`→`BRIEF`, `OUTLIER_AUDIT`→`OUTLIER`. Config, task definition, README. | Done |
++| 2 | One doc per record: `PLAN#`, `DRILL#`; one JSON each for `FEATURES` and `ANALYSES` (code cache lives inside each entry). Column metadata stays ONE `COLUMNS` item. | Done |
++| 3 | `ISSUES` (issues leave the header, one JSON) and `PROPOSAL#` (leave `RESULT#`). | Done |
++| 4 | Undo from stored before-values instead of replaying from a baseline frame. | Not started, needs your decision |
++
++Phase 4 note: today a revert drops the issue's change and replays the rest from `audit_baseline`, so it
++already undoes any one issue in any order. Storing before-values per issue needs the removed rows and
++columns saved with each issue (large, and there is no S3, so they would need another home), and a rule for two issues that touched the same cell.
++It is a behaviour change, so it was left out. Until then each finding's `applied` (inside `ISSUES`) holds the decision that was
++applied (`decision_id`, `selected_items`); the replay still reads `audit_events` in the `SESSIONS` item.
++
++## 5. Behaviour changes to know about
++
++- **Planner "generate more suggestions" now appends.** Before, the second call overwrote the stored
++  suggestions with only the new batch, while the page kept the merged list, so saved decisions could land on
++  the wrong recommendation. Now the first call replaces the list (a decision already made on a recommendation
++  with the same name is kept) and a "more" request appends, so the list index always matches.
++- **Persisted features/analyses keep insertion order** through a `created_at` field, as the old list did.
++- **Predefined and planner entries are snapshots inside `FEATURES` / `ANALYSES`** (`persisted: false`), refreshed
++  whenever the document is written and after planner decisions are saved. Reads still re-derive them from the
++  profile and the `PLAN#` documents, so the snapshot can lag until the next write but is never used as the definition.
++- **Event `step` is a Number, `payload` stays a JSON string** (so floats never hit DynamoDB number rules).
++  `event_id` is the 8-hex id inside `ts_event`, not a per-session counter.
++- **Drill-down proposals have no status field.** The app has no accept/reject on a proposal (confirming one
++  creates a drill-down analysis), so there is no state to store yet.
++- **TTL is per item**: each item expires 30 days after its own last write, so a long-lived session can lose an
++  item that was written once and never touched again (for example `COLUMNS`). Same as before the change.
++- Existing local `data/sessions` folders written before the change are not read by the new code (new
++  environment: nothing to migrate in AWS).
++
++## 6. Testing
++
++Two throwaway scripts (not in the repo) exercised the change: a local-mode walk of the wizard through the real
++API with the LLM stubbed (upload, brief, planner, features, analysis, drill-downs, audit run/resolve/revert,
++events) and an AWS-mode run against a mocked DynamoDB (moto): item keys, parallel writes, only-changed
++writes, compression of large items, in-memory DataFrames, the real upload and the 410 after a restart, both event indexes. All checks passed. Not exercised: real Bedrock calls, a real
++DynamoDB table, the frontend.
++
++## 7. Request to the cloud team
++
++3 tables (`pmai-docs`, `pmai-profiles`, `pmai-audit-log`), on-demand, TTL on `ttl`, point-in-time recovery.
++`pmai-audit-log` needs two global secondary indexes, both projecting all attributes:
++`by-user` (`user_id`, `ts_event`) and `by-target` (`target_key`, `ts_event`).
++
++## 8. No S3: DataFrames in memory
++
++S3 is no longer used anywhere in the backend.
++
++| What used S3 | Now |
++|---|---|
++| The DataFrames of a session (`df`, `pre_feature_df`, `audit_baseline`) | Kept in the memory of the process (`session_repo`), at most `MEMORY_FRAME_SESSIONS` sessions (default 50, least recently used dropped). Local-file mode (no `DDB_DOCS`) still writes them to `data/sessions/`. |
++| Browser upload through a presigned S3 URL | `/api/audit/upload-url` always answers `{"mode": "direct"}`, so the page sends the file to `/api/audit/upload` as a multipart form (the page already did this when the mode was `direct`). `/api/audit/upload/complete` is removed. |
++| Items too large for DynamoDB (over ~300 KB) overflowed to S3 | gzip-compressed into a binary attribute `gz`; refused with a clear error if still over ~380 KB. |
++| `aws_clients.s3()`, `S3_BUCKET`, `PRESIGN_EXPIRY_SECONDS`, the S3 statements of the task-role policy, the `S3_BUCKET` task variable | Removed. |
++
++What this means in operation:
++
++- **Run one backend task** (desired count 1), or turn on ALB stickiness. A session's DataFrames exist only in the
++  task that received the upload; another task answers HTTP 410.
++- **A restart or a deployment drops the open sessions' data.** Their DynamoDB documents (brief, columns, plan,
++  issues, features, analyses, events) stay, but the DataFrames are gone, so the API answers **HTTP 410** with
++  "upload the file again". Plan deployments for quiet times.
++- **Memory:** each task holds up to `MEMORY_FRAME_SESSIONS` sessions, a loaded frame is copied on the way in and out,
++  so budget about two copies of each active file. Size the task memory for it.
++- **Upload size:** the multipart upload goes through the API. Behind API Gateway the body limit is 10 MB; on an ALB
++  the app's own limit (`UPLOAD_MAX_BYTES`, default 200 MB) applies.
++- Existing `frames/` and `uploads/` objects in a bucket (from before) are no longer read.

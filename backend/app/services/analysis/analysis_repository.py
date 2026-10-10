@@ -9,26 +9,26 @@ analysis lands, regardless of which of the five sources proposed it --
                 (see add_chain_entry)
 
 `predefined` and `planner` are derived, not stored -- they always reflect
-whatever is currently in the global Analysis Profile store / that session's
-planner_output.json, so re-uploading a profile or re-approving planner
+whatever is currently in the Analysis Profile store / that session's
+PLAN#<n> documents, so re-uploading a profile or re-approving planner
 recommendations is picked up automatically. `custom`, `ai_suggested`, and
-`drilldown` are the only entries actually persisted to
-analysis_repository.json (their accept/reject state and PM-authored/
+`drilldown` are the only entries actually persisted, inside the ANALYSES
+document (their accept/reject state and PM-authored/
 PM-triggered content can't be re-derived from anywhere else). Every read
 rebuilds the full merged view.
 """
 from __future__ import annotations
 
-import json
 import uuid
-from pathlib import Path
 
-from app.config import DATA_DIR
 from app.services.analysis import analysis_definitions_store as defs_store
-
-_SESSIONS_DIR = DATA_DIR / "sessions"
+from app.services.common.entry_store import ANALYSES
+from app.services.planner import planner_store
 
 _PERSISTED_SOURCES = {"custom", "ai_suggested", "drilldown"}
+
+# Every analysis of the session is one record in the `ANALYSES` document (services/common/
+# entry_store.py); analysis_cache.py keeps the final code in the same record under "cache".
 
 
 def with_answer(description: str, business_question: str | None) -> str:
@@ -39,20 +39,6 @@ def with_answer(description: str, business_question: str | None) -> str:
     if not question:
         return description
     return f"{(description or '').strip().rstrip('.')} -- answers '{question}.'"
-
-
-def _session_dir(session_id: str) -> Path:
-    d = _SESSIONS_DIR / session_id
-    d.mkdir(parents=True, exist_ok=True)
-    return d
-
-
-def _repo_path(session_id: str) -> Path:
-    return _session_dir(session_id) / "analysis_repository.json"
-
-
-def _planner_output_path(session_id: str) -> Path:
-    return _session_dir(session_id) / "planner_output.json"
 
 
 def _predefined_entries() -> list[dict]:
@@ -98,17 +84,13 @@ def _profile_feature_refs(raw) -> list[dict]:
 
 
 def _planner_entries(session_id: str) -> list[dict]:
-    path = _planner_output_path(session_id)
-    if not path.exists():
-        return []
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        recs = planner_store.load(session_id)
     except Exception:
         return []
     # Imported here: planner_dependencies itself reads this module's predefined entries.
     from app.services.planner import planner_dependencies
 
-    recs = data.get("recommendations", [])
     slug_to_index = {
         planner_dependencies.slug(r.get("name", "")): j
         for j, r in enumerate(recs) if r.get("type") in ("feature", "feature_and_analysis")
@@ -157,34 +139,36 @@ def _planner_entries(session_id: str) -> list[dict]:
     return entries
 
 
+def _derived(session_id: str) -> list[dict]:
+    """The predefined + planner entries right now (snapshotted into the ANALYSES document)."""
+    return _predefined_entries() + _planner_entries(session_id)
+
+
 def _load_persisted(session_id: str) -> list[dict]:
-    path = _repo_path(session_id)
-    if not path.exists():
-        return []
+    """The custom / AI-suggested / drill-down analyses of the session, oldest first."""
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        return ANALYSES.load_persisted(session_id)
     except Exception:
         return []
-    return [e for e in data.get("entries", []) if e.get("source") in _PERSISTED_SOURCES]
 
 
-def _save(session_id: str, entries: list[dict]) -> None:
-    _repo_path(session_id).write_text(
-        json.dumps({"session_id": session_id, "entries": entries}, indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
+def sync(session_id: str) -> None:
+    """Refresh the predefined / planner snapshots in the ANALYSES document (call after the PM
+    saved planner decisions, so the JSON shows the current set)."""
+    ANALYSES.sync(session_id, _derived(session_id))
+
+
+def _store(session_id: str, entry: dict) -> None:
+    ANALYSES.add(session_id, [entry], _derived(session_id))
 
 
 def get_repository(session_id: str) -> list[dict]:
     """The full merged view: freshly-derived predefined + planner entries,
     plus whatever custom/ai_suggested/drilldown entries this session has
-    persisted. Also re-saves the merge so the file on disk always reflects
-    the latest Analysis Profile / planner decisions. Returns definitions
+    persisted. Read-only (nothing is written). Returns definitions
     only -- run results (table/chart/interpretation) live in-memory on the
     audit session and are merged in by the router."""
-    entries = _predefined_entries() + _planner_entries(session_id) + _load_persisted(session_id)
-    _save(session_id, entries)
-    return entries
+    return _derived(session_id) + _load_persisted(session_id)
 
 
 def add_custom_entry(
@@ -210,10 +194,7 @@ def add_custom_entry(
         "chart_recommendation": chart_recommendation,
         "filters": filters or [],
     }
-    persisted = _load_persisted(session_id)
-    persisted.append(entry)
-    entries = _predefined_entries() + _planner_entries(session_id) + persisted
-    _save(session_id, entries)
+    _store(session_id, entry)
     return entry
 
 
@@ -228,7 +209,6 @@ def add_ai_suggested_entries(session_id: str, suggestions: list[dict]) -> list[d
     so re-running suggestions doesn't pile up duplicates."""
     existing = get_repository(session_id)
     existing_names = {_normalize_name(e["name"]) for e in existing}
-    persisted = _load_persisted(session_id)
 
     new_entries = []
     for s in suggestions:
@@ -245,12 +225,11 @@ def add_ai_suggested_entries(session_id: str, suggestions: list[dict]) -> list[d
             "formula": None,
             "parent_id": None,
         }
-        persisted.append(entry)
         new_entries.append(entry)
         existing_names.add(_normalize_name(entry["name"]))
 
-    entries = _predefined_entries() + _planner_entries(session_id) + persisted
-    _save(session_id, entries)
+    if new_entries:
+        ANALYSES.add(session_id, new_entries, _derived(session_id))
     return new_entries
 
 
@@ -276,41 +255,18 @@ def add_chain_entry(
         "filters": filters,
         "chain": chain,
     }
-    persisted = _load_persisted(session_id)
-    persisted.append(entry)
-    _save(session_id, _predefined_entries() + _planner_entries(session_id) + persisted)
+    _store(session_id, entry)
     return entry
 
 
 def update_entry(session_id: str, entry_id: str, fields: dict) -> dict | None:
     """Merges `fields` into one persisted entry (predefined and planner
     entries are derived, so they can't be edited here)."""
-    persisted = _load_persisted(session_id)
-    found = None
-    for e in persisted:
-        if e["id"] == entry_id:
-            e.update(fields)
-            found = e
-            break
-    if found is None:
-        return None
-    _save(session_id, _predefined_entries() + _planner_entries(session_id) + persisted)
-    return found
+    return ANALYSES.update_persisted(session_id, entry_id, fields, _derived(session_id))
 
 
 def set_entry_status(session_id: str, entry_id: str, status: str) -> dict | None:
-    persisted = _load_persisted(session_id)
-    found = None
-    for e in persisted:
-        if e["id"] == entry_id:
-            e["status"] = status
-            found = e
-            break
-    if found is None:
-        return None
-    entries = _predefined_entries() + _planner_entries(session_id) + persisted
-    _save(session_id, entries)
-    return found
+    return update_entry(session_id, entry_id, {"status": status})
 
 
 def get_entry(session_id: str, entry_id: str) -> dict | None:

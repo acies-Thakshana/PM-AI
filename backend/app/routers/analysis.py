@@ -36,7 +36,9 @@ from app.services.analysis import (
     overall_analysis_agent,
 )
 from app.services.analysis.analysis_agent import AnalysisComputation
-from app.services.audit.audit_store import AuditSession, get_or_404
+from app.services.audit.audit_store import AuditSession, get_or_404, store
+from app.services.common import request_context
+from app.services.common.audit_log import log_event
 from app.services.features import feature_repository
 
 router = APIRouter(prefix="/api/analysis", tags=["analysis"])
@@ -71,7 +73,8 @@ def _level_filter_defs(session_id: str, session: AuditSession) -> list[dict]:
     engineered features and every other usable categorical column. Never
     trimmed to fit the chart -- a level's own X-axis columns, and the value it
     is narrowed to, stay filterable."""
-    key = (session_id, id(session.df), hash(tuple(session.df.columns)))
+    # Keyed by session version + column set (not id(df): a reloaded session gets a new frame object).
+    key = (session_id, session.version, hash(tuple(session.df.columns)))
     if key not in _LEVEL_FILTER_CACHE:
         if len(_LEVEL_FILTER_CACHE) > 32:
             _LEVEL_FILTER_CACHE.clear()
@@ -181,6 +184,7 @@ def add_custom_analysis(session_id: str, body: AddCustomAnalysisRequest) -> Anal
         session_id, body.name.strip(), body.description.strip(), body.calculation_intent.strip(), body.input_columns,
         formula=formula, template=template, chart_recommendation=chart_recommendation, filters=filters,
     )
+    log_event(session_id, session.user_id, "analysis_custom_added", {"entry_id": entry["id"], "name": entry.get("name"), "formula": entry.get("formula")})
     return _merge_entry(session, entry)
 
 
@@ -197,6 +201,7 @@ def suggest_analyses(session_id: str) -> SuggestAnalysisEntriesResponse:
             status_code=502, detail="Analysis suggestion agent is unavailable right now. Please try again."
         ) from exc
     new_entries = analysis_repository.add_ai_suggested_entries(session_id, suggestions)
+    log_event(session_id, session.user_id, "analysis_suggested", {"count": len(new_entries)})
     return SuggestAnalysisEntriesResponse(session_id=session_id, entries=[_merge_entry(session, e) for e in new_entries])
 
 
@@ -206,6 +211,17 @@ def accept_entry(session_id: str, entry_id: str) -> AnalysisRepositoryEntry:
     entry = analysis_repository.set_entry_status(session_id, entry_id, "approved")
     if entry is None:
         raise HTTPException(status_code=404, detail="Analysis entry not found in this session's repository.")
+    log_event(session_id, session.user_id, "analysis_accepted", {"entry_id": entry_id, "name": entry.get("name")})
+    return _merge_entry(session, entry)
+
+
+@router.post("/repository/{session_id}/entries/{entry_id}/reject", response_model=AnalysisRepositoryEntry)
+def reject_entry(session_id: str, entry_id: str) -> AnalysisRepositoryEntry:
+    session = _get_session_or_404(session_id)
+    entry = analysis_repository.set_entry_status(session_id, entry_id, "rejected")
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Analysis entry not found in this session's repository.")
+    log_event(session_id, session.user_id, "analysis_rejected", {"entry_id": entry_id, "name": entry.get("name")})
     return _merge_entry(session, entry)
 
 
@@ -214,10 +230,14 @@ def _run_entry(session: AuditSession, session_id: str, entry: dict) -> AnalysisR
     session, in-memory. Never raises on an agent-side failure -- that's
     recorded as run_status="error" so one entry's failure never blocks the
     rest of the page, mirroring the feature system's skipped_notes
-    philosophy."""
-    computation = analysis_engine.run_analysis(
-        session_id, analysis_dependencies.prepare_entry(session_id, entry, session.df), session.df,
-    )
+    philosophy. Callers save the session once they are done."""
+    token = request_context.current_entry_id.set(entry["id"])
+    try:
+        computation = analysis_engine.run_analysis(
+            session_id, analysis_dependencies.prepare_entry(session_id, entry, session.df), session.df,
+        )
+    finally:
+        request_context.current_entry_id.reset(token)
     session.analysis_results[entry["id"]] = _to_result(entry, computation)
     return _merge_entry(session, entry)
 
@@ -255,7 +275,14 @@ def run_entry(session_id: str, entry_id: str) -> AnalysisRepositoryEntry:
     blocked = analysis_dependencies.block_message(analysis_dependencies.resolve(session_id, entry, session.df))
     if blocked:
         raise HTTPException(status_code=422, detail=blocked)
-    return _run_entry(session, session_id, entry)
+    out = _run_entry(session, session_id, entry)
+    store.save(session)
+    log_event(session_id, session.user_id, "analysis_run", {
+        "entry_id": entry_id, "name": entry.get("name"), "run_status": out.run_status,
+        "computation_mode": getattr(out, "computation_mode", None), "error": out.error,
+        "has_code": bool(out.generated_code), "has_template": bool(out.template_summary),
+    })
+    return out
 
 
 @router.post("/repository/{session_id}/entries/{entry_id}/required-features/select", response_model=AnalysisRepositoryEntry)
@@ -444,6 +471,16 @@ def propose_drilldowns(session_id: str, entry_id: str, more: bool = False) -> li
         feature_columns=features, pinned=pinned, limit=min(analysis_drilldown_agent.MAX_PROPOSALS, room),
     )
     result.guided_proposals = result.guided_proposals + [DrilldownProposal(**p) for p in new_proposals]
+    session.analysis_results[entry_id] = result  # changed in place above: re-assign so it is saved
+    store.save(session)
+    log_event(session_id, session.user_id, "drilldown_proposed", {
+        "entry_id": entry_id, "name": entry.get("name"), "dimension": dimension,
+        "new_proposals": len(new_proposals), "total": len(result.guided_proposals), "more": more,
+        "proposals": [
+            {"dimensions": p.child_dimensions or [p.child_dimension], "metric": p.metric, "focus_values": p.focus_values[:10]}
+            for p in result.guided_proposals[len(result.guided_proposals) - len(new_proposals):]
+        ],
+    })
     return result.guided_proposals
 
 
@@ -502,11 +539,21 @@ def confirm_drilldown(session_id: str, entry_id: str, body: ConfirmDrilldownRequ
         created = [_create_level(values=[v], split=True, **common) for v in values]
         todo = [entry for entry, is_new in created if is_new]
         with ThreadPoolExecutor(max_workers=3) as pool:
-            list(pool.map(lambda e: _run_entry(session, session_id, e), todo))
+            # one wrapped callable PER job: workers must see this request's user/session (token + audit attribution)
+            for fut in [pool.submit(request_context.wrap(_run_entry), session, session_id, e) for e in todo]:
+                fut.result()
+        store.save(session)
+        for e in todo:
+            log_event(session_id, session.user_id, "drilldown_run", {"parent_entry_id": entry_id, "entry_id": e["id"], "name": e.get("name")})
         return _merge_entry(session, created[0][0])
 
     entry, is_new = _create_level(values=values, split=False, **common)
-    return _run_entry(session, session_id, entry) if is_new else _merge_entry(session, entry)
+    if not is_new:
+        return _merge_entry(session, entry)
+    out = _run_entry(session, session_id, entry)
+    store.save(session)
+    log_event(session_id, session.user_id, "drilldown_run", {"parent_entry_id": entry_id, "entry_id": entry["id"], "name": entry.get("name")})
+    return out
 
 
 def _create_level(
@@ -562,7 +609,10 @@ def rerank_drilldown(session_id: str, entry_id: str, body: DrilldownRank) -> Ana
         "chart_recommendation": {"chart_type": chart_type, "reason": "Chosen for this drill-down level.", "alternatives": []},
     })
     _mark_stale(session_id, entry_id)
-    return _run_entry(session, session_id, updated)
+    out = _run_entry(session, session_id, updated)
+    store.save(session)
+    log_event(session_id, session.user_id, "drilldown_run", {"entry_id": entry_id, "name": (updated or {}).get("name")})
+    return out
 
 
 @router.post("/repository/{session_id}/entries/{entry_id}/drilldown/refresh", response_model=AnalysisRepositoryEntry)
@@ -600,7 +650,10 @@ def refresh_drilldown(session_id: str, entry_id: str) -> AnalysisRepositoryEntry
         "chart_recommendation": {"chart_type": chart_type, "reason": "Chosen for this drill-down level.", "alternatives": []},
     })
     _mark_stale(session_id, entry_id)
-    return _run_entry(session, session_id, updated)
+    out = _run_entry(session, session_id, updated)
+    store.save(session)
+    log_event(session_id, session.user_id, "drilldown_run", {"entry_id": entry_id, "name": (updated or {}).get("name")})
+    return out
 
 
 @router.get("/{session_id}/overall", response_model=OverallAnalysisReport)
@@ -624,4 +677,5 @@ def get_overall_analysis(session_id: str) -> OverallAnalysisReport:
         session_id=session_id, row_count=len(session.df), highlights=highlights, narrative=narrative
     )
     session.overall_analysis = report
+    store.save(session)
     return report

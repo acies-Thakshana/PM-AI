@@ -24,14 +24,14 @@ from datetime import datetime, timezone
 
 import pandas as pd
 
-from app.config import DATA_DIR, DRILLDOWN_AGENT_MODEL, model_for
+from app.config import DRILLDOWN_AGENT_MODEL, model_for
 from app.services.analysis import analysis_agent, analysis_drilldown as dd, analysis_semantics
 from app.services.analysis.analysis_columns import as_labels
+from app.services.common import doc_store
 from app.prompts import analysis_paths as _prompts
 
 logger = logging.getLogger(__name__)
 
-_SESSIONS_DIR = DATA_DIR / "sessions"
 MAX_PICK = 6
 MAX_STEP_COLUMNS = 3
 # The most charts one path may create in total (splitting multiplies them), so it stays quick to run and read.
@@ -44,24 +44,23 @@ _SYSTEM = _prompts.SYSTEM
 # --- storage -----------------------------------------------------------------------------------------
 
 
-def _path_file(session_id: str):
-    return _SESSIONS_DIR / session_id / "drilldown_paths.json"
+# One document per path: DRILL#<analysis id>#<path id> (the analysis is the path's `root_id`).
+DOC_PREFIX = "DRILL#"
+
+
+def _doc(path: dict) -> str:
+    return f"{DOC_PREFIX}{path['root_id']}#{path['path_id']}"
 
 
 def load(session_id: str) -> list[dict]:
-    p = _path_file(session_id)
-    if not p.exists():
-        return []
+    """Every drill-down path of the session, oldest first."""
     try:
-        return json.loads(p.read_text(encoding="utf-8")).get("paths", [])
+        docs = doc_store.list_docs(session_id, DOC_PREFIX)
     except Exception:
         return []
-
-
-def save(session_id: str, paths: list[dict]) -> None:
-    p = _path_file(session_id)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps({"session_id": session_id, "paths": paths}, ensure_ascii=False, indent=1), encoding="utf-8")
+    paths = [d for d in docs.values() if isinstance(d, dict) and "path_id" in d]
+    paths.sort(key=lambda p: (p.get("created_at", ""), p["path_id"]))
+    return paths
 
 
 def get(session_id: str, path_id: str) -> dict | None:
@@ -69,9 +68,7 @@ def get(session_id: str, path_id: str) -> dict | None:
 
 
 def upsert(session_id: str, path: dict) -> None:
-    paths = [p for p in load(session_id) if p["path_id"] != path["path_id"]]
-    paths.append(path)
-    save(session_id, paths)
+    doc_store.put(session_id, _doc(path), path)
 
 
 def new_path_id() -> str:

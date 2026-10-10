@@ -26,7 +26,9 @@ from app.services.analysis import (
     analysis_repository,
     analysis_templates,
 )
-from app.services.audit.audit_store import AuditSession
+from app.services.audit.audit_store import AuditSession, store
+from app.services.common import request_context
+from app.services.common.audit_log import log_event
 
 router = APIRouter(prefix="/api/analysis", tags=["analysis-paths"])
 logger = logging.getLogger(__name__)
@@ -208,14 +210,17 @@ def suggest_path(session_id: str, entry_id: str) -> DrilldownPath:
         fresh = [it for it in items if it["is_new"] or it["entry"]["id"] not in session.analysis_results]
         if fresh:
             with ThreadPoolExecutor(max_workers=4) as pool:
-                charts = list(pool.map(lambda it: _recommend_chart(session, it["entry"]), fresh))
+                chart_futs = [pool.submit(request_context.wrap(_recommend_chart), session, it["entry"]) for it in fresh]
+                charts = [f.result() for f in chart_futs]
             for it, chart in zip(fresh, charts):
                 if chart:
                     it["entry"] = analysis_repository.update_entry(session_id, it["entry"]["id"], {"chart_recommendation": chart}) or it["entry"]
 
             # 3. Run each level (its template, then the existing interpretation call), in parallel.
             with ThreadPoolExecutor(max_workers=3) as pool:
-                list(pool.map(lambda it: analysis_router._run_entry(session, session_id, it["entry"]), fresh))
+                run_futs = [pool.submit(request_context.wrap(analysis_router._run_entry), session, session_id, it["entry"]) for it in fresh]
+                for f in run_futs:
+                    f.result()
 
         # 4. Keep the levels that computed; the rest are dropped.
         entries: list[dict] = []
@@ -248,6 +253,8 @@ def suggest_path(session_id: str, entry_id: str) -> DrilldownPath:
         "source": plan["source"], "status": "pending", "created_at": analysis_paths.now(), "steps": path_steps,
     }
     analysis_paths.upsert(session_id, path)
+    store.save(session)  # the levels' run results live on the session
+    log_event(session_id, session.user_id, "drilldown_run", {"entry_id": entry_id, "path_id": path["path_id"], "levels": total})
     return _response(session, session_id, path)
 
 
@@ -289,6 +296,7 @@ def accept_path(session_id: str, path_id: str, body: DrilldownPathAccept | None 
     _set_levels(session_id, path, "approved")
     path["status"] = "accepted"
     analysis_paths.upsert(session_id, path)
+    log_event(session_id, session.user_id, "drilldown_path_accepted", {"entry_id": path.get("root_id"), "path_id": path_id})
     return _response(session, session_id, path)
 
 
@@ -304,4 +312,5 @@ def reject_path(session_id: str, path_id: str) -> DrilldownPath:
     _set_levels(session_id, path, "rejected")
     path["status"] = "rejected"
     analysis_paths.upsert(session_id, path)
+    log_event(session_id, session.user_id, "drilldown_path_rejected", {"entry_id": path.get("root_id"), "path_id": path_id})
     return _response(session, session_id, path)

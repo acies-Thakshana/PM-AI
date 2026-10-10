@@ -20,6 +20,7 @@ from app.schemas import (
 )
 from app.services.analysis import analysis_drilldown
 from app.services.audit.audit_store import get_or_404
+from app.services.common.audit_log import log_event
 from app.services.report import final_summary_agent, report_generator, translation_service
 
 router = APIRouter(prefix="/api/report", tags=["report"])
@@ -112,6 +113,7 @@ def download_report(
         summary_bullets = ["Final summary is unavailable right now."]
 
     pptx_bytes = report_generator.build_report(session.filename, session.df, entries, summary_bullets, language)
+    log_event(session_id, session.user_id, "report_downloaded", {"language": language, "entry_count": len(entries)})
     filename = f"{report_generator.REPORT_NAME}.pptx"
     return Response(
         content=pptx_bytes,
@@ -162,6 +164,7 @@ def export_report(session_id: str, body: ReportExportRequest):
         cover_title=(body.cover_title or "").strip() or None, cover_subtitle=body.cover_subtitle,
         custom_slides=[{"heading": c.heading, "bullets": c.bullets} for c in body.custom_slides],
     )
+    log_event(session_id, session.user_id, "report_downloaded", {"language": body.language, "entry_count": len(entries)})
     filename = f"{report_generator.REPORT_NAME}.pptx"
     return Response(
         content=pptx_bytes,

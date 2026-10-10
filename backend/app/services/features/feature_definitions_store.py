@@ -1,30 +1,34 @@
 """
-Holds whatever feature-definitions JSON was most recently uploaded to the
-"Customer KPI Profile" slot. There is no bundled backend default -- if
-nothing has been uploaded, `store.definitions` is None and feature
-engineering simply cannot run yet. Single-slot, thread-safe -- same scope as
-the other in-memory stores in this app (one demo session at a time).
+Holds the feature-definitions JSON uploaded to the "Customer KPI Profile" slot, stored per user
+(see services/common/profile_store.py: DynamoDB table DDB_PROFILES, or data/profiles/ locally).
+There is no bundled backend default -- if nothing has been uploaded, `store.definitions` is None
+and feature engineering simply cannot run yet.
 """
-import threading
+from app.services.common import profile_store, request_context
 
 SUPPORTED_TYPES = {"lookup", "extract_month", "ratio", "duration_hours", "custom_formula", "ai_generated"}
 
 
 class FeatureDefinitionsStore:
-    def __init__(self):
-        self._lock = threading.Lock()
-        self.filename: str | None = None
-        self.definitions: list[dict] | None = None
+    """Same interface as before (`filename`, `definitions`, `set`, `clear`), now reading and
+    writing the current user's KPI profile."""
+
+    def _profile(self) -> dict | None:
+        return profile_store.load(request_context.user_id(), profile_store.KPI)
+
+    @property
+    def filename(self) -> str | None:
+        return (self._profile() or {}).get("filename")
+
+    @property
+    def definitions(self) -> list[dict] | None:
+        return (self._profile() or {}).get("definitions")
 
     def set(self, filename: str, definitions: list[dict]) -> None:
-        with self._lock:
-            self.filename = filename
-            self.definitions = definitions
+        profile_store.save(request_context.user_id(), profile_store.KPI, filename, definitions)
 
     def clear(self) -> None:
-        with self._lock:
-            self.filename = None
-            self.definitions = None
+        profile_store.clear(request_context.user_id(), profile_store.KPI)
 
 
 store = FeatureDefinitionsStore()

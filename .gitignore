@@ -31,3 +31,5 @@ PM_AI_Refactor_Summary.xlsx
 .idea/
 .DS_Store
 ~$*
+backend/data/audit_log.jsonl
+backend/data/profiles/

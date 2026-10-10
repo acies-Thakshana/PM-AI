@@ -1,0 +1,50 @@
+"""One lazily-created boto3 client per AWS service, shared by the whole process.
+
+boto3 *clients* are thread-safe, which matters because the Planner and the Analysis
+engine fan LLM calls out over a ThreadPoolExecutor. Creating a client is the slow part
+(it resolves credentials and loads the service model), so each is built once.
+
+Credentials are never read from code or env vars here: on ECS the task role supplies them
+through the container credentials endpoint, and locally boto3 uses whatever
+`aws configure` / AWS_PROFILE gave it.
+"""
+from __future__ import annotations
+
+import threading
+
+import boto3
+from botocore.config import Config
+
+from app.config import AWS_REGION
+
+_lock = threading.Lock()
+_clients: dict[str, object] = {}
+
+
+def _get(key: str, factory):
+    client = _clients.get(key)
+    if client is None:
+        with _lock:
+            client = _clients.get(key)
+            if client is None:
+                client = factory()
+                _clients[key] = client
+    return client
+
+
+def dynamodb():
+    """The low-level DynamoDB client (items are passed as {"S": "..."} etc.)."""
+    return _get(
+        "dynamodb",
+        lambda: boto3.client(
+            "dynamodb",
+            region_name=AWS_REGION,
+            config=Config(retries={"max_attempts": 5, "mode": "standard"}),
+        ),
+    )
+
+
+def reset() -> None:
+    """Drop every cached client (used by tests that swap in a mocked AWS)."""
+    with _lock:
+        _clients.clear()

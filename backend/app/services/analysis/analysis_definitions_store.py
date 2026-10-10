@@ -1,31 +1,33 @@
-"""Holds whatever analysis-definitions JSON was most recently uploaded to
-the "Analysis Profile" slot. There is no bundled backend default -- if
+"""Holds the analysis-definitions JSON uploaded to the "Analysis Profile" slot, stored per user
+(see services/common/profile_store.py). There is no bundled backend default -- if
 nothing has been uploaded, `store.definitions` is None and the Analysis
-page simply shows zero `predefined` entries (never a hard error). Single-
-slot, thread-safe -- same scope as feature_definitions_store.py.
+page simply shows zero `predefined` entries (never a hard error). Same
+interface as feature_definitions_store.py.
 
 Deliberately looser than the old pivot-table JSON schema: no group_by/
 metrics/agg vocabulary, since the Analysis Agent now derives the
 aggregation itself from a plain-English `calculation_intent`.
 """
-import threading
+from app.services.common import profile_store, request_context
 
 
 class AnalysisDefinitionsStore:
-    def __init__(self):
-        self._lock = threading.Lock()
-        self.filename: str | None = None
-        self.definitions: list[dict] | None = None
+    def _profile(self) -> dict | None:
+        return profile_store.load(request_context.user_id(), profile_store.ANALYSIS)
+
+    @property
+    def filename(self) -> str | None:
+        return (self._profile() or {}).get("filename")
+
+    @property
+    def definitions(self) -> list[dict] | None:
+        return (self._profile() or {}).get("definitions")
 
     def set(self, filename: str, definitions: list[dict]) -> None:
-        with self._lock:
-            self.filename = filename
-            self.definitions = definitions
+        profile_store.save(request_context.user_id(), profile_store.ANALYSIS, filename, definitions)
 
     def clear(self) -> None:
-        with self._lock:
-            self.filename = None
-            self.definitions = None
+        profile_store.clear(request_context.user_id(), profile_store.ANALYSIS)
 
 
 store = AnalysisDefinitionsStore()

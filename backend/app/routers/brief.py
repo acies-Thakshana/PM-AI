@@ -1,15 +1,12 @@
-import json
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from app.config import DATA_DIR
+from app.services.audit.audit_store import get_or_404
+from app.services.common import audit_log, doc_store
 
 router = APIRouter(prefix="/api/brief", tags=["brief"])
-
-SESSIONS_DIR = DATA_DIR / "sessions"
-SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class FileMetadataIn(BaseModel):
@@ -35,32 +32,34 @@ class FinalizeResponse(BaseModel):
 
 @router.post("/finalize", response_model=FinalizeResponse)
 def finalize(req: FinalizeRequest):
-    """Merge brief + all uploaded datasets into one metadata.json.
+    """Merge brief + all uploaded datasets into one BRIEF document.
 
-    Uses the first audit session's folder as the canonical session so
-    there is exactly one folder and one file per run.
+    Uses the first audit session as the canonical session, so there is exactly one
+    BRIEF document per run.
     """
     if not req.audit_session_ids:
         raise HTTPException(status_code=400, detail="At least one audit_session_id is required.")
+    sessions = [get_or_404(sid) for sid in req.audit_session_ids]
 
     primary_sid = req.audit_session_ids[0]
-    session_dir = SESSIONS_DIR / primary_sid
 
+    # Two texts are kept: what the client wrote, and the text the Planner reads (the English
+    # translation when the brief was translated, else the text as the PM confirmed it). The
+    # language fields the page sends are accepted but not stored.
     metadata = {
         "session_id": primary_sid,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "client_brief": {
             "raw_text": req.raw_brief,
-            "final_text": req.final_brief,
-            "original_language": req.original_language,
-            "original_language_name": req.original_language_name,
-            "translated_text": req.translated_text,
+            "understanding_text": (req.translated_text or req.final_brief or req.raw_brief or "").strip(),
         },
         "files": [f.model_dump() for f in req.files],
     }
 
-    (session_dir / "metadata.json").write_text(
-        json.dumps(metadata, indent=2, ensure_ascii=False), encoding="utf-8"
+    doc_store.put(primary_sid, "BRIEF", metadata)
+    audit_log.log_event(
+        primary_sid, sessions[0].user_id, "brief_finalize",
+        {"audit_session_ids": req.audit_session_ids, "files": [f.filename for f in req.files]},
     )
 
     return FinalizeResponse(session_id=primary_sid)

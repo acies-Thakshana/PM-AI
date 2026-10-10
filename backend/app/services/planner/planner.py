@@ -1,4 +1,4 @@
-"""Planner Agent service: reads metadata.json + column_metadata.json for a session
+"""Planner Agent service: reads the BRIEF + COLUMNS documents for a session
 and calls OpenRouter to produce structured feature/analysis recommendations."""
 from __future__ import annotations
 
@@ -8,14 +8,12 @@ from concurrent.futures import ThreadPoolExecutor
 
 from openai import OpenAI
 
-from app.config import DATA_DIR, OPENROUTER_API_KEY, PLANNER_AGENT_MODEL, model_for
+from app.config import OPENROUTER_API_KEY, PLANNER_AGENT_MODEL, model_for
 from app.services.analysis import analysis_agent
-from app.services.common import token_usage
+from app.services.common import column_meta, doc_store, request_context, token_usage
 from app.services.features import feature_agent
-from app.services.planner import planner_dependencies
+from app.services.planner import planner_dependencies, planner_store
 from app.prompts import planner as _prompts
-
-_SESSIONS_DIR = DATA_DIR / "sessions"
 
 _SYSTEM_PROMPT = _prompts.SYSTEM_PROMPT
 
@@ -88,22 +86,19 @@ def _build_user_prompt(
 
 def suggest(session_id: str, additional_context: str = "") -> dict:
     """Call the Planner LLM and return the structured recommendations dict."""
-    session_dir = _SESSIONS_DIR / session_id
+    col_data = column_meta.load(session_id)
+    meta_data = doc_store.get(session_id, "BRIEF")
 
-    col_path = session_dir / "column_metadata.json"
-    meta_path = session_dir / "metadata.json"
-
-    if not col_path.exists():
-        raise FileNotFoundError(f"column_metadata.json not found for session {session_id}")
-    if not meta_path.exists():
-        raise FileNotFoundError(f"metadata.json not found for session {session_id}")
-
-    col_data = json.loads(col_path.read_text(encoding="utf-8"))
-    meta_data = json.loads(meta_path.read_text(encoding="utf-8"))
+    if col_data is None:
+        raise FileNotFoundError(f"COLUMNS (column metadata) not found for session {session_id}")
+    if meta_data is None:
+        raise FileNotFoundError(f"BRIEF (client brief) not found for session {session_id}")
 
     brief_block = meta_data.get("client_brief", {})
     final_brief = (
-        brief_block.get("translated_text")
+        brief_block.get("understanding_text")
+        # briefs saved before the language fields were dropped
+        or brief_block.get("translated_text")
         or brief_block.get("final_text")
         or brief_block.get("raw_text")
         or ""
@@ -178,10 +173,9 @@ def suggest(session_id: str, additional_context: str = "") -> dict:
     _prune_features(result["recommendations"])
     _sync_feature_columns(result["recommendations"], set(col_data.get("columns", {})))
 
-    # Cache the raw planner output so /save can attach decisions to it
-    (session_dir / "planner_suggest.json").write_text(
-        json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    # One PLAN#<n> document per recommendation, so /save can attach the PM's decision to each.
+    # A request for MORE suggestions appends; the first call replaces the list.
+    planner_store.save_suggestions(session_id, result["recommendations"], append=bool(additional_context.strip()))
 
     return result
 
@@ -371,7 +365,10 @@ def _attach_generated_formulas(recommendations: list[dict], columns_block: str) 
 
     jobs = [(_run_feature, rec) for rec in feature_targets] + [(_run_analysis, rec) for rec in analysis_targets]
     with ThreadPoolExecutor(max_workers=min(8, len(jobs))) as pool:
-        list(pool.map(lambda job: job[0](job[1]), jobs))
+        # one wrapped callable PER job: a copied Context can only be entered by one thread at a time
+        futures = [pool.submit(request_context.wrap(fn), rec) for fn, rec in jobs]
+        for f in futures:
+            f.result()
     _order_features_by_dependency(recommendations)
     _inherit_required_for(recommendations)
 

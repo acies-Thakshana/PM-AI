@@ -7,40 +7,26 @@ lands, regardless of which of the four sources proposed it --
   ai_suggested -- proposed by the AI feature-suggestion agent
 
 `predefined` and `planner` are derived, not stored -- they always reflect
-whatever is currently in the global KPI-profile store / that session's
-planner_output.json, so re-uploading a KPI Profile or re-approving planner
+whatever is currently in the KPI-profile store / that session's
+PLAN#<n> documents, so re-uploading a KPI Profile or re-approving planner
 recommendations is picked up automatically. `custom` and `ai_suggested`
-are the only entries actually persisted to feature_repository.json (their
+are the only entries actually persisted, inside the FEATURES document (their
 accept/reject state and PM-authored content can't be re-derived from
 anywhere else). Every read rebuilds the full merged view.
 """
 from __future__ import annotations
 
-import json
 import re
 import uuid
-from pathlib import Path
 
-from app.config import DATA_DIR
+from app.services.common.entry_store import FEATURES
 from app.services.features import feature_definitions_store as defs_store
-
-_SESSIONS_DIR = DATA_DIR / "sessions"
+from app.services.planner import planner_store
 
 _PERSISTED_SOURCES = {"custom", "ai_suggested"}
 
-
-def _session_dir(session_id: str) -> Path:
-    d = _SESSIONS_DIR / session_id
-    d.mkdir(parents=True, exist_ok=True)
-    return d
-
-
-def _repo_path(session_id: str) -> Path:
-    return _session_dir(session_id) / "feature_repository.json"
-
-
-def _planner_output_path(session_id: str) -> Path:
-    return _session_dir(session_id) / "planner_output.json"
+# Every feature of the session is one record in the `FEATURES` document (services/common/
+# entry_store.py); feature_cache.py keeps the final code in the same record under "cache".
 
 
 # --- describing a structured spec in plain English -----------------------
@@ -93,10 +79,12 @@ def _describe_predefined(spec: dict) -> tuple[str, list[str]]:
 
 
 def _predefined_entries() -> list[dict]:
-    if defs_store.store.definitions is None:
+    """Entries derived from the Customer KPI Profile."""
+    definitions = defs_store.store.definitions
+    if definitions is None:
         return []
     entries = []
-    for spec in defs_store.store.definitions:
+    for spec in definitions:
         intent, cols = _describe_predefined(spec)
         # Every structured type (lookup/ratio/duration_hours/extract_month/
         # custom_formula) is already a fully unambiguous computation -- that
@@ -119,18 +107,13 @@ def _predefined_entries() -> list[dict]:
     return entries
 
 
-
-
 def _planner_entries(session_id: str) -> list[dict]:
-    path = _planner_output_path(session_id)
-    if not path.exists():
-        return []
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        recs = planner_store.load(session_id)
     except Exception:
         return []
     entries = []
-    for i, rec in enumerate(data.get("recommendations", [])):
+    for i, rec in enumerate(recs):
         if rec.get("pm_decision") != "accepted":
             continue
         if rec.get("type") not in ("feature", "feature_and_analysis"):
@@ -163,33 +146,28 @@ def _planner_entries(session_id: str) -> list[dict]:
     return entries
 
 
+def _derived(session_id: str) -> list[dict]:
+    """The predefined + planner entries right now (snapshotted into the FEATURES document)."""
+    return _predefined_entries() + _planner_entries(session_id)
+
+
 def _load_persisted(session_id: str) -> list[dict]:
-    path = _repo_path(session_id)
-    if not path.exists():
-        return []
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return []
-    return [e for e in data.get("entries", []) if e.get("source") in _PERSISTED_SOURCES]
+    """The custom / AI-suggested features of the session, oldest first."""
+    return FEATURES.load_persisted(session_id)
 
 
-def _save(session_id: str, entries: list[dict]) -> None:
-    _repo_path(session_id).write_text(
-        json.dumps({"session_id": session_id, "entries": entries}, indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
+def sync(session_id: str) -> None:
+    """Refresh the predefined / planner snapshots in the FEATURES document (call after the PM
+    saved planner decisions, so the JSON shows the current set)."""
+    FEATURES.sync(session_id, _derived(session_id))
 
 
 def get_repository(session_id: str) -> list[dict]:
     """The full merged view: freshly-derived predefined + planner entries,
     plus whatever custom/ai_suggested entries this session has persisted.
-    Also re-saves the merge so the file on disk always reflects the latest
-    KPI Profile / planner decisions, not just what existed when they were
-    first added."""
-    entries = _predefined_entries() + _planner_entries(session_id) + _load_persisted(session_id)
-    _save(session_id, entries)
-    return entries
+    Read-only: the document is only written when an entry is added or
+    changes status (the derived entries are recomputed on every read)."""
+    return _derived(session_id) + _load_persisted(session_id)
 
 
 def get_approved_entries(session_id: str) -> list[dict]:
@@ -216,10 +194,7 @@ def add_custom_entry(
         # like a Planner-generated one. None = the agent thinks at compute time.
         "formula": formula,
     }
-    persisted = _load_persisted(session_id)
-    persisted.append(entry)
-    entries = _predefined_entries() + _planner_entries(session_id) + persisted
-    _save(session_id, entries)
+    FEATURES.add(session_id, [entry], _derived(session_id))
     return entry
 
 
@@ -230,7 +205,6 @@ def add_ai_suggested_entries(session_id: str, suggestions: list[dict]) -> list[d
     pile up duplicates."""
     existing = get_repository(session_id)
     existing_cols = {e["output_column"] for e in existing}
-    persisted = _load_persisted(session_id)
 
     new_entries = []
     for s in suggestions:
@@ -247,25 +221,13 @@ def add_ai_suggested_entries(session_id: str, suggestions: list[dict]) -> list[d
             "input_columns": s.get("input_columns", []),
             "formula": None,
         }
-        persisted.append(entry)
         new_entries.append(entry)
         existing_cols.add(entry["output_column"])
-
-    entries = _predefined_entries() + _planner_entries(session_id) + persisted
-    _save(session_id, entries)
+    if new_entries:
+        FEATURES.add(session_id, new_entries, _derived(session_id))
     return new_entries
 
 
 def set_entry_status(session_id: str, entry_id: str, status: str) -> dict | None:
-    persisted = _load_persisted(session_id)
-    found = None
-    for e in persisted:
-        if e["id"] == entry_id:
-            e["status"] = status
-            found = e
-            break
-    if found is None:
-        return None
-    entries = _predefined_entries() + _planner_entries(session_id) + persisted
-    _save(session_id, entries)
-    return found
+    """Approve / reject a custom or AI-suggested feature (derived ones are re-derived, so None)."""
+    return FEATURES.update_persisted(session_id, entry_id, {"status": status}, _derived(session_id))

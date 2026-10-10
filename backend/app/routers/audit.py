@@ -1,21 +1,21 @@
 import io
 import json
+from typing import Literal
 
 import pandas as pd
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from app.config import DATA_DIR
+from app import config
 from app.schemas import AuditIssue, AuditReport, FeatureReport, ResolveRequest, UpdateTripValueRequest
 from app.services.audit import data_audit
 from app.services.audit.audit_agent import generate_audit_analysis
 from app.services.audit.audit_store import AuditSession, get_or_404, store
-from app.services.audit.column_profiler import profile_dataframe
+from app.services.audit import outlier_audit
 from app.services.audit.excel_parser import load_spreadsheet
+from app.services.common import audit_log, column_meta, request_context
 from app.services.features import feature_engineering, feature_repository
-
-_SESSIONS_DIR = DATA_DIR / "sessions"
 
 router = APIRouter(prefix="/api/audit", tags=["audit"])
 
@@ -69,22 +69,10 @@ class UploadOnlyResponse(BaseModel):
     change_summary: dict | None = None
 
 
-def _write_column_metadata(session: AuditSession) -> None:
+def _save_column_meta(session: AuditSession) -> None:
+    """The single COLUMNS document (best effort: it must not fail the upload)."""
     try:
-        df = session.df
-        session_dir = _SESSIONS_DIR / session.session_id
-        session_dir.mkdir(parents=True, exist_ok=True)
-        combined = {
-            "session_id": session.session_id,
-            "filename": session.filename,
-            "source": session.source,
-            "row_count": len(df),
-            "column_count": len(df.columns),
-            "columns": profile_dataframe(df),
-        }
-        (session_dir / "column_metadata.json").write_text(
-            json.dumps(combined, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
+        column_meta.save(session.session_id, session.df)
     except Exception:
         pass
 
@@ -111,6 +99,25 @@ def _to_upload_response(session: AuditSession) -> UploadOnlyResponse:
     )
 
 
+ALLOWED_EXTENSIONS = (".xlsx", ".xlsm", ".xls", ".csv")
+
+
+def _check_filename(filename: str) -> None:
+    if not filename.lower().endswith(ALLOWED_EXTENSIONS):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unsupported file type. Allowed: {', '.join(ALLOWED_EXTENSIONS)}.",
+        )
+
+
+def _check_size(size: int) -> None:
+    if size > config.UPLOAD_MAX_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File is too large (limit {config.UPLOAD_MAX_BYTES // (1024 * 1024)} MB).",
+        )
+
+
 async def _read_spreadsheet(file: UploadFile) -> pd.DataFrame:
     raw = await file.read()
     if not raw:
@@ -127,16 +134,39 @@ async def upload_for_profiling(file: UploadFile = File(...), source: str = Form(
     """Upload a file, create a session, and profile its columns.
     Does NOT run the audit agent — call /{session_id}/run for that."""
     df = await _read_spreadsheet(file)
-    session = store.create(source=source, filename=file.filename or "upload", df=df)
-    _write_column_metadata(session)
+    session = store.create(
+        source=source, filename=file.filename or "upload", df=df, user_id=request_context.user_id()
+    )
+    _save_column_meta(session)
+    audit_log.log_event(
+        session.session_id, session.user_id, "upload",
+        {"filename": session.filename, "source": source, "rows": len(df), "cols": len(df.columns)},
+    )
     return _to_upload_response(session)
+
+
+class UploadUrlRequest(BaseModel):
+    source: str
+    filename: str
+    size: int | None = None
+
+
+@router.post("/upload-url")
+def create_upload_url(body: UploadUrlRequest):
+    """Where the browser should send the file. There is no object storage, so the answer is
+    always {"mode": "direct"}: send the multipart form to /upload. The filename and size are
+    checked here and again on the upload."""
+    _check_filename(body.filename)
+    if body.size is not None:
+        _check_size(body.size)
+    return {"mode": "direct"}
 
 
 @router.post("/{session_id}/reupload", response_model=UploadOnlyResponse)
 async def reupload_corrected_file(session_id: str, file: UploadFile = File(...)) -> UploadOnlyResponse:
     """The PM's corrected export, uploaded into the SAME session. The corrected data is diffed
     against the untouched original upload (every re-upload compares to the original, not the
-    previous re-upload) and saved as change_log.xlsx, then replaces the session's data.
+    previous re-upload) and kept on the session (downloadable as change_log.xlsx), then replaces the session's data.
     Everything derived from the old data (audit findings, decisions, features, analyses) is
     reset so the remaining steps run on the corrected file only. The brief and the Planner's
     files live in the session folder and stay as they were."""
@@ -151,9 +181,6 @@ async def reupload_corrected_file(session_id: str, file: UploadFile = File(...))
         log, summary = compute_change_log(session.raw_df, corrected, session.flagged_trips or {})
         summary["flagged_snapshot_available"] = session.flagged_trips is not None
         session.change_log, session.change_summary = log, summary
-        session_dir = _SESSIONS_DIR / session.session_id
-        session_dir.mkdir(parents=True, exist_ok=True)
-        (session_dir / "change_log.xlsx").write_bytes(_change_log_xlsx(log, summary))
     except Exception as exc:
         session.change_log, session.change_summary = None, {"error": str(exc)}
 
@@ -164,7 +191,8 @@ async def reupload_corrected_file(session_id: str, file: UploadFile = File(...))
     session.mutation_stack, session.audit_baseline, session.audit_events = [], None, []
     session.pre_feature_df = None
     session.analysis_results, session.overall_analysis, session.feature_drafts = {}, None, {}
-    _write_column_metadata(session)
+    store.save(session)
+    _save_column_meta(session)
     return _to_upload_response(session)
 
 
@@ -215,7 +243,16 @@ def run_audit_agent(session_id: str) -> AuditReport:
 
     session.issues = issues
     session.summary = summary
+    store.save(session)
+    audit_log.log_event(session_id, session.user_id, "audit_run", {"issues": len(issues)})
     return _to_report(session)
+
+
+@router.get("/{session_id}/log")
+def get_session_log(session_id: str):
+    """The audit trail (uploads, decisions, edits, ...) recorded for this session."""
+    _get_session_or_404(session_id)
+    return audit_log.events_for_session(session_id)
 
 
 @router.post("/{session_id}/resolve", response_model=AuditReport)
@@ -252,6 +289,12 @@ def resolve_issue(session_id: str, body: ResolveRequest) -> AuditReport:
     issue.status = "resolved"
     issue.resolution = resolution_text
 
+    store.save(session)
+    audit_log.log_event(
+        session_id, session.user_id, "decision",
+        {"issue_id": issue.id, "decision_id": body.decision_id,
+         "selected_items": list(body.selected_items) if body.selected_items else None},
+    )
     return _to_report(session)
 
 
@@ -275,6 +318,8 @@ def revert_issue(session_id: str, issue_id: str) -> AuditReport:
         _rebuild_audit_df(session)
         _reset_downstream(session)
 
+    store.save(session)
+    audit_log.log_event(session_id, session.user_id, "revert", {"issue_id": issue_id})
     return _to_report(session)
 
 
@@ -328,6 +373,7 @@ def download_cleansed_file(session_id: str):
 
     stem = session.filename.rsplit(".", 1)[0] if "." in session.filename else session.filename
     filename = f"{stem}_cleansed.xlsx"
+    audit_log.log_event(session_id, session.user_id, "download", {"kind": "cleansed", "filename": filename})
     return Response(
         content=buffer.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -349,6 +395,7 @@ def download_flagged_outliers(session_id: str):
         duration_df.to_excel(writer, index=False, sheet_name="Duration Outliers")
         temperature_df.to_excel(writer, index=False, sheet_name="Temperature Outliers")
     buffer.seek(0)
+    audit_log.log_event(session_id, session.user_id, "download", {"kind": "flagged_outliers"})
 
     return Response(
         content=buffer.getvalue(),
@@ -399,33 +446,6 @@ def get_issue_rows(session_id: str, issue_id: str, limit: int = MAX_ISSUE_ROWS):
     }
 
 
-def _write_enriched_column_metadata(session: AuditSession) -> None:
-    """Re-profiles the CURRENT session dataframe (post-audit, post-feature)
-    and writes it as a new column_metadata_with_features.json alongside the
-    original column_metadata.json -- so downstream stages (Analysis,
-    Planner re-runs, Report) have a single file describing every column,
-    old and newly agent-computed, without needing to reconstruct it
-    themselves. Best-effort: a profiling failure shouldn't block the
-    feature response the PM is waiting on."""
-    try:
-        session_dir = _SESSIONS_DIR / session.session_id
-        session_dir.mkdir(parents=True, exist_ok=True)
-        combined = {
-            "session_id": session.session_id,
-            "filename": session.filename,
-            "source": session.source,
-            "row_count": len(session.df),
-            "column_count": len(session.df.columns),
-            "columns": profile_dataframe(session.df),
-            "feature_columns": [f.output_column for f in session.features],
-        }
-        (session_dir / "column_metadata_with_features.json").write_text(
-            json.dumps(combined, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
-    except Exception:
-        pass
-
-
 @router.post("/{session_id}/features", response_model=FeatureReport)
 def apply_features(session_id: str) -> FeatureReport:
     """Computes every APPROVED entry in this session's feature repository
@@ -447,8 +467,16 @@ def apply_features(session_id: str) -> FeatureReport:
     session.features = results
     session.feature_skipped_notes = skipped_notes
 
-    _write_enriched_column_metadata(session)
-
+    store.save(session)
+    audit_log.log_event(
+        session_id, session.user_id, "apply_features",
+        {
+            "features": [f.output_column for f in results], "rows": len(new_df), "cols": len(new_df.columns),
+            "requested": [e["name"] for e in entries],
+            "validation": {f.output_column: f.validation_note for f in results},
+            "skipped": skipped_notes,
+        },
+    )
     return _to_feature_report(session)
 
 
@@ -467,7 +495,40 @@ def get_outliers(session_id: str):
     if session.flagged_trips is None:
         # First check on this session = the original flags; kept for the change log.
         session.flagged_trips = flagged_trips_from_outliers(segment, temperature)
+        store.save(session)
+    outlier_audit.record_detection(session_id, session.user_id, segment, temperature)
     return {"session_id": session_id, "segment": segment, "temperature": temperature}
+
+
+class OutlierReviewRequest(BaseModel):
+    """A PM closing out one outlier tab: `completed` (reviewed, possibly edited) or `skipped`
+    (kept every flagged value as-is). `note` is optional free text."""
+    tab: Literal["segment", "temperature"]
+    action: Literal["completed", "skipped"]
+    note: str | None = None
+
+
+@router.post("/{session_id}/outliers/review")
+def review_outliers(session_id: str, body: OutlierReviewRequest):
+    from app.services.audit.outlier_detectors import detect_segment_outliers, detect_temperature_outliers
+    session = _get_session_or_404(session_id)
+    segment = detect_segment_outliers(session.df)
+    temperature = detect_temperature_outliers(session.df)
+    summary = outlier_audit.summarize(segment, temperature)
+    outlier_audit.record(session_id, session.user_id, "review", {
+        "tab": body.tab, "decision": body.action, "note": body.note,
+        "flagged_remaining": summary[body.tab]["flagged"] if body.tab == "segment"
+        else summary["temperature"]["too_warm"] + summary["temperature"]["too_cold"],
+        "trips_remaining": summary[body.tab]["trips"],
+    })
+    return {"ok": True}
+
+
+@router.get("/{session_id}/outliers/audit")
+def get_outlier_audit(session_id: str):
+    """Every recorded outlier detection, edit and review for this session."""
+    _get_session_or_404(session_id)
+    return outlier_audit.entries(session_id)
 
 
 @router.patch("/{session_id}/trip-value")
@@ -485,6 +546,11 @@ def edit_trip_value(session_id: str, body: UpdateTripValueRequest):
     from app.services.audit.outlier_detectors import detect_segment_outliers, detect_temperature_outliers
     from app.services.audit.outlier_detectors import update_trip_value as apply_trip_value_edit
     session = _get_session_or_404(session_id)
+    # What the detector says about this trip BEFORE the edit (old value, flag, fence), for the audit trail.
+    before = outlier_audit.trip_context(
+        body.field, body.serial, body.trip_id,
+        detect_segment_outliers(session.df), detect_temperature_outliers(session.df),
+    )
     try:
         session.df = apply_trip_value_edit(session.df, body.serial, body.trip_id, body.field, body.value)
     except ValueError as exc:
@@ -507,8 +573,18 @@ def edit_trip_value(session_id: str, body: UpdateTripValueRequest):
             # snapshot to begin with). The primary edit above already
             # succeeded, so don't fail the whole request over this one.
             pass
-    return {
-        "session_id": session_id,
-        "segment": detect_segment_outliers(session.df),
-        "temperature": detect_temperature_outliers(session.df),
-    }
+    store.save(session)
+    audit_log.log_event(
+        session_id, session.user_id, "edit",
+        {"serial": body.serial, "trip_id": body.trip_id, "field": body.field, "value": body.value},
+    )
+    segment = detect_segment_outliers(session.df)
+    temperature = detect_temperature_outliers(session.df)
+    after = outlier_audit.trip_context(body.field, body.serial, body.trip_id, segment, temperature)
+    outlier_audit.record(session_id, session.user_id, "edit", {
+        "field": body.field, "serial": body.serial, "trip_id": body.trip_id,
+        "old_value": before.get("value"), "new_value": body.value,
+        "was_flagged": before["was_flagged"], "still_flagged": after["was_flagged"],
+        "context": {k: v for k, v in before.items() if k not in ("value", "was_flagged")},
+    })
+    return {"session_id": session_id, "segment": segment, "temperature": temperature}

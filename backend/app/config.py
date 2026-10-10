@@ -8,7 +8,33 @@ load_dotenv()
 
 APP_DIR = Path(__file__).resolve().parent
 BACKEND_DIR = APP_DIR.parent
-DATA_DIR = BACKEND_DIR / "data"
+# PMAI_DATA_DIR relocates local-mode storage (sessions, profiles, audit log) -- used by tests.
+DATA_DIR = Path(os.environ["PMAI_DATA_DIR"]) if os.getenv("PMAI_DATA_DIR") else BACKEND_DIR / "data"
+
+# =====================================================================================
+# AWS (DynamoDB)
+#
+# DynamoDB mode is on only when the docs table is configured (DDB_DOCS); otherwise
+# everything falls back to local files under data/ so `uvicorn` on a laptop still works
+# with no AWS resources. Table names come only from these env vars. There is no S3: the
+# DataFrames of a session stay in this process's memory (services/common/session_repo.py).
+# =====================================================================================
+AWS_REGION = os.getenv("AWS_REGION", "eu-north-1")
+
+DDB_DOCS = os.getenv("DDB_DOCS", "")          # partition session_id, sort doc
+DDB_PROFILES = os.getenv("DDB_PROFILES", "")  # partition user_id, sort profile
+DDB_AUDIT = os.getenv("DDB_AUDIT", "")        # partition session_id, sort ts_event; GSI by-user
+
+USE_AWS_STORAGE = bool(DDB_DOCS)
+# How many sessions' DataFrames one process keeps in memory before the least recently used go.
+MEMORY_FRAME_SESSIONS = int(os.getenv("MEMORY_FRAME_SESSIONS", "50"))
+
+# Sessions and their documents expire (DynamoDB TTL) this many days after last write.
+SESSION_TTL_DAYS = int(os.getenv("SESSION_TTL_DAYS", "30"))
+AUDIT_LOG_TTL_DAYS = int(os.getenv("AUDIT_LOG_TTL_DAYS", "365"))
+
+# Uploaded files go through the API (multipart).
+UPLOAD_MAX_BYTES = int(os.getenv("UPLOAD_MAX_BYTES", str(200 * 1024 * 1024)))
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 # Low-cost default: google/gemini-2.5-flash-lite (very cheap, fast).
