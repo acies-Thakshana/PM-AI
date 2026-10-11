@@ -34,6 +34,7 @@ def _call(
     system_prompt: str, user_prompt: str, *, json_mode: bool, temperature: float, call_name: str
 ) -> str:
     model = model_for(call_name, FEATURE_AGENT_MODEL)
+    system_prompt = llm.system_prompt(call_name, system_prompt)
     chat = llm.chat_json if json_mode else llm.chat_text
     return chat(system_prompt, user_prompt, model=model, temperature=temperature, call_name=call_name)
 

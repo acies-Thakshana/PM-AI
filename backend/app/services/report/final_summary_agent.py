@@ -12,7 +12,7 @@ on a bullet-point slide, never a paragraph.
 """
 import json
 
-from app.services.common.groq_client import chat_json
+from app.services.common.llm import chat_json, system_prompt
 from app.prompts import final_summary_agent as _prompts
 
 SYSTEM_PROMPT = _prompts.SYSTEM_PROMPT
@@ -43,7 +43,7 @@ def generate_summary(entries: list[dict]) -> list[str]:
     if not block:
         return ["No analysis interpretations were available to summarize."]
     user_prompt = f"{block}\n\nWrite the final summary now."
-    raw = chat_json(SYSTEM_PROMPT, user_prompt, call_name="report_final_summary_agent")
+    raw = chat_json(system_prompt("report_final_summary_agent", SYSTEM_PROMPT), user_prompt, call_name="report_final_summary_agent")
     payload = json.loads(raw)
     bullets = payload.get("bullets")
     if not isinstance(bullets, list) or not bullets:

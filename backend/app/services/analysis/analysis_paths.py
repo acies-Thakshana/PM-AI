@@ -197,6 +197,7 @@ def plan(
         raw = analysis_agent.call_llm(
             _SYSTEM.replace("{max_steps}", str(max_steps)).replace("{max_charts}", str(MAX_PATH_CHARTS)), user,
             json_mode=True, temperature=0.3, call_name="drilldown_path", model=model_for("drilldown_path", DRILLDOWN_AGENT_MODEL), max_tokens=4000,
+            prompt_vars={"max_steps": max_steps, "max_charts": MAX_PATH_CHARTS},
         )
         payload = json.loads(analysis_agent.strip_json_fence(raw))
         steps = _clean_steps(payload.get("steps"), usable, aggs, have_spec, set(used0), max_steps)

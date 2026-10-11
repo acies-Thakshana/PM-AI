@@ -146,7 +146,7 @@ def suggest_analyses(df: pd.DataFrame, existing_entries: Iterable[dict] = (), fe
     candidates = None
     for attempt in range(1, MAX_ATTEMPTS + 1):
         raw = llm.chat_json(
-            SYSTEM_PROMPT, user_prompt,
+            llm.system_prompt("analysis_suggester", SYSTEM_PROMPT, max_suggestions=MAX_SUGGESTIONS), user_prompt,
             model=model_for("analysis_suggester", LLM_MODEL), temperature=0.4, call_name="analysis_suggester",
         )
         candidates = _parse_candidates(raw)

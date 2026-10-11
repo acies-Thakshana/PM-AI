@@ -41,9 +41,12 @@ _ALLOWED_CHART_TYPES = set(analysis_charts.CHART_TYPES)
 
 def call_llm(
     system_prompt: str, user_prompt: str, *, json_mode: bool, temperature: float, call_name: str,
-    model: str | None = None, max_tokens: int | None = None,
+    model: str | None = None, max_tokens: int | None = None, prompt_vars: dict | None = None,
 ) -> str:
+    """One LLM call. The system prompt is Bedrock Prompt Management's text for `call_name` when
+    configured (its {{variables}} filled from `prompt_vars`), else `system_prompt` as given."""
     model = model or model_for(call_name, ANALYSIS_AGENT_MODEL)
+    system_prompt = llm.system_prompt(call_name, system_prompt, **(prompt_vars or {}))
     chat = llm.chat_json if json_mode else llm.chat_text
     return chat(
         system_prompt, user_prompt,

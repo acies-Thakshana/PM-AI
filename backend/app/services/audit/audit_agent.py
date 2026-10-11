@@ -11,7 +11,7 @@ the audit agent is required, not optional.
 import json
 
 from app.schemas import AuditIssue
-from app.services.common.groq_client import chat_json
+from app.services.common.llm import chat_json, system_prompt
 from app.prompts import audit_agent as _prompts
 
 # Column-scoped categories store a column COUNT in affected_row_count, not a
@@ -50,7 +50,7 @@ def generate_audit_analysis(
     """Returns (summary, {issue_id: (recommended_action, note)})."""
     findings = _findings_block(row_count, column_count, issues)
     user_prompt = f"Source: {source}\nFile: {filename}\n\n{findings}\n\nWrite the analysis now."
-    raw = chat_json(SYSTEM_PROMPT, user_prompt, call_name="audit_agent")
+    raw = chat_json(system_prompt("audit_agent", SYSTEM_PROMPT), user_prompt, call_name="audit_agent")
     payload = json.loads(raw)
 
     summary = payload.get("summary", "")

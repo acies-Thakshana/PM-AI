@@ -69,6 +69,7 @@ def match_template(name: str, description: str, plan: dict, columns_block: str, 
         raw = analysis_agent.call_llm(
             _TEMPLATE_SYSTEM, f"{base_prompt}{feedback}\n\nDecide now.",
             json_mode=True, temperature=0.1, call_name="analysis_designer_template_match",
+            prompt_vars={"template_catalog": analysis_templates.catalog_prompt()},
         )
         payload = _json(raw)
         template_id = payload.get("template_id")

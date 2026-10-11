@@ -6,7 +6,7 @@ There is no fallback: if Groq isn't configured or the call fails, that's a
 real error and the caller surfaces it as one.
 """
 from app.schemas import OverallHighlight
-from app.services.common.groq_client import chat_text
+from app.services.common.llm import chat_text, system_prompt
 from app.prompts import overall_analysis_agent as _prompts
 
 SYSTEM_PROMPT = _prompts.SYSTEM_PROMPT
@@ -19,5 +19,5 @@ def _highlights_block(highlights: list[OverallHighlight]) -> str:
 def generate_narrative(row_count: int, highlights: list[OverallHighlight]) -> str:
     block = _highlights_block(highlights)
     user_prompt = f"Rows analyzed: {row_count}\n\n{block}\n\nWrite the executive summary now."
-    text = chat_text(SYSTEM_PROMPT, user_prompt, call_name="overall_analysis_agent")
+    text = chat_text(system_prompt("overall_analysis_agent", SYSTEM_PROMPT), user_prompt, call_name="overall_analysis_agent")
     return text.strip()

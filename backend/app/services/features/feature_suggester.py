@@ -73,7 +73,7 @@ def suggest_features(df: pd.DataFrame, existing_entries: Iterable[dict] = ()) ->
         "Propose the features now."
     )
     raw = llm.chat_json(
-        SYSTEM_PROMPT, user_prompt,
+        llm.system_prompt("feature_suggester", SYSTEM_PROMPT, max_suggestions=MAX_SUGGESTIONS), user_prompt,
         model=model_for("feature_suggester", LLM_MODEL), temperature=0.4, call_name="feature_suggester",
     )
     payload = json.loads(strip_json_fence(raw))

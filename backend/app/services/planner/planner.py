@@ -118,7 +118,7 @@ def suggest(session_id: str, additional_context: str = "") -> dict:
     user_prompt = _build_user_prompt(final_brief, columns_block, catalog_block, additional_context)
 
     raw = llm.chat_json(
-        _SYSTEM_PROMPT, user_prompt,
+        llm.system_prompt("planner_agent", _SYSTEM_PROMPT), user_prompt,
         model=model_for("planner_agent", PLANNER_AGENT_MODEL), temperature=0.2,
         call_name="planner_agent", max_tokens=4096,
     )
