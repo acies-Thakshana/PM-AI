@@ -14,7 +14,7 @@ from app.services.audit.audit_agent import generate_audit_analysis
 from app.services.audit.audit_store import AuditSession, get_or_404, store
 from app.services.audit import outlier_audit
 from app.services.audit.excel_parser import load_spreadsheet
-from app.services.common import audit_log, column_meta, request_context
+from app.services.common import ai_cache, audit_log, column_meta, file_store, request_context, session_repo
 from app.services.features import feature_engineering, feature_repository
 
 router = APIRouter(prefix="/api/audit", tags=["audit"])
@@ -75,6 +75,11 @@ def _save_column_meta(session: AuditSession) -> None:
         column_meta.save(session.session_id, session.df)
     except Exception:
         pass
+
+
+CHANGE_LOG_FILE = "change_log.xlsx"
+FLAGGED_LATEST_FILE = "flagged_outliers.xlsx"  # the last flagged-outliers workbook built for the session
+XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
 def _change_log_xlsx(log: pd.DataFrame, summary: dict) -> bytes:
@@ -181,10 +186,15 @@ async def reupload_corrected_file(session_id: str, file: UploadFile = File(...))
         log, summary = compute_change_log(session.raw_df, corrected, session.flagged_trips or {})
         summary["flagged_snapshot_available"] = session.flagged_trips is not None
         session.change_log, session.change_summary = log, summary
+        # The comparison workbook is kept as a file (S3), so downloading it later never depends on
+        # the data still being in this task's memory.
+        file_store.put(session_id, CHANGE_LOG_FILE, _change_log_xlsx(log, summary), XLSX_TYPE)
     except Exception as exc:
         session.change_log, session.change_summary = None, {"error": str(exc)}
+        file_store.delete(session_id, CHANGE_LOG_FILE)
 
     session.df = corrected
+    session.row_count, session.column_count = len(corrected), len(corrected.columns)
     session.filename = file.filename or session.filename
     session.issues, session.summary = [], ""
     session.features, session.feature_skipped_notes = [], []
@@ -209,11 +219,15 @@ def get_changes(session_id: str):
 def download_changes(session_id: str):
     """The full change log (all columns of every changed trip + tags) as .xlsx."""
     session = _get_session_or_404(session_id)
-    if session.change_log is None:
-        raise HTTPException(status_code=404, detail="No change log for this session.")
+    content = file_store.get(session_id, CHANGE_LOG_FILE)
+    if content is None:
+        if session.change_log is None:
+            raise HTTPException(status_code=404, detail="No change log for this session.")
+        content = _change_log_xlsx(session.change_log, session.change_summary or {})
+        file_store.put(session_id, CHANGE_LOG_FILE, content, XLSX_TYPE)
     return Response(
-        content=_change_log_xlsx(session.change_log, session.change_summary or {}),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        content=content,
+        media_type=XLSX_TYPE,
         headers={"Content-Disposition": 'attachment; filename="change_log.xlsx"'},
     )
 
@@ -388,18 +402,32 @@ def download_flagged_outliers(session_id: str):
     from app.services.audit.outlier_detectors import build_outlier_export
 
     session = _get_session_or_404(session_id)
-    duration_df, temperature_df = build_outlier_export(session.df)
-
-    buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        duration_df.to_excel(writer, index=False, sheet_name="Duration Outliers")
-        temperature_df.to_excel(writer, index=False, sheet_name="Temperature Outliers")
-    buffer.seek(0)
+    try:
+        duration_df, temperature_df = build_outlier_export(session.df)
+    except session_repo.FramesUnavailable:
+        # The data is no longer in memory, but the last workbook built for this session is in S3.
+        content = file_store.get(session_id, FLAGGED_LATEST_FILE)
+        if content is None:
+            raise
+    else:
+        # One stored workbook per distinct set of flagged rows: the same flags are not written to
+        # Excel again, and an edit that changes them produces (and stores) a new one.
+        fingerprint = ai_cache.fingerprint([duration_df.to_json(orient="split"), temperature_df.to_json(orient="split")])
+        name = f"flagged_outliers/{fingerprint}.xlsx"
+        content = file_store.get(session_id, name)
+        if content is None:
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+                duration_df.to_excel(writer, index=False, sheet_name="Duration Outliers")
+                temperature_df.to_excel(writer, index=False, sheet_name="Temperature Outliers")
+            content = buffer.getvalue()
+            file_store.put(session_id, name, content, XLSX_TYPE)
+        file_store.put(session_id, FLAGGED_LATEST_FILE, content, XLSX_TYPE)
     audit_log.log_event(session_id, session.user_id, "download", {"kind": "flagged_outliers"})
 
     return Response(
-        content=buffer.getvalue(),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        content=content,
+        media_type=XLSX_TYPE,
         headers={"Content-Disposition": 'attachment; filename="flagged_outliers.xlsx"'},
     )
 

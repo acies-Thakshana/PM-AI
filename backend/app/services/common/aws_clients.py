@@ -42,6 +42,18 @@ def _get(key: str, factory):
 
 
 
+def s3():
+    """S3 (only the change-log Excel and the finished reports are stored there)."""
+    return _get(
+        "s3",
+        lambda: boto3.client(
+            "s3",
+            region_name=AWS_REGION,
+            config=Config(retries={"max_attempts": 5, "mode": "standard"}),
+        ),
+    )
+
+
 def dynamodb():
     """The low-level DynamoDB client (items are passed as {"S": "..."} etc.)."""
     return _get(

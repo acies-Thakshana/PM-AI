@@ -83,7 +83,16 @@ def _build_user_prompt(
 
 
 def suggest(session_id: str, additional_context: str = "") -> dict:
-    """Call the Planner LLM and return the structured recommendations dict."""
+    """Call the Planner LLM and return the structured recommendations dict.
+
+    A session that already has stored recommendations is NOT planned again: they are returned as
+    they are (with the PM's decisions) and the agent does not run. Only a request with
+    `additional_context` (the "generate more suggestions" button) calls the model, and its new
+    recommendations are appended."""
+    if not additional_context.strip():
+        stored = planner_store.load(session_id)
+        if stored:
+            return {"recommendations": stored}
     col_data = column_meta.load(session_id)
     meta_data = doc_store.get(session_id, "BRIEF")
 

@@ -20,6 +20,7 @@ from app.schemas import (
 )
 from app.services.analysis import analysis_drilldown
 from app.services.audit.audit_store import get_or_404
+from app.services.common import ai_cache, file_store
 from app.services.common.audit_log import log_event
 from app.services.report import final_summary_agent, report_generator, translation_service
 
@@ -43,15 +44,46 @@ _get_session_or_404 = get_or_404
 _report_ready_entries = analysis_drilldown.report_ready_entries
 
 
+PPTX_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+
+
+def _stored_report(session, entries: list[dict], bullets: list[str], language: str, extra: dict, build, cacheable: bool) -> bytes:
+    """The finished .pptx for exactly these inputs. It is built (several AI/translate calls) once and
+    kept in S3; asking again with the same analyses, summary, language and edits returns that file.
+    The row/column counts come from the session header, so a stored report can be fetched even
+    when the data frame is no longer in memory."""
+    if not cacheable:
+        return build()
+    key = ai_cache.fingerprint({
+        "entries": entries, "summary": bullets, "language": language, "file": session.filename,
+        "rows": session.row_count, "columns": session.column_count, **extra,
+    })
+    name = f"reports/{key}.pptx"
+    data = file_store.get(session.session_id, name)
+    if data is None:
+        data = build()
+        file_store.put(session.session_id, name, data, PPTX_TYPE)
+    return data
+
+
+def _summary_inputs(entries: list[dict]) -> list:
+    """What the closing summary is made from: each included analysis, in order, with its
+    name and interpretation (a re-run that reads differently has a new fingerprint)."""
+    return [[e.get("id"), e.get("name"), e.get("interpretation")] for e in entries]
+
+
 @router.get("/{session_id}/summary", response_model=ReportSummaryResponse)
 def get_report_summary(session_id: str, entry_id: list[str] | None = Query(default=None)) -> ReportSummaryResponse:
     """The Report page's own closing-slide bullet points, synthesized from
-    the included analyses' interpretations -- recomputed on demand (never
-    cached), since it changes with the PM's selection."""
+    the included analyses' interpretations. The agent runs once per distinct
+    selection of finished analyses; asking again for the same selection returns
+    the stored bullets."""
     session = _get_session_or_404(session_id)
     entries = _report_ready_entries(session, session_id, entry_id)
     try:
-        bullets = final_summary_agent.generate_summary(entries)
+        bullets = ai_cache.get_or_make(
+            session_id, "REPORT_SUMMARY", _summary_inputs(entries), lambda: final_summary_agent.generate_summary(entries),
+        )
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Report summary agent (Bedrock) is unavailable: {exc}") from exc
     return ReportSummaryResponse(session_id=session_id, bullets=bullets)
@@ -107,12 +139,20 @@ def download_report(
 
     # A failed summary shouldn't block the whole export -- degrade to a
     # plain note instead (unlike /summary above, there's no retry loop here).
+    summary_ok = True
     try:
-        summary_bullets = final_summary_agent.generate_summary(entries)
+        summary_bullets = ai_cache.get_or_make(
+            session_id, "REPORT_SUMMARY", _summary_inputs(entries), lambda: final_summary_agent.generate_summary(entries),
+        )
     except Exception:
         summary_bullets = ["Final summary is unavailable right now."]
+        summary_ok = False
 
-    pptx_bytes = report_generator.build_report(session.filename, session.df, entries, summary_bullets, language)
+    pptx_bytes = _stored_report(
+        session, entries, summary_bullets, language, {},
+        lambda: report_generator.build_report(session.filename, session.df, entries, summary_bullets, language),
+        cacheable=summary_ok,
+    )
     log_event(session_id, session.user_id, "report_downloaded", {"language": language, "entry_count": len(entries)})
     filename = f"{report_generator.REPORT_NAME}.pptx"
     return Response(
@@ -151,18 +191,28 @@ def export_report(session_id: str, body: ReportExportRequest):
         if edit.caption is not None:
             entry["edit_caption"] = edit.caption
 
+    summary_ok = True
     if body.summary_bullets is not None:
         summary_bullets = [b.strip() for b in body.summary_bullets if b.strip()]
     else:
         try:
-            summary_bullets = final_summary_agent.generate_summary(entries)
+            summary_bullets = ai_cache.get_or_make(
+                session_id, "REPORT_SUMMARY", _summary_inputs(entries), lambda: final_summary_agent.generate_summary(entries),
+            )
         except Exception:
             summary_bullets = ["Final summary is unavailable right now."]
+            summary_ok = False
 
-    pptx_bytes = report_generator.build_report(
-        session.filename, session.df, entries, summary_bullets, body.language,
-        cover_title=(body.cover_title or "").strip() or None, cover_subtitle=body.cover_subtitle,
-        custom_slides=[{"heading": c.heading, "bullets": c.bullets} for c in body.custom_slides],
+    cover_title = (body.cover_title or "").strip() or None
+    custom_slides = [{"heading": c.heading, "bullets": c.bullets} for c in body.custom_slides]
+    pptx_bytes = _stored_report(
+        session, entries, summary_bullets, body.language,
+        {"cover_title": cover_title, "cover_subtitle": body.cover_subtitle, "custom_slides": custom_slides},
+        lambda: report_generator.build_report(
+            session.filename, session.df, entries, summary_bullets, body.language,
+            cover_title=cover_title, cover_subtitle=body.cover_subtitle, custom_slides=custom_slides,
+        ),
+        cacheable=summary_ok,
     )
     log_event(session_id, session.user_id, "report_downloaded", {"language": body.language, "entry_count": len(entries)})
     filename = f"{report_generator.REPORT_NAME}.pptx"

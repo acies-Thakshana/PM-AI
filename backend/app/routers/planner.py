@@ -34,8 +34,12 @@ class SaveResponse(BaseModel):
 @router.post("/suggest")
 def suggest(req: SuggestRequest):
     session = get_or_404(req.session_id)
+    # Recommendations already stored are returned without running the agent (nothing new to log).
+    reused = not req.additional_context.strip() and bool(planner_store.load(req.session_id))
     try:
         result = planner_service.suggest(req.session_id, req.additional_context)
+        if reused:
+            return result
         recs = result.get("recommendations", [])
         by_type: dict[str, int] = {}
         for rec in recs:

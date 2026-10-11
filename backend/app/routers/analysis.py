@@ -667,6 +667,12 @@ def get_overall_analysis(session_id: str) -> OverallAnalysisReport:
         and session.analysis_results.get(d["id"], None) and session.analysis_results[d["id"]].run_status == "done"
     ]
     highlights = overall_analysis.build_highlights(len(session.df), session.features, done_entries)
+    previous = session.overall_analysis
+    if (
+        previous is not None and previous.row_count == len(session.df)
+        and [h.model_dump() for h in previous.highlights] == [h.model_dump() for h in highlights]
+    ):
+        return previous  # nothing it is made from changed: the narrative is not written again
     try:
         narrative = overall_analysis_agent.generate_narrative(len(session.df), highlights)
     except Exception as exc:

@@ -8,7 +8,7 @@ returns a mutable `AuditSession` and routers still assign to its fields -- with 
 Where the pieces live (see services/common/session_repo.py and doc_store.py):
   * header  (owner, filename, features, events, ...)           -> doc `SESSIONS` in `DDB_DOCS`
   * issues (all audit findings, one JSON)                     -> doc `ISSUES`
-  * proposals (drill-down suggestions)                        -> doc `PROPOSAL#<analysis id>#<nnn>`
+  * proposals (drill-down suggestions)                        -> doc `PROPOSALS#<analysis id>` (one per analysis)
   * df / pre_feature_df / audit_baseline / raw_df / change_log (DataFrames)
                                                               -> this process's memory (local mode: files)
   * analysis_results (one per entry)                          -> doc `RESULT#<entry id>`
@@ -46,7 +46,7 @@ FRAME_NAMES = ("df", "pre_feature_df", "audit_baseline", "raw_df", "change_log")
 RESULT_PREFIX = "RESULT#"
 DRAFT_PREFIX = "DRAFT#"
 ISSUES_DOC = "ISSUES"
-PROPOSAL_PREFIX = "PROPOSAL#"
+PROPOSAL_PREFIX = "PROPOSALS#"
 OVERALL_DOC = "OVERALL"
 # A feature draft is only meant to live for one editing sitting.
 DRAFT_TTL_DAYS = 2
@@ -112,17 +112,17 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _proposal_doc_name(analysis_id: str, index: int) -> str:
-    return f"{PROPOSAL_PREFIX}{analysis_id}#{index:03d}"
+def _proposal_doc_name(analysis_id: str) -> str:
+    return f"{PROPOSAL_PREFIX}{analysis_id}"
 
 
 def _group_proposals(docs: dict[str, Any]) -> dict[str, list[dict]]:
-    """{analysis id: [proposal, ...] in order} from the PROPOSAL#<analysis id>#<nnn> documents."""
-    grouped: dict[str, list[dict]] = {}
-    for name in sorted(docs):
-        analysis_id = name[len(PROPOSAL_PREFIX):].rsplit("#", 1)[0]
-        grouped.setdefault(analysis_id, []).append(docs[name])
-    return grouped
+    """{analysis id: [proposal, ...] in order} from the PROPOSALS#<analysis id> documents
+    (each holds all the drill-down suggestions of one analysis)."""
+    return {
+        name[len(PROPOSAL_PREFIX):]: list((data or {}).get("proposals") or [])
+        for name, data in docs.items()
+    }
 
 
 class AuditSession:
@@ -188,7 +188,7 @@ class AuditSession:
             self._dirty_frames.add("raw_df")
         self._frames["change_log"] = None
 
-        # What is stored in the ISSUES document and in each result's PROPOSAL# documents, so
+        # What is stored in the ISSUES document and in each analysis's PROPOSALS# document, so
         # save() writes only what changed.
         self._issues_doc: dict | None = None
         self._proposal_docs: dict[str, list[dict]] = {}
@@ -274,7 +274,7 @@ class AuditSession:
             with self._lock:
                 if self._analysis_results is None:
                     loaded = _TrackedDict()
-                    # The drill-down proposals of each result are their own PROPOSAL# documents.
+                    # The drill-down proposals of each result are their own PROPOSALS# document (one per analysis).
                     proposals = _group_proposals(doc_store.list_docs(self.session_id, PROPOSAL_PREFIX))
                     for doc, data in doc_store.list_docs(self.session_id, RESULT_PREFIX).items():
                         key = doc[len(RESULT_PREFIX):]
@@ -491,20 +491,22 @@ class AuditStore:
             if results is not None:
                 for key in sorted(results.changed):
                     data = results[key].model_dump(mode="json")
-                    proposals = data.pop("guided_proposals", None) or []  # stored as PROPOSAL# documents
+                    proposals = data.pop("guided_proposals", None) or []  # stored as one PROPOSALS# document
                     doc_store.put(session.session_id, RESULT_PREFIX + key, data)
                     previous = session._proposal_docs.get(key)
                     if previous != proposals:
-                        doc_store.put_many(
-                            session.session_id, {_proposal_doc_name(key, i): p for i, p in enumerate(proposals)}
-                        )
-                        for i in range(len(proposals), len(previous or [])):
-                            doc_store.delete(session.session_id, _proposal_doc_name(key, i))
+                        if proposals:
+                            doc_store.put(
+                                session.session_id, _proposal_doc_name(key),
+                                {"analysis_id": key, "proposal_count": len(proposals), "proposals": proposals},
+                            )
+                        else:
+                            doc_store.delete(session.session_id, _proposal_doc_name(key))
                         session._proposal_docs[key] = proposals
                 for key in sorted(results.removed):
                     doc_store.delete(session.session_id, RESULT_PREFIX + key)
-                    for i in range(len(session._proposal_docs.pop(key, []))):
-                        doc_store.delete(session.session_id, _proposal_doc_name(key, i))
+                    if session._proposal_docs.pop(key, []):
+                        doc_store.delete(session.session_id, _proposal_doc_name(key))
                 results.mark_clean()
             # issues: one document, written only when something in it changed
             issues_doc = {"issue_count": len(session.issues), "issues": [session._issue_entry(i) for i in session.issues]}

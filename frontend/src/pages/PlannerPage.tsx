@@ -124,8 +124,16 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
     plannerInflight.set(sessionId, request);
     request
       .then((res) => {
-        if (!plannerCache.has(sessionId)) plannerCache.set(sessionId, { result: res, decisions: {}, activeTab: "features" });
-        if (mounted) setResult(res);
+        // Recommendations stored on the server come back with the PM's earlier accept/reject choices.
+        const saved: DecisionsMap = {};
+        res.recommendations.forEach((r, i) => {
+          if (r.pm_decision && r.pm_decision !== "pending") saved[i] = r.pm_decision;
+        });
+        if (!plannerCache.has(sessionId)) plannerCache.set(sessionId, { result: res, decisions: saved, activeTab: "features" });
+        if (mounted) {
+          setResult(res);
+          setDecisions((prev) => (Object.keys(prev).length ? prev : saved));
+        }
       })
       .catch((err) => {
         if (mounted) setError(err.message ?? "Planner failed.");

@@ -36,6 +36,9 @@ function App() {
   const [brief, setBrief] = useState<BriefState>(EMPTY_BRIEF);
   const [uploadedSessionIds, setUploadedSessionIds] = useState<UploadedSessionIdsState>({});
   const [plannerSessionId, setPlannerSessionId] = useState<string | null>(null);
+  // The brief text the current sessions were created with: coming back to Upload with the same files
+  // and the same brief continues with those sessions instead of uploading (and planning) all over again.
+  const [uploadedBriefSignature, setUploadedBriefSignature] = useState<string | null>(null);
   const [auditReports, setAuditReports] = useState<AuditReportsState>({});
   const [auditLoading, setAuditLoading] = useState<AuditLoadingState>({});
   const [auditErrors, setAuditErrors] = useState<AuditErrorsState>({});
@@ -50,8 +53,9 @@ function App() {
   const sessionIdsRef = useRef<UploadedSessionIdsState>({});
   sessionIdsRef.current = uploadedSessionIds;
 
-  const handleUploadComplete = (sessionIds: UploadedSessionIdsState) => {
+  const handleUploadComplete = (sessionIds: UploadedSessionIdsState, briefSignature: string) => {
     resetAllState();
+    setUploadedBriefSignature(briefSignature);
     setUploadedSessionIds(sessionIds);
     setPlannerSessionId(sessionIds.sensiwatch ?? null);
   };
@@ -103,6 +107,7 @@ function App() {
     setFiles(EMPTY_FILES);
     setBrief(EMPTY_BRIEF);
     setUploadedSessionIds({});
+    setUploadedBriefSignature(null);
     setPlannerSessionId(null);
     setAuditReports({});
     setAuditErrors({});
@@ -197,6 +202,8 @@ function App() {
               onClearAll={handleClearAll}
               onBriefChange={setBrief}
               onUploadComplete={handleUploadComplete}
+              uploadedSessionIds={uploadedSessionIds}
+              uploadedBriefSignature={uploadedBriefSignature}
             />
           }
         />
