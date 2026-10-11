@@ -5,7 +5,7 @@ columns to combine and describes the calculation in plain English; it never
 computes a value itself and isn't limited to any fixed set of calculation
 shapes -- the Feature Agent (feature_agent.py) is what actually plans,
 writes, executes and validates the code for whatever gets accepted. Runs on
-OpenRouter, never Groq. Anything referencing a column that doesn't exist in
+Amazon Bedrock. Anything referencing a column that doesn't exist in
 the current data (a hallucination) is dropped rather than surfaced, since a
 broken suggestion is worse than a missing one.
 
@@ -24,10 +24,9 @@ from collections.abc import Iterable
 
 import pandas as pd
 
-from app.services.common import groq_client
-from app.services.common.groq_client import strip_json_fence
-from app.config import DEFAULT_MAX_TOKENS, OPENROUTER_MODEL, model_for
-from app.services.common import token_usage
+from app.services.common import llm
+from app.services.common.llm import strip_json_fence
+from app.config import LLM_MODEL, model_for
 from app.services.planner import planner_dependencies
 from app.prompts import feature_suggester as _prompts
 
@@ -68,24 +67,15 @@ def suggest_features(df: pd.DataFrame, existing_entries: Iterable[dict] = ()) ->
     repository's current entries, shown to the model so it proposes
     genuinely new ideas and used to filter out any repeats it still makes."""
     existing_entries = list(existing_entries)
-    client = groq_client.get_client()
     user_prompt = (
         f"Columns:\n{_columns_block(df)}\n\n"
         f"Existing features (do not repeat these):\n{_existing_block(existing_entries)}\n\n"
         "Propose the features now."
     )
-    response = client.chat.completions.create(
-        model=model_for("feature_suggester", OPENROUTER_MODEL),
-        max_tokens=DEFAULT_MAX_TOKENS,
-        temperature=0.4,
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ],
+    raw = llm.chat_json(
+        SYSTEM_PROMPT, user_prompt,
+        model=model_for("feature_suggester", LLM_MODEL), temperature=0.4, call_name="feature_suggester",
     )
-    token_usage.record("feature_suggester", model_for("feature_suggester", OPENROUTER_MODEL), response)
-    raw = response.choices[0].message.content or "{}"
     payload = json.loads(strip_json_fence(raw))
     candidates = payload.get("suggestions", [])
     if not isinstance(candidates, list):

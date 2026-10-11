@@ -1,16 +1,14 @@
 """Planner Agent service: reads the BRIEF + COLUMNS documents for a session
-and calls OpenRouter to produce structured feature/analysis recommendations."""
+and calls Amazon Bedrock to produce structured feature/analysis recommendations."""
 from __future__ import annotations
 
 import json
 import re
 from concurrent.futures import ThreadPoolExecutor
 
-from openai import OpenAI
-
-from app.config import OPENROUTER_API_KEY, PLANNER_AGENT_MODEL, model_for
+from app.config import PLANNER_AGENT_MODEL, model_for
 from app.services.analysis import analysis_agent
-from app.services.common import column_meta, doc_store, request_context, token_usage
+from app.services.common import column_meta, doc_store, llm, request_context
 from app.services.features import feature_agent
 from app.services.planner import planner_dependencies, planner_store
 from app.prompts import planner as _prompts
@@ -117,30 +115,13 @@ def suggest(session_id: str, additional_context: str = "") -> dict:
     context = planner_dependencies.build_context(session_id)
     catalog_block = planner_dependencies.render_context(context)
 
-    if not OPENROUTER_API_KEY:
-        raise RuntimeError(
-            "OPENROUTER_API_KEY is not set. Add it to your .env file."
-        )
-
-    client = OpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=OPENROUTER_API_KEY,
-    )
-
     user_prompt = _build_user_prompt(final_brief, columns_block, catalog_block, additional_context)
 
-    response = client.chat.completions.create(
-        model=model_for("planner_agent", PLANNER_AGENT_MODEL),
-        messages=[
-            {"role": "system", "content": _SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=0.2,
-        max_tokens=4096,
+    raw = llm.chat_json(
+        _SYSTEM_PROMPT, user_prompt,
+        model=model_for("planner_agent", PLANNER_AGENT_MODEL), temperature=0.2,
+        call_name="planner_agent", max_tokens=4096,
     )
-    token_usage.record("planner_agent", model_for("planner_agent", PLANNER_AGENT_MODEL), response)
-
-    raw = response.choices[0].message.content or ""
 
     # Strip markdown fences (Claude wraps JSON in ```json ... ```), and fall back
     # to the outermost {...} if the model added prose around the object.

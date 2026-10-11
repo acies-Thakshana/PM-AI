@@ -11,7 +11,7 @@ import type { Tab } from "../components/AuditReport";
 import AuditSummaryPanel from "../components/AuditSummaryPanel";
 import OutlierCorrectionStep from "../components/OutlierCorrectionStep";
 import { IconShieldSearch, IconDownload } from "../components/icons";
-import { downloadCleansedFileUrl } from "../api/audit";
+import { downloadCleansedFile } from "../api/audit";
 import { useStoredState } from "../state/sessionStore";
 import { AUDITED_SLOTS, UPLOAD_SLOTS } from "../constants/uploadSlots";
 import type { UploadSlotId } from "../types/upload";
@@ -246,7 +246,8 @@ export default function AuditPage({
                             hideSummaryTab
                           />
                           <div className="audit-page__row-actions">
-                            <a className="audit-page__download-link" href={downloadCleansedFileUrl(report.session_id)} download>
+                            <a className="audit-page__download-link" href="#"
+ onClick={(e) => { e.preventDefault(); downloadCleansedFile(report.session_id).catch((err) => window.alert(err instanceof Error ? err.message : "Download failed.")); }}>
                               <IconDownload />
                               Download cleansed file
                             </a>
@@ -277,7 +278,8 @@ export default function AuditPage({
                         onTabChange={(tab) => setActiveTabs((prev) => ({ ...prev, [id]: tab }))}
                       />
                       <div className="audit-page__row-actions">
-                        <a className="audit-page__download-link" href={downloadCleansedFileUrl(report.session_id)} download>
+                        <a className="audit-page__download-link" href="#"
+ onClick={(e) => { e.preventDefault(); downloadCleansedFile(report.session_id).catch((err) => window.alert(err instanceof Error ? err.message : "Download failed.")); }}>
                           <IconDownload />
                           Download cleansed file
                         </a>

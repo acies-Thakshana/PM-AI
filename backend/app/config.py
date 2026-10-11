@@ -20,6 +20,8 @@ DATA_DIR = Path(os.environ["PMAI_DATA_DIR"]) if os.getenv("PMAI_DATA_DIR") else 
 # DataFrames of a session stay in this process's memory (services/common/session_repo.py).
 # =====================================================================================
 AWS_REGION = os.getenv("AWS_REGION", "eu-north-1")
+BEDROCK_REGION = os.getenv("BEDROCK_REGION", AWS_REGION)
+TRANSLATE_REGION = os.getenv("TRANSLATE_REGION", AWS_REGION)
 
 DDB_DOCS = os.getenv("DDB_DOCS", "")          # partition session_id, sort doc
 DDB_PROFILES = os.getenv("DDB_PROFILES", "")  # partition user_id, sort profile
@@ -36,103 +38,130 @@ AUDIT_LOG_TTL_DAYS = int(os.getenv("AUDIT_LOG_TTL_DAYS", "365"))
 # Uploaded files go through the API (multipart).
 UPLOAD_MAX_BYTES = int(os.getenv("UPLOAD_MAX_BYTES", str(200 * 1024 * 1024)))
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
-# Low-cost default: google/gemini-2.5-flash-lite (very cheap, fast).
-# Override in .env with any model slug from https://openrouter.ai/models
-LLM_MODEL = os.getenv("LLM_MODEL", "google/gemini-2.5-flash-lite")
 
-OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
+# =====================================================================================
+# MICROSOFT ENTRA ID
+#
+# Auth is enforced only when both ids are set. Unset (local dev) -> every request is the
+# single user "local" and no token is needed.
+# =====================================================================================
+ENTRA_TENANT_ID = os.getenv("ENTRA_TENANT_ID", "")
+ENTRA_CLIENT_ID = os.getenv("ENTRA_CLIENT_ID", "")
+AUTH_ENABLED = bool(ENTRA_TENANT_ID and ENTRA_CLIENT_ID)
+# Delegated scope a token must carry (the `scp` claim). Blocks app-only (client-credential)
+# tokens and tokens issued for other APIs. Set to "" to skip the check.
+ENTRA_REQUIRED_SCOPE = os.getenv("ENTRA_REQUIRED_SCOPE", "access_as_user")
+# With AWS storage on, auth MUST be configured: otherwise every caller would be the single
+# user "local" and could read everyone's sessions. Set ALLOW_ANON=1 to run open anyway
+# (only sensible for a private demo).
+ALLOW_ANON = os.getenv("ALLOW_ANON", "0") == "1"
 
-# The Feature Agent (think / write code / validate) runs entirely on
-# OpenRouter -- never Groq. Defaults to the same cost-effective model as the
-# Planner; override independently in .env if a different model suits the
-# code-generation + validation workload better.
-FEATURE_AGENT_MODEL = os.getenv("FEATURE_AGENT_MODEL", OPENROUTER_MODEL)
-
-# The Analysis Agent (think / write code / choose chart / write chart spec /
-# interpret / suggest drilldowns) runs entirely on OpenRouter -- same
-# convention as the Feature Agent above.
-ANALYSIS_AGENT_MODEL = os.getenv("ANALYSIS_AGENT_MODEL", OPENROUTER_MODEL)
-
-# Guided drill-down proposals (which dimension / focus / top-N to drill into
-# next). A small JSON-only call, but a wrong pick sends the PM down the wrong
-# chain, so it can be pointed at a stronger model than the rest of the agent.
-DRILLDOWN_AGENT_MODEL = os.getenv("DRILLDOWN_AGENT_MODEL", "anthropic/claude-sonnet-4")
-
-# The Planner turns a client brief into features and analyses. A wrong reading here
-# (merged breakdowns, a dropped threshold) misleads every later step, so it can be
-# pointed at a stronger model than the rest of the app.
-PLANNER_AGENT_MODEL = os.getenv("PLANNER_AGENT_MODEL", "anthropic/claude-sonnet-4")
-
-DEEPL_API_KEY = os.getenv("DEEPL_API_KEY", "")
-
+# Comma-separated list of allowed browser origins, e.g. the Amplify URL.
 CORS_ORIGINS = [
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "http://localhost:5175",
+    o.strip()
+    for o in os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:5173,http://localhost:5174,http://localhost:5175",
+    ).split(",")
+    if o.strip()
 ]
+# Vite's dev server drifts to the next free port (5173 -> 5174 -> ...), so any localhost
+# port is accepted too. Set CORS_ALLOW_LOCALHOST=0 in production to turn this off.
+CORS_ALLOW_LOCALHOST = os.getenv("CORS_ALLOW_LOCALHOST", "1") != "0"
+
+# =====================================================================================
+# AMAZON BEDROCK
+#
+# BEDROCK_*_MODEL are Bedrock model ids or cross-region inference-profile ids (the "eu."
+# prefix ones). The defaults below are PLACEHOLDERS for OpenAI's open-weight gpt-oss-20b, the
+# lightest and cheapest model in the Stockholm catalog: copy the exact "Model ID" from the
+# model's card in the Bedrock console (Model catalog) and set the env vars -- no code change.
+# Other options: openai.gpt-oss-120b-1:0 (stronger), eu.amazon.nova-micro/lite/pro-v1:0.
+# (Google Gemini and OpenAI's hosted GPT-4o-mini are NOT available on Bedrock.)
+# =====================================================================================
+# Three tiers; the cheapest setup uses the same small model for all of them. Point
+# BEDROCK_STRONG_MODEL at a bigger model only if the planner / "think" / code-writing calls
+# turn out unreliable.
+BEDROCK_CHEAP_MODEL = os.getenv("BEDROCK_CHEAP_MODEL", "openai.gpt-oss-20b-1:0")
+BEDROCK_DEFAULT_MODEL = os.getenv("BEDROCK_DEFAULT_MODEL", "openai.gpt-oss-20b-1:0")
+BEDROCK_STRONG_MODEL = os.getenv("BEDROCK_STRONG_MODEL", "openai.gpt-oss-20b-1:0")
+
+# Amazon Nova models cap the answer length per call (about 5K tokens). A request above the cap
+# is rejected, so llm.py lowers max_tokens to this for any "amazon.nova" model id.
+NOVA_MAX_OUTPUT_TOKENS = int(os.getenv("NOVA_MAX_OUTPUT_TOKENS", "5000"))
+
+# The older per-agent settings are kept as the `legacy` fallback that `model_for()` takes.
+LLM_MODEL = os.getenv("LLM_MODEL", BEDROCK_DEFAULT_MODEL)
+FEATURE_AGENT_MODEL = os.getenv("FEATURE_AGENT_MODEL", BEDROCK_DEFAULT_MODEL)
+ANALYSIS_AGENT_MODEL = os.getenv("ANALYSIS_AGENT_MODEL", BEDROCK_DEFAULT_MODEL)
+DRILLDOWN_AGENT_MODEL = os.getenv("DRILLDOWN_AGENT_MODEL", BEDROCK_STRONG_MODEL)
+PLANNER_AGENT_MODEL = os.getenv("PLANNER_AGENT_MODEL", BEDROCK_STRONG_MODEL)
+
+# Bedrock Prompt Management: JSON object mapping a prompt name (the call_name, e.g.
+# "planner_agent") to "<PROMPT_ID>" or "<PROMPT_ID>:<VERSION>". The system prompts no longer
+# live in the Python code. Each call gets its prompt from Bedrock when its name is listed here;
+# otherwise from backend/prompts/<name>.txt (shipped only in a dev checkout -- the Docker image
+# does NOT contain them, so a deployed backend needs every prompt listed here).
+BEDROCK_PROMPT_IDS = os.getenv("BEDROCK_PROMPT_IDS", "")
+# Where the default prompt files are. PROMPTS_BEDROCK_ONLY=1 ignores them entirely, so a
+# prompt missing from Bedrock fails loudly instead of silently using a local copy.
+PROMPTS_DIR = Path(os.environ["PROMPTS_DIR"]) if os.getenv("PROMPTS_DIR") else BACKEND_DIR / "prompts"
+PROMPTS_BEDROCK_ONLY = os.getenv("PROMPTS_BEDROCK_ONLY", "0") == "1"
+PROMPT_CACHE_SECONDS = int(os.getenv("PROMPT_CACHE_SECONDS", "300"))
 
 
 # =====================================================================================
 # MODEL PER LLM CALL
 #
-# Every LLM call has a name (its `call_name`, also what backend/data/token_usage.jsonl
-# records). MODEL_BY_CALL gives each call its own model, so the heavy-reasoning calls can
-# use a stronger model than the cheap, high-volume ones.
+# Every LLM call has a name (its `call_name`, also what the audit log records).
+# MODEL_BY_CALL gives each call its own model, so the heavy-reasoning calls can use a
+# stronger model than the cheap, high-volume ones.
 #
-# Going back:
-#   * the model each call used BEFORE this table is in the comment on its line, and
-#   * USE_PER_CALL_MODELS=0 (env) ignores this whole table and falls back to the older
-#     per-agent settings above (LLM_MODEL, OPENROUTER_MODEL, FEATURE_AGENT_MODEL,
-#     ANALYSIS_AGENT_MODEL, DRILLDOWN_AGENT_MODEL, PLANNER_AGENT_MODEL).
-# Trying one call: set MODEL_<CALL NAME IN CAPITALS> in .env, e.g.
-#   MODEL_ANALYSIS_AGENT_INTERPRET=anthropic/claude-sonnet-4.5
-# Names below are OpenRouter slugs. (To call AWS Bedrock directly instead, the app needs a
-# Bedrock client; the Bedrock model ids differ, e.g. anthropic.claude-sonnet-4-5-...)
+# Trying one call: set MODEL_<CALL NAME IN CAPITALS> in the environment, e.g.
+#   MODEL_ANALYSIS_AGENT_INTERPRET=eu.anthropic.claude-sonnet-4-5-20250929-v1:0
+# USE_PER_CALL_MODELS=0 ignores this whole table and uses the per-agent settings above.
 # =====================================================================================
-# Longest answer any LLM call may produce. OpenRouter RESERVES credit for the full
-# max_tokens of a call, and Claude models default to a very large one (64,000), so a call
-# with no limit can be refused with "402: requires more credits" even though the real
-# answer is tiny. Every call sets a limit; raise this only if answers get cut off.
+# Longest answer any LLM call may produce. Every call sets a limit; raise this only if
+# answers get cut off.
 DEFAULT_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "6000"))
 
 USE_PER_CALL_MODELS = os.getenv("USE_PER_CALL_MODELS", "1") != "0"
 
-SONNET_45 = "anthropic/claude-sonnet-4.5"
-SONNET_46 = "anthropic/claude-sonnet-4.6"
-HAIKU_45 = "anthropic/claude-haiku-4.5"
-NOVA_PRO = "amazon/nova-pro-v1"
+_C = BEDROCK_CHEAP_MODEL
+_D = BEDROCK_DEFAULT_MODEL
+_S = BEDROCK_STRONG_MODEL
 
 MODEL_BY_CALL: dict[str, str] = {
     # -- Planner and drill-down path design: reasoning that decides what gets built ----------
-    "planner_agent": "openai/gpt-4o-mini",  # trial (Anthropic/Nova): SONNET_45
-    "drilldown_path": "openai/gpt-4o-mini",  # trial (Anthropic/Nova): SONNET_45 -- was claude-sonnet-4
+    "planner_agent": _S,
+    "drilldown_path": _S,
 
     # -- Feature agent: think = designs the formula, write_code = pandas, validate = checks ---
-    "feature_agent_think": "openai/gpt-4o-mini",  # trial (Anthropic/Nova): SONNET_45
-    "feature_agent_write_code": "openai/gpt-4o-mini",  # trial (Anthropic/Nova): HAIKU_45
-    "feature_agent_validate": "openai/gpt-4o-mini",  # trial (Anthropic/Nova): HAIKU_45
-    "feature_suggester": "openai/gpt-4o-mini",  # trial (Anthropic/Nova): HAIKU_45
+    "feature_agent_think": _S,
+    "feature_agent_write_code": _D,
+    "feature_agent_validate": _D,
+    "feature_suggester": _D,
 
     # -- Analysis agent ----------------------------------------------------------------------
-    "analysis_agent_think": "openai/gpt-4o-mini",  # trial (Anthropic/Nova): SONNET_45
-    "analysis_agent_write_code": "openai/gpt-4o-mini",  # trial (Anthropic/Nova): HAIKU_45
-    "analysis_agent_chart_suggestion": "openai/gpt-4o-mini",  # trial (Anthropic/Nova): HAIKU_45
-    "analysis_agent_interpret": "openai/gpt-4o-mini",  # trial (Anthropic/Nova): HAIKU_45
+    "analysis_agent_think": _S,
+    "analysis_agent_write_code": _D,
+    "analysis_agent_chart_suggestion": _D,
+    "analysis_agent_interpret": _C,
+    "analysis_agent_drilldown": _D,
 
     # -- Analysis designer (custom analyses, template matching) ------------------------------
-    "analysis_designer_template_match": "openai/gpt-4o-mini",  # trial (Anthropic/Nova): SONNET_46
-    "analysis_designer_chart": "openai/gpt-4o-mini",  # trial (Anthropic/Nova): HAIKU_45
-    "analysis_suggester": "openai/gpt-4o-mini",  # trial (Anthropic/Nova): HAIKU_45
+    "analysis_designer_template_match": _S,
+    "analysis_designer_chart": _D,
+    "analysis_suggester": _D,
 
     # -- Drill-down suggestions --------------------------------------------------------------
-    "drilldown_agent": "openai/gpt-4o-mini",  # trial (Anthropic/Nova): HAIKU_45
-    "drilldown_agent_more": "openai/gpt-4o-mini",  # trial (Anthropic/Nova): HAIKU_45
+    "drilldown_agent": _D,
+    "drilldown_agent_more": _D,
 
     # -- Summaries -----------------------------------------------------------------------------
-    "audit_agent": "google/gemini-2.5-flash-lite",  # trial (Anthropic/Nova): NOVA_PRO
-    "overall_analysis_agent": "google/gemini-2.5-flash-lite",  # trial (Anthropic/Nova): NOVA_PRO
-    "report_final_summary_agent": "google/gemini-2.5-flash-lite",  # trial (Anthropic/Nova): HAIKU_45
+    "audit_agent": _C,
+    "overall_analysis_agent": _C,
+    "report_final_summary_agent": _C,
 }
 
 

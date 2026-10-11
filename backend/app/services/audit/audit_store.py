@@ -546,9 +546,10 @@ store = AuditStore()
 
 def get_or_404(session_id: str) -> AuditSession:
     session = store.get(session_id)
-    if not session:
+    # A session owned by someone else is reported as "not found" so ids cannot be probed
+    # (request_context.user_id() is the single local user while sign-in is off).
+    if not session or session.user_id != request_context.user_id():
         raise HTTPException(status_code=404, detail="Audit session not found.")
     # Lets LLM calls and audit events made while serving this request name their session.
     request_context.current_session_id.set(session_id)
-    request_context.current_user_id.set(session.user_id)
     return session

@@ -233,7 +233,7 @@ def run_audit_agent(session_id: str) -> AuditReport:
         )
     except Exception as exc:
         raise HTTPException(
-            status_code=502, detail=f"Data audit agent (Groq) is unavailable: {exc}"
+            status_code=502, detail=f"Data audit agent (Bedrock) is unavailable: {exc}"
         ) from exc
 
     for issue in issues:

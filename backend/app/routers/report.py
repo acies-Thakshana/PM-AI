@@ -28,10 +28,10 @@ router = APIRouter(prefix="/api/report", tags=["report"])
 
 @router.get("/languages", response_model=SupportedLanguagesResponse)
 def get_supported_languages() -> SupportedLanguagesResponse:
-    """English plus whatever DeepL target languages translation_service
-    currently lists -- see that module for what happens when no DeepL key
-    is configured (every language still lists here, but the actual download
-    silently falls back to English text)."""
+    """English plus whatever Amazon Translate target languages translation_service
+    currently lists -- see that module for what happens when Translate
+    is unavailable (every language still lists here, but the actual download
+    falls back to English text)."""
     languages = [LanguageOption(code="en", name="English")] + [
         LanguageOption(code=code, name=name)
         for code, (name, _) in sorted(translation_service.SUPPORTED_LANGUAGES.items(), key=lambda kv: kv[1][0])
@@ -53,7 +53,7 @@ def get_report_summary(session_id: str, entry_id: list[str] | None = Query(defau
     try:
         bullets = final_summary_agent.generate_summary(entries)
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Report summary agent (OpenRouter) is unavailable: {exc}") from exc
+        raise HTTPException(status_code=502, detail=f"Report summary agent (Bedrock) is unavailable: {exc}") from exc
     return ReportSummaryResponse(session_id=session_id, bullets=bullets)
 
 

@@ -4,7 +4,7 @@ analysis repository (see analysis_repository.py). It only picks WHICH
 columns/aggregations to explore and describes the analysis in plain
 English; it never computes a value itself -- the Analysis Agent
 (analysis_agent.py) is what actually plans, writes, and executes the code
-for whatever gets accepted. Runs on OpenRouter, never Groq. Anything
+for whatever gets accepted. Runs on Amazon Bedrock. Anything
 referencing a column that doesn't exist in the current data (a
 hallucination) is dropped rather than surfaced, since a broken suggestion
 is worse than a missing one.
@@ -17,17 +17,15 @@ from collections.abc import Iterable
 import pandas as pd
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from app.config import DEFAULT_MAX_TOKENS, OPENROUTER_MODEL, model_for
+from app.config import LLM_MODEL, model_for
 from app.services.analysis.analysis_columns import column_catalog
 from app.services.analysis.analysis_repository import _normalize_name
-from app.services.common import token_usage
-from app.services.common.groq_client import get_client
+from app.services.common import llm
 from app.prompts import analysis_suggester as _prompts
 
 logger = logging.getLogger(__name__)
 
 MAX_SUGGESTIONS = 5
-REQUEST_TIMEOUT_S = 45.0
 # One retry covers the common transient failure: the model returning
 # truncated or non-JSON output. A second failure means give up quietly.
 MAX_ATTEMPTS = 2
@@ -137,7 +135,6 @@ def suggest_analyses(df: pd.DataFrame, existing_entries: Iterable[dict] = (), fe
         for f in features
         if f.get("output_column") in df.columns
     ]
-    client = get_client().with_options(timeout=REQUEST_TIMEOUT_S)
     user_prompt = (
         f"Columns:\n{column_catalog(df)}\n\n"
         f"Existing features already computed as columns (use them, do not recompute):\n"
@@ -148,18 +145,11 @@ def suggest_analyses(df: pd.DataFrame, existing_entries: Iterable[dict] = (), fe
 
     candidates = None
     for attempt in range(1, MAX_ATTEMPTS + 1):
-        response = client.chat.completions.create(
-            model=model_for("analysis_suggester", OPENROUTER_MODEL),
-            max_tokens=DEFAULT_MAX_TOKENS,
-            temperature=0.4,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt},
-            ],
+        raw = llm.chat_json(
+            SYSTEM_PROMPT, user_prompt,
+            model=model_for("analysis_suggester", LLM_MODEL), temperature=0.4, call_name="analysis_suggester",
         )
-        token_usage.record("analysis_suggester", model_for("analysis_suggester", OPENROUTER_MODEL), response)
-        candidates = _parse_candidates(response.choices[0].message.content or "")
+        candidates = _parse_candidates(raw)
         if candidates is not None:
             break
         logger.warning("analysis_suggester got unparseable output (attempt %d/%d)", attempt, MAX_ATTEMPTS)

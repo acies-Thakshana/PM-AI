@@ -5,7 +5,7 @@ suggestion) -- has already been reduced to a plain-English
 `calculation_intent` by the time it reaches here (see
 feature_repository.py), so this agent has exactly one job regardless of
 source: THINK about how to compute it, WRITE the pandas code, and VALIDATE
-the result -- three separate OpenRouter calls, never Groq. The generated
+the result -- three separate Amazon Bedrock calls. The generated
 code is never trusted at face value: it runs through the same AST-sandboxed
 executor as before (ai_code_executor.py).
 """
@@ -18,7 +18,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 from app.config import FEATURE_AGENT_MODEL, model_for
-from app.services.common import ai_code_executor, code_run_log, groq_client
+from app.services.common import ai_code_executor, code_run_log, llm
 from app.prompts import feature_agent as _prompts
 
 MAX_ATTEMPTS = 3
@@ -34,10 +34,8 @@ def _call(
     system_prompt: str, user_prompt: str, *, json_mode: bool, temperature: float, call_name: str
 ) -> str:
     model = model_for(call_name, FEATURE_AGENT_MODEL)
-    return groq_client.call(
-        groq_client.get_client(), system_prompt, user_prompt,
-        model=model, json_mode=json_mode, temperature=temperature, call_name=call_name,
-    )
+    chat = llm.chat_json if json_mode else llm.chat_text
+    return chat(system_prompt, user_prompt, model=model, temperature=temperature, call_name=call_name)
 
 
 def _strip_code_fence(text: str) -> str:

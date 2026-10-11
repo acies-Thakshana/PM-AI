@@ -6,7 +6,7 @@ plain-English `calculation_intent` by the time it reaches here (see
 analysis_repository.py), so this agent has one job regardless of source:
 THINK about how to aggregate it, WRITE the pandas code, pick a CHART TYPE
 for the resulting table (unless one was already chosen), and INTERPRET the
-chart -- all via OpenRouter, never Groq.
+chart -- all via Amazon Bedrock.
 The chart itself is drawn from the real table by analysis_charts.py, never
 by the LLM. Generated code is never trusted at face value: it runs through
 the same AST-sandboxed executor as the Feature Agent (ai_code_executor.py).
@@ -28,7 +28,7 @@ from app.config import ANALYSIS_AGENT_MODEL, model_for
 from app.services.analysis import analysis_charts
 from app.services.analysis.analysis_charts import ChartRoles
 from app.services.analysis.analysis_columns import column_catalog
-from app.services.common import ai_code_executor, code_run_log, groq_client
+from app.services.common import ai_code_executor, code_run_log, llm
 from app.prompts import analysis_agent as _prompts
 
 MAX_ATTEMPTS = 3
@@ -38,20 +38,16 @@ MAX_ATTEMPTS = 3
 FIXED_FORMULA_MAX_ATTEMPTS = 3
 
 _ALLOWED_CHART_TYPES = set(analysis_charts.CHART_TYPES)
-# Upper bound for one OpenRouter call -- the SDK default (10 minutes) would
-# leave a Run click hanging far past any useful point. The SDK itself
-# retries transient connection/5xx errors.
-REQUEST_TIMEOUT_S = 60.0
 
 def call_llm(
     system_prompt: str, user_prompt: str, *, json_mode: bool, temperature: float, call_name: str,
     model: str | None = None, max_tokens: int | None = None,
 ) -> str:
     model = model or model_for(call_name, ANALYSIS_AGENT_MODEL)
-    client = groq_client.get_client().with_options(timeout=REQUEST_TIMEOUT_S, max_retries=2)
-    return groq_client.call(
-        client, system_prompt, user_prompt,
-        model=model, json_mode=json_mode, temperature=temperature, call_name=call_name, max_tokens=max_tokens,
+    chat = llm.chat_json if json_mode else llm.chat_text
+    return chat(
+        system_prompt, user_prompt,
+        model=model, temperature=temperature, call_name=call_name, max_tokens=max_tokens,
     )
 
 

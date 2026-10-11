@@ -20,7 +20,7 @@ import {
   addCustomFeature,
   applyFeatures,
   draftCustomFeature,
-  downloadCleansedFileUrl,
+  downloadCleansedFile,
   fetchFeatureRepository,
   fetchPreview,
   suggestFeatureEntries,
@@ -459,7 +459,8 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
                     <button type="button" className="features-page__link-btn" onClick={() => togglePreview(id)}>
                       {previewOpen[id] ? "Hide" : "View"} audited + engineered data ({report.row_count.toLocaleString()} rows, {report.column_count} columns)
                     </button>
-                    <a className="features-page__download-link" href={downloadCleansedFileUrl(report.session_id)} download>
+                    <a className="features-page__download-link" href="#"
+ onClick={(e) => { e.preventDefault(); downloadCleansedFile(report.session_id).catch((err) => window.alert(err instanceof Error ? err.message : "Download failed.")); }}>
                       <IconDownload />
                       Download engineered file
                     </a>

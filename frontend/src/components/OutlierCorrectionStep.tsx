@@ -2,7 +2,7 @@ import ThinkingLoader from "./ThinkingLoader";
 import { LOADING } from "../utils/loadingMessages";
 import { useEffect, useRef, useState } from "react";
 import type { OutliersResponse } from "../api/audit";
-import { downloadFlaggedOutliersUrl, fetchOutliers } from "../api/audit";
+import { downloadFlaggedOutliers, fetchOutliers } from "../api/audit";
 import SegmentOutlierTab from "./SegmentOutlierTab";
 import TemperatureOutlierTab from "./TemperatureOutlierTab";
 import FileUploadCard from "./FileUploadCard";
@@ -161,7 +161,8 @@ export default function OutlierCorrectionStep({
               </p>
             </div>
             <div className="outlier-step__resolve-actions">
-              <a className="outlier-step__download" href={downloadFlaggedOutliersUrl(sessionId)} download>
+              <a className="outlier-step__download" href="#"
+ onClick={(e) => { e.preventDefault(); downloadFlaggedOutliers(sessionId).catch((err) => window.alert(err instanceof Error ? err.message : "Download failed.")); }}>
                 <IconDownload />
                 Download flagged data
               </a>

@@ -15,7 +15,7 @@ will be computed and how it will be drawn.
 
 Steps 2 and 3 only depend on step 1, so they run in parallel. Everything
 the LLMs return is validated here; nothing is trusted as-is. Runs on
-OpenRouter via analysis_agent.call_llm.
+Amazon Bedrock via analysis_agent.call_llm.
 """
 from __future__ import annotations
 

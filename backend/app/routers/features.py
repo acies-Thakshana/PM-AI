@@ -92,7 +92,7 @@ def suggest_features(session_id: str) -> SuggestFeatureEntriesResponse:
     try:
         suggestions = feature_suggester.suggest_features(base_df, feature_repository.get_repository(session_id))
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Feature suggestion agent (OpenRouter) is unavailable: {exc}") from exc
+        raise HTTPException(status_code=502, detail=f"Feature suggestion agent (Bedrock) is unavailable: {exc}") from exc
     new_entries = feature_repository.add_ai_suggested_entries(session_id, suggestions)
     log_event(session_id, session.user_id, "feature_suggested", {"count": len(new_entries)})
     return SuggestFeatureEntriesResponse(session_id=session_id, entries=[FeatureRepositoryEntry(**e) for e in new_entries])

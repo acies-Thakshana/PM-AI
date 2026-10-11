@@ -671,7 +671,7 @@ def get_overall_analysis(session_id: str) -> OverallAnalysisReport:
         narrative = overall_analysis_agent.generate_narrative(len(session.df), highlights)
     except Exception as exc:
         raise HTTPException(
-            status_code=502, detail=f"Overall analysis narrative agent (OpenRouter) is unavailable: {exc}"
+            status_code=502, detail=f"Overall analysis narrative agent (Bedrock) is unavailable: {exc}"
         ) from exc
     report = OverallAnalysisReport(
         session_id=session_id, row_count=len(session.df), highlights=highlights, narrative=narrative
