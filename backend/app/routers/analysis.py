@@ -40,8 +40,9 @@ from app.services.audit.audit_store import AuditSession, get_or_404, store
 from app.services.common import request_context
 from app.services.common.audit_log import log_event
 from app.services.features import feature_repository
+from app.routers.job_route import JobRoute
 
-router = APIRouter(prefix="/api/analysis", tags=["analysis"])
+router = APIRouter(route_class=JobRoute, prefix="/api/analysis", tags=["analysis"])
 # "One slide per value" creates this many sibling levels at most (each is an LLM run).
 MAX_SPLIT_SLIDES = 6
 logger = logging.getLogger(__name__)

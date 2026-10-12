@@ -6,8 +6,9 @@ from app.services.audit.audit_store import get_or_404
 from app.services.common import audit_log
 from app.services.features import feature_repository
 from app.services.planner import planner as planner_service, planner_store
+from app.routers.job_route import JobRoute
 
-router = APIRouter(prefix="/api/planner", tags=["planner"])
+router = APIRouter(route_class=JobRoute, prefix="/api/planner", tags=["planner"])
 
 
 class SuggestRequest(BaseModel):

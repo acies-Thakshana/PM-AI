@@ -23,8 +23,9 @@ from app.services.audit.audit_store import get_or_404
 from app.services.common import ai_cache, file_store
 from app.services.common.audit_log import log_event
 from app.services.report import final_summary_agent, report_generator, translation_service
+from app.routers.job_route import JobRoute
 
-router = APIRouter(prefix="/api/report", tags=["report"])
+router = APIRouter(route_class=JobRoute, prefix="/api/report", tags=["report"])
 
 
 @router.get("/languages", response_model=SupportedLanguagesResponse)

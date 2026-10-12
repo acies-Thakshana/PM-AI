@@ -138,6 +138,18 @@ def _converse(
     return "".join(b.get("text", "") for b in blocks if "text" in b), stop
 
 
+_NO_ANSWER = (
+    "{call}: the model used all {limit} output tokens before it wrote an answer "
+    "(reasoning models spend tokens thinking). Raise LLM_MAX_TOKENS."
+)
+
+
+def _limit(max_tokens: int | None) -> int:
+    """The output limit for a call: LLM_MAX_TOKENS is a floor, so raising it always takes effect,
+    even for calls that ask for a smaller number of their own."""
+    return max(max_tokens or 0, DEFAULT_MAX_TOKENS)
+
+
 def chat_text(
     system_prompt: str,
     user_prompt: str,
@@ -148,9 +160,12 @@ def chat_text(
 ) -> str:
     """Single-shot call returning plain prose (or code -- strip it with strip_code_fence)."""
     model = model or model_for(call_name, LLM_MODEL)
-    text, stop = _converse(system_prompt, user_prompt, model, temperature, max_tokens or DEFAULT_MAX_TOKENS, call_name)
+    limit = _limit(max_tokens)
+    text, stop = _converse(system_prompt, user_prompt, model, temperature, limit, call_name)
     if stop == "max_tokens":
-        log.warning("%s: answer cut off at max_tokens (%s); raise LLM_MAX_TOKENS if this recurs", call_name, max_tokens or DEFAULT_MAX_TOKENS)
+        if not (text or "").strip():
+            raise LLMError(_NO_ANSWER.format(call=call_name, limit=limit))
+        log.warning("%s: answer cut off at max_tokens (%s); raise LLM_MAX_TOKENS if this recurs", call_name, limit)
     return text
 
 
@@ -167,15 +182,19 @@ def chat_json(
     when the answer was cut off at max_tokens and is no longer valid JSON, so a truncated
     answer is reported instead of being mistaken for an empty result."""
     model = model or model_for(call_name, LLM_MODEL)
-    text, stop = _converse(system_prompt, user_prompt, model, temperature, max_tokens or DEFAULT_MAX_TOKENS, call_name)
+    limit = _limit(max_tokens)
+    text, stop = _converse(system_prompt, user_prompt, model, temperature, limit, call_name)
+    if stop == "max_tokens" and not (text or "").strip():
+        # A reasoning model can spend every token thinking and answer nothing. That must not
+        # pass for an empty result ("{}"): the caller would show "0 suggestions".
+        raise LLMError(_NO_ANSWER.format(call=call_name, limit=limit))
     cleaned = strip_json_fence(text or "{}")
     if stop == "max_tokens":
         try:
             json.loads(cleaned)
         except ValueError as exc:
             raise LLMError(
-                f"{call_name}: the answer was cut off at {max_tokens or DEFAULT_MAX_TOKENS} tokens "
-                "(raise LLM_MAX_TOKENS)."
+                f"{call_name}: the answer was cut off at {limit} tokens (raise LLM_MAX_TOKENS)."
             ) from exc
     return cleaned
 

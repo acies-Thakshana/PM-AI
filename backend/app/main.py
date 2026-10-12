@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import config
-from app.routers import analysis, analysis_paths, audit, brief, features, planner, report
+from app.routers import analysis, analysis_paths, audit, brief, features, jobs, planner, report
 from app.routers.deps import User, get_user
 from app.services.audit.audit_store import SessionConflict
 from app.services.common import doc_store, session_repo, token_usage
@@ -57,6 +57,7 @@ app.include_router(features.router, dependencies=_auth)
 app.include_router(analysis.router, dependencies=_auth)
 app.include_router(analysis_paths.router, dependencies=_auth)
 app.include_router(report.router, dependencies=_auth)
+app.include_router(jobs.router, dependencies=_auth)
 
 # Bundled example files for the Upload page's "Add all samples" button (see
 # UploadPage.tsx) -- fetched as plain static bytes and turned into File

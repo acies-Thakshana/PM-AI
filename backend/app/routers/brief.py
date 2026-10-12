@@ -5,8 +5,9 @@ from pydantic import BaseModel
 
 from app.services.audit.audit_store import get_or_404
 from app.services.common import audit_log, doc_store
+from app.routers.job_route import JobRoute
 
-router = APIRouter(prefix="/api/brief", tags=["brief"])
+router = APIRouter(route_class=JobRoute, prefix="/api/brief", tags=["brief"])
 
 
 class FileMetadataIn(BaseModel):

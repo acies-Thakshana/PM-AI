@@ -29,8 +29,9 @@ from app.services.analysis import (
 from app.services.audit.audit_store import AuditSession, store
 from app.services.common import request_context
 from app.services.common.audit_log import log_event
+from app.routers.job_route import JobRoute
 
-router = APIRouter(prefix="/api/analysis", tags=["analysis-paths"])
+router = APIRouter(route_class=JobRoute, prefix="/api/analysis", tags=["analysis-paths"])
 logger = logging.getLogger(__name__)
 
 

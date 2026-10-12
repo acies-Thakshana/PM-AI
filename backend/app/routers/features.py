@@ -16,8 +16,9 @@ from app.services.audit.audit_store import get_or_404, store as audit_store
 from app.services.common.audit_log import log_event
 from app.services.features import feature_definitions_store as defs_store
 from app.services.features import feature_designer, feature_repository, feature_suggester
+from app.routers.job_route import JobRoute
 
-router = APIRouter(prefix="/api/features", tags=["features"])
+router = APIRouter(route_class=JobRoute, prefix="/api/features", tags=["features"])
 logger = logging.getLogger(__name__)
 
 

@@ -16,8 +16,9 @@ from app.services.audit import outlier_audit
 from app.services.audit.excel_parser import load_spreadsheet
 from app.services.common import ai_cache, audit_log, column_meta, file_store, request_context, session_repo
 from app.services.features import feature_engineering, feature_repository
+from app.routers.job_route import JobRoute
 
-router = APIRouter(prefix="/api/audit", tags=["audit"])
+router = APIRouter(route_class=JobRoute, prefix="/api/audit", tags=["audit"])
 
 DEFAULT_PREVIEW_ROWS = 20
 MAX_PREVIEW_ROWS = 500
