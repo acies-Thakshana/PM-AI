@@ -1,0 +1,7 @@
+case_id,account_id,region,opened_at,first_response_at,status,contact_email
+C-1001,A-10,EMEA,2026-01-02 08:00:00,2026-01-02 10:00:00,closed,hidden.emea@example.com
+C-1002,A-10,EMEA,2026-01-03 09:00:00,2026-01-03 12:00:00,closed,hidden.emea2@example.com
+C-1003,A-20,APAC,2026-01-04 01:00:00,2026-01-04 07:00:00,closed,hidden.apac@example.com
+C-1004,A-20,APAC,2026-01-05 02:00:00,2026-01-05 10:00:00,open,hidden.apac2@example.com
+C-1005,A-30,AMER,2026-01-06 14:00:00,2026-01-06 15:00:00,closed,hidden.amer@example.com
+C-1006,A-30,AMER,2026-01-07 14:00:00,2026-01-07 18:00:00,closed,hidden.amer2@example.com

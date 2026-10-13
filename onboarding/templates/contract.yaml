@@ -1,0 +1,16 @@
+domain: <domain>
+source_system: <salesforce|sap|servicenow|snowflake|other>
+historical_from: "YYYY-MM-DD"
+historical_to: "YYYY-MM-DD"
+extracts:
+  - <extract_or_view_1>
+  - <extract_or_view_2>
+master_entities:
+  - <master_entity>
+transactional_entities:
+  - <transactional_entity>
+owner:
+  role: Data engineering
+  team: <team>
+  contact: ""
+notes: Source-agnostic. Do not name Salesforce objects in factory code.

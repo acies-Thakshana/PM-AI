@@ -1,0 +1,6 @@
+# Frontend dependencies (local)
+
+# Uncomment when implementing the local dashboard/chatbot:
+# streamlit>=1.28
+# plotly>=5.18
+# pandas>=2.0

@@ -1,0 +1,20 @@
+app:
+  name: enterprise-ai-for-bi
+  environment: local
+  host: local
+
+nl_to_sql:
+  root: C:\Users\BharadNa\dataiku-langgraph-nlq
+  bridge: python.nl_to_sql.bridge
+
+semantic:
+  core: semantic/domains/kpi_productivity.yaml
+  enterprise_template: semantic/enterprise/enterprise_semantic_model.yaml
+  bu_dir: semantic/business_units
+
+frontend:
+  framework: streamlit
+  port: 8501
+
+logging:
+  audit_path: logs/aibi_audit.jsonl

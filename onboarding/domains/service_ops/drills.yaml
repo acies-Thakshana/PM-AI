@@ -1,0 +1,26 @@
+domain: service_ops
+# Reusable drill engine. Only these four lists change per project.
+entities:
+  - service_case
+  - account
+dimensions:
+  - region
+  - account_id
+  - status
+filters:
+  - region
+  - status
+actions:
+  - ask_followup
+  - open_root_cause
+paths:
+  - id: drill.ops.frt
+    start_entity: service_case
+    start_visual: vis.ops.frt_card
+    steps:
+      - dimension: region
+        action: open_root_cause
+      - dimension: account_id
+        action: ask_followup
+      - dimension: status
+        action: ask_followup

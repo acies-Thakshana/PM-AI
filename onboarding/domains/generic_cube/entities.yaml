@@ -1,0 +1,17 @@
+entities:
+  - logical_entity: generic_cube
+    source_system: other
+    source_object: KPI_data
+    physical_dataset: KPI_data
+    data_product_id: dp.generic.cube
+    grain: defined by the supplying data team
+    primary_keys:
+      - row_key
+    entity_kind: transactional
+    is_custom_object: false
+    notes: Placeholder registration. DSS recipe re-seeds columns from the extract.
+    columns:
+      - name: row_key
+        data_type: string
+        role: key
+        description: Replace with the real grain key during onboarding

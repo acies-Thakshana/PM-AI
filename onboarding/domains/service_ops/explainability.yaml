@@ -1,0 +1,21 @@
+domain: service_ops
+default_level: analyst
+levels:
+  consumer:
+    metric_definition: true
+    data_freshness: true
+    source_attribution: false
+    applied_filters: true
+    sql_visibility: false
+  analyst:
+    metric_definition: true
+    data_freshness: true
+    source_attribution: true
+    applied_filters: true
+    sql_visibility: false
+  power:
+    metric_definition: true
+    data_freshness: true
+    source_attribution: true
+    applied_filters: true
+    sql_visibility: true

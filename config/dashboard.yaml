@@ -1,0 +1,111 @@
+dashboard_id: local_enterprise_overview
+title: Enterprise AI for BI — Local Command
+kpi_cards:
+  - metric_id: metric.ent.actual_productivity
+    title: Actual productivity
+    chart_hint: kpi
+    accent: "#00C2E0"
+  - metric_id: metric.ent.forecast_productivity
+    title: Forecast / target
+    chart_hint: kpi
+    accent: "#F4B942"
+  - metric_id: metric.ent.performance_vs_target
+    title: Performance vs target
+    chart_hint: kpi
+    accent: "#3DDC97"
+  - metric_id: metric.ent.agg_productivity
+    title: Probability-weighted
+    chart_hint: kpi
+    accent: "#A78BFA"
+filters:
+  - bu
+  - pillar
+  - year
+  - quarter
+  - month
+  - site
+  - region
+  - category
+  - currency
+  - unit
+  - view_mode
+views:
+  - overview
+  - trend
+  - comparison
+  - variance
+  - ranking
+filter_catalog:
+  business_units:
+    - Climate Solutions Americas
+    - Climate Solutions Europe
+    - Climate Solutions Asia Pacific Middle East & Africa
+    - Climate Solutions Transportation
+    - Climate Solutions APAC
+    - Carrier HQ
+    - F&S (x-UTEC)
+  pillars:
+    - Direct
+    - Indirect
+    - Logistics
+  years:
+    - "2024"
+    - "2025"
+    - "2026"
+  quarters:
+    - Q1
+    - Q2
+    - Q3
+    - Q4
+  months:
+    - Jan
+    - Feb
+    - Mar
+    - Apr
+    - May
+    - Jun
+    - Jul
+    - Aug
+    - Sep
+    - Oct
+    - Nov
+    - Dec
+  regions:
+    - United States
+    - Mexico
+    - EMEA
+    - China
+    - Viessmann
+    - HQ
+    - RoW
+    - F&S Other
+  categories:
+    - Finished Goods
+    - Compressors
+    - Valves
+    - Copper Fabrication
+    - Packaging, Skids, & Labels
+    - Control Box & Electromechanical
+    - Hardware
+    - Others
+  currencies:
+    - USD
+    - EUR
+    - CNY
+    - MXN
+  units:
+    - Currency amount
+    - Count
+    - Ratio (%)
+  view_modes:
+    - Overview
+    - Trend
+    - Comparison
+    - Variance
+    - Ranking
+  chart_types:
+    - Auto
+    - Bar
+    - Line
+    - Grouped bar
+    - Treemap

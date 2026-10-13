@@ -1,0 +1,22 @@
+users:
+  # Default for demos: all BUs. Use this for enterprise-wide questions.
+  - user_id: local.cross_bu
+    display_name: Local Cross-BU Analyst
+    roles:
+      - role.ent.cross_bu_analyst
+    authorized_bu_codes: []
+    can_query_cross_bu: true
+  # BU-scoped example (RLS demo). Answers limited to Climate Solutions Americas only.
+  - user_id: local.analyst
+    display_name: Local BU Analyst (CSA only)
+    roles:
+      - role.ent.bu_consumer
+    authorized_bu_codes:
+      - Climate Solutions Americas
+    can_query_cross_bu: false
+  - user_id: local.steward
+    display_name: Local Semantic Steward
+    roles:
+      - role.ent.cross_bu_analyst
+    authorized_bu_codes: []
+    can_query_cross_bu: true

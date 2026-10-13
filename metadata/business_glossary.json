@@ -1,0 +1,7 @@
+﻿{
+  "Customer": "customer_name",
+  "Plant": "plant_name",
+  "Case": "case_id",
+  "Priority": "priority_level",
+  "Status": "case_status"
+}

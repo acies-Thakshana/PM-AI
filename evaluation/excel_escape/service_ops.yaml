@@ -1,0 +1,45 @@
+# Excel Escape — questions that today require a spreadsheet.
+# This is the primary regression library for AI4BI.
+domain: service_ops
+cases:
+  - id: ee.ops.frt_global
+    user_question: What is FRT?
+    expected_answer:
+      metric_id: metric.service_ops.frt_global
+      value: 4.0
+      tolerance: 0.05
+    data_sources:
+      - dp.ops.cases
+    validation:
+      type: metric_value
+  - id: ee.ops.frt_emea
+    user_question: What is EMEA FRT?
+    expected_answer:
+      metric_id: metric.service_ops.frt_emea
+      value: 2.5
+      tolerance: 0.05
+    data_sources:
+      - dp.ops.cases
+    validation:
+      type: metric_value
+  - id: ee.ops.frt_apac
+    user_question: What is APAC first response time?
+    expected_answer:
+      metric_id: metric.service_ops.frt_apac
+      value: 7.0
+      tolerance: 0.05
+    data_sources:
+      - dp.ops.cases
+    validation:
+      type: metric_value
+  - id: ee.ops.frt_compare
+    user_question: What is EMEA FRT versus APAC FRT?
+    expected_answer:
+      metric_ids:
+        - metric.service_ops.frt_emea
+        - metric.service_ops.frt_apac
+    data_sources:
+      - dp.ops.cases
+    validation:
+      type: metric_family
+      family: frt

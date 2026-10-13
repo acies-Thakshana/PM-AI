@@ -1,0 +1,1774 @@
+model_id: ent.core
+model_kind: enterprise_core
+display_name: <COMPANY_NAME> Enterprise Semantic Core
+description: Placeholder enterprise semantic core for local-first AI-for-BI. Metrics, grains, approved
+  joins, and security are first-class. Company-specific KPI formulas remain unresolved placeholders. A
+  domain specialization may live under semantic/domains/ after certification; this file stays the generic
+  enterprise template.
+owner:
+  role: <ENTERPRISE_SEMANTIC_OWNER_ROLE>
+  team: <ENTERPRISE_DATA_GOVERNANCE_TEAM>
+  contact: <ENTERPRISE_SEMANTIC_OWNER_CONTACT>
+status: draft
+semantic_version: 0.2.0
+compatibility:
+  min_runtime_version: 0.1.0
+  prompt_bundle_version: prompts.ent.core.0.1.0
+  llm_model_pin: <LLM_MODEL_ID>
+scope:
+  company: <COMPANY_NAME>
+  queryable_zones:
+  - curated
+  forbidden_query_zones:
+  - raw
+  - quality
+  - standardization
+  - evaluation
+  - audit
+  default_timezone: <DEFAULT_TIMEZONE>
+parent_model_id: null
+business_unit: null
+data_products:
+- id: dp.ent.dim_calendar
+  name: <CURATED_CALENDAR_PRODUCT>
+  description: Certified enterprise calendar and fiscal attributes.
+  zone: curated
+  queryable: true
+  physical_dataset: <CURATED_CALENDAR_DATASET>
+  database: <DATABASE_NAME>
+  schema_name: <SCHEMA_NAME>
+  grain: <CALENDAR_DAY_GRAIN>
+  primary_keys:
+  - <DATE_KEY>
+  columns:
+  - name: <DATE_KEY>
+    data_type: date
+    role: key
+    sensitive: false
+    description: Surrogate calendar date key.
+  - name: <CALENDAR_DATE>
+    data_type: date
+    role: timestamp
+    sensitive: false
+  - name: <FISCAL_YEAR>
+    data_type: integer
+    role: attribute
+    sensitive: false
+  - name: <FISCAL_QUARTER>
+    data_type: string
+    role: attribute
+    sensitive: false
+  - name: <FISCAL_PERIOD>
+    data_type: string
+    role: attribute
+    sensitive: false
+  - name: <WEEK_START_DATE>
+    data_type: date
+    role: attribute
+    sensitive: false
+  owner:
+    role: <CALENDAR_STEWARD_ROLE>
+    team: <ENTERPRISE_DATA_PLATFORM_TEAM>
+  status: draft
+  contains_pii: false
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- id: dp.ent.dim_organization
+  name: <CURATED_ORGANIZATION_PRODUCT>
+  description: Certified enterprise organization and business-unit hierarchy.
+  zone: curated
+  queryable: true
+  physical_dataset: <CURATED_ORGANIZATION_DATASET>
+  database: <DATABASE_NAME>
+  schema_name: <SCHEMA_NAME>
+  grain: <ORGANIZATION_UNIT_GRAIN>
+  primary_keys:
+  - <ORGANIZATION_KEY>
+  columns:
+  - name: <ORGANIZATION_KEY>
+    data_type: string
+    role: key
+    sensitive: false
+  - name: <BU_CODE_COLUMN>
+    data_type: string
+    role: attribute
+    sensitive: false
+    description: Business unit code used for authorization filters.
+  - name: <BU_NAME_COLUMN>
+    data_type: string
+    role: attribute
+    sensitive: false
+  - name: <GEOGRAPHY_KEY>
+    data_type: string
+    role: foreign_key
+    sensitive: false
+  - name: <ORGANIZATION_STATUS>
+    data_type: string
+    role: flag
+    sensitive: false
+  owner:
+    role: <ORGANIZATION_STEWARD_ROLE>
+    team: <ENTERPRISE_DATA_GOVERNANCE_TEAM>
+  status: draft
+  contains_pii: false
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- id: dp.ent.dim_customer
+  name: <CURATED_CUSTOMER_PRODUCT>
+  description: Certified customer dimension. PII columns are security-controlled.
+  zone: curated
+  queryable: true
+  physical_dataset: <CURATED_CUSTOMER_DATASET>
+  database: <DATABASE_NAME>
+  schema_name: <SCHEMA_NAME>
+  grain: <CUSTOMER_GRAIN>
+  primary_keys:
+  - <CUSTOMER_KEY>
+  columns:
+  - name: <CUSTOMER_KEY>
+    data_type: string
+    role: key
+    sensitive: false
+  - name: <CUSTOMER_NAME>
+    data_type: string
+    role: attribute
+    sensitive: false
+  - name: <CUSTOMER_PII_COLUMN>
+    data_type: string
+    role: attribute
+    sensitive: true
+    description: Placeholder for a sensitive customer attribute.
+  - name: <GEOGRAPHY_KEY>
+    data_type: string
+    role: foreign_key
+    sensitive: false
+  owner:
+    role: <CUSTOMER_STEWARD_ROLE>
+    team: <ENTERPRISE_MASTER_DATA_TEAM>
+  status: draft
+  contains_pii: true
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- id: dp.ent.dim_product
+  name: <CURATED_PRODUCT_PRODUCT>
+  description: Certified product or offering dimension.
+  zone: curated
+  queryable: true
+  physical_dataset: <CURATED_PRODUCT_DATASET>
+  database: <DATABASE_NAME>
+  schema_name: <SCHEMA_NAME>
+  grain: <PRODUCT_GRAIN>
+  primary_keys:
+  - <PRODUCT_KEY>
+  columns:
+  - name: <PRODUCT_KEY>
+    data_type: string
+    role: key
+    sensitive: false
+  - name: <PRODUCT_NAME>
+    data_type: string
+    role: attribute
+    sensitive: false
+  - name: <PRODUCT_LINE>
+    data_type: string
+    role: attribute
+    sensitive: false
+  - name: <PRODUCT_STATUS>
+    data_type: string
+    role: flag
+    sensitive: false
+  owner:
+    role: <PRODUCT_STEWARD_ROLE>
+    team: <ENTERPRISE_MASTER_DATA_TEAM>
+  status: draft
+  contains_pii: false
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- id: dp.ent.dim_geography
+  name: <CURATED_GEOGRAPHY_PRODUCT>
+  description: Certified geography dimension.
+  zone: curated
+  queryable: true
+  physical_dataset: <CURATED_GEOGRAPHY_DATASET>
+  database: <DATABASE_NAME>
+  schema_name: <SCHEMA_NAME>
+  grain: <GEOGRAPHY_GRAIN>
+  primary_keys:
+  - <GEOGRAPHY_KEY>
+  columns:
+  - name: <GEOGRAPHY_KEY>
+    data_type: string
+    role: key
+    sensitive: false
+  - name: <REGION_NAME>
+    data_type: string
+    role: attribute
+    sensitive: false
+  - name: <COUNTRY_NAME>
+    data_type: string
+    role: attribute
+    sensitive: false
+  owner:
+    role: <GEOGRAPHY_STEWARD_ROLE>
+    team: <ENTERPRISE_MASTER_DATA_TEAM>
+  status: draft
+  contains_pii: false
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- id: dp.ent.fact_primary
+  name: <CURATED_PRIMARY_FACT_PRODUCT>
+  description: 'Certified enterprise fact at the approved grain for <ENTERPRISE_PRIMARY_KPI> and related
+    volume, value, count, and ratio metrics. Formulae are not invented here.
+
+    '
+  zone: curated
+  queryable: true
+  physical_dataset: <CURATED_PRIMARY_FACT_DATASET>
+  database: <DATABASE_NAME>
+  schema_name: <SCHEMA_NAME>
+  grain: <PRIMARY_FACT_GRAIN>
+  primary_keys:
+  - <PRIMARY_FACT_KEY>
+  columns:
+  - name: <PRIMARY_FACT_KEY>
+    data_type: string
+    role: key
+    sensitive: false
+  - name: <DATE_KEY>
+    data_type: date
+    role: foreign_key
+    sensitive: false
+  - name: <ORGANIZATION_KEY>
+    data_type: string
+    role: foreign_key
+    sensitive: false
+  - name: <BU_CODE_COLUMN>
+    data_type: string
+    role: degenerate
+    sensitive: false
+  - name: <CUSTOMER_KEY>
+    data_type: string
+    role: foreign_key
+    sensitive: false
+  - name: <PRODUCT_KEY>
+    data_type: string
+    role: foreign_key
+    sensitive: false
+  - name: <GEOGRAPHY_KEY>
+    data_type: string
+    role: foreign_key
+    sensitive: false
+  - name: <PRIMARY_MEASURE_COLUMN>
+    data_type: <NUMERIC_TYPE>
+    role: measure
+    sensitive: false
+    unit_id: unit.unresolved_quantity
+  - name: <VOLUME_MEASURE_COLUMN>
+    data_type: <NUMERIC_TYPE>
+    role: measure
+    sensitive: false
+    unit_id: unit.count
+  - name: <VALUE_MEASURE_COLUMN>
+    data_type: <NUMERIC_TYPE>
+    role: measure
+    sensitive: false
+    unit_id: unit.currency
+    currency_code_column: <TRANSACTION_CURRENCY_COLUMN>
+  - name: <TRANSACTION_CURRENCY_COLUMN>
+    data_type: string
+    role: attribute
+    sensitive: false
+  - name: <COUNT_ELIGIBLE_FLAG>
+    data_type: string
+    role: flag
+    sensitive: false
+  - name: <LAST_REFRESHED_AT>
+    data_type: timestamp
+    role: timestamp
+    sensitive: false
+  owner:
+    role: <PRIMARY_FACT_STEWARD_ROLE>
+    team: <ENTERPRISE_ANALYTICS_TEAM>
+  status: draft
+  contains_pii: false
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- id: dp.ent.fx_rates
+  name: <CURATED_FX_RATES_PRODUCT>
+  description: Certified FX rates used by currency conversion rules.
+  zone: curated
+  queryable: true
+  physical_dataset: <CURATED_FX_RATES_DATASET>
+  database: <DATABASE_NAME>
+  schema_name: <SCHEMA_NAME>
+  grain: <FX_RATE_GRAIN>
+  primary_keys:
+  - <DATE_KEY>
+  - <FROM_CURRENCY>
+  - <TO_CURRENCY>
+  - <RATE_TYPE>
+  columns:
+  - name: <DATE_KEY>
+    data_type: date
+    role: foreign_key
+    sensitive: false
+  - name: <FROM_CURRENCY>
+    data_type: string
+    role: key
+    sensitive: false
+  - name: <TO_CURRENCY>
+    data_type: string
+    role: key
+    sensitive: false
+  - name: <RATE_TYPE>
+    data_type: string
+    role: key
+    sensitive: false
+  - name: <FX_RATE>
+    data_type: <NUMERIC_TYPE>
+    role: measure
+    sensitive: false
+  - name: <LAST_REFRESHED_AT>
+    data_type: timestamp
+    role: timestamp
+    sensitive: false
+  owner:
+    role: <FX_STEWARD_ROLE>
+    team: <ENTERPRISE_FINANCE_DATA_TEAM>
+  status: draft
+  contains_pii: false
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- id: dp.ent.fact_targets
+  name: <CURATED_TARGETS_PRODUCT>
+  description: Certified enterprise targets or budgets for <ENTERPRISE_TARGET_KPI>.
+  zone: curated
+  queryable: true
+  physical_dataset: <CURATED_TARGETS_DATASET>
+  database: <DATABASE_NAME>
+  schema_name: <SCHEMA_NAME>
+  grain: <TARGET_GRAIN>
+  primary_keys:
+  - <TARGET_KEY>
+  columns:
+  - name: <TARGET_KEY>
+    data_type: string
+    role: key
+    sensitive: false
+  - name: <DATE_KEY>
+    data_type: date
+    role: foreign_key
+    sensitive: false
+  - name: <ORGANIZATION_KEY>
+    data_type: string
+    role: foreign_key
+    sensitive: false
+  - name: <BU_CODE_COLUMN>
+    data_type: string
+    role: degenerate
+    sensitive: false
+  - name: <PRODUCT_KEY>
+    data_type: string
+    role: foreign_key
+    sensitive: false
+  - name: <TARGET_MEASURE_COLUMN>
+    data_type: <NUMERIC_TYPE>
+    role: measure
+    sensitive: false
+    unit_id: unit.unresolved_quantity
+  - name: <LAST_REFRESHED_AT>
+    data_type: timestamp
+    role: timestamp
+    sensitive: false
+  owner:
+    role: <TARGET_STEWARD_ROLE>
+    team: <ENTERPRISE_FPNA_TEAM>
+  status: draft
+  contains_pii: false
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+metrics:
+- id: metric.ent.primary_kpi
+  name: <ENTERPRISE_PRIMARY_KPI>
+  description: Enterprise primary KPI. Formula is unresolved pending business certification.
+  owner:
+    role: <KPI_OWNER_ROLE>
+    team: <ENTERPRISE_KPI_COUNCIL>
+  status: draft
+  definition_status: unresolved
+  data_product_ids:
+  - dp.ent.fact_primary
+  grain: <PRIMARY_FACT_GRAIN>
+  measure:
+    aggregation: unresolved
+    sql_expression: <KPI_FORMULA>
+    filter_sql: <KPI_FILTER_SQL>
+  time_dimension_id: dim.ent.date
+  unit_id: unit.unresolved_quantity
+  currency_rule_id: null
+  additive_type: unresolved
+  synonyms:
+  - <PRIMARY_KPI_SYNONYM_1>
+  - <PRIMARY_KPI_SYNONYM_2>
+  certified_by: <KPI_CERTIFIER_ROLE>
+  notes: Do not generate SQL from this metric until definition_status is certified.
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  metric_owner:
+    role: <KPI_OWNER_ROLE>
+    team: <ENTERPRISE_KPI_COUNCIL>
+  semantic_owner:
+    role: <ENTERPRISE_SEMANTIC_OWNER_ROLE>
+    team: <ENTERPRISE_DATA_GOVERNANCE_TEAM>
+    contact: <ENTERPRISE_SEMANTIC_OWNER_CONTACT>
+  compatibility:
+    min_semantic_version: 0.2.0
+    min_runtime_version: 0.1.0
+    prompt_bundle_version: prompts.ent.core.0.1.0
+- id: metric.ent.volume_kpi
+  name: <ENTERPRISE_VOLUME_KPI>
+  description: Enterprise volume KPI. Aggregation and eligibility filters are unresolved.
+  owner:
+    role: <KPI_OWNER_ROLE>
+    team: <ENTERPRISE_KPI_COUNCIL>
+  status: draft
+  definition_status: unresolved
+  data_product_ids:
+  - dp.ent.fact_primary
+  grain: <PRIMARY_FACT_GRAIN>
+  measure:
+    aggregation: unresolved
+    sql_expression: <VOLUME_KPI_FORMULA>
+    filter_sql: null
+  time_dimension_id: dim.ent.date
+  unit_id: unit.count
+  currency_rule_id: null
+  additive_type: unresolved
+  synonyms:
+  - <VOLUME_KPI_SYNONYM>
+  notes: Placeholder only. Do not invent a company-specific volume formula.
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  metric_owner:
+    role: <KPI_OWNER_ROLE>
+    team: <ENTERPRISE_KPI_COUNCIL>
+  semantic_owner:
+    role: <ENTERPRISE_SEMANTIC_OWNER_ROLE>
+    team: <ENTERPRISE_DATA_GOVERNANCE_TEAM>
+    contact: <ENTERPRISE_SEMANTIC_OWNER_CONTACT>
+  compatibility:
+    min_semantic_version: 0.2.0
+    min_runtime_version: 0.1.0
+    prompt_bundle_version: prompts.ent.core.0.1.0
+- id: metric.ent.value_kpi
+  name: <ENTERPRISE_VALUE_KPI>
+  description: Enterprise value KPI. Currency conversion method is unresolved.
+  owner:
+    role: <KPI_OWNER_ROLE>
+    team: <ENTERPRISE_KPI_COUNCIL>
+  status: draft
+  definition_status: unresolved
+  data_product_ids:
+  - dp.ent.fact_primary
+  - dp.ent.fx_rates
+  grain: <PRIMARY_FACT_GRAIN>
+  measure:
+    aggregation: unresolved
+    sql_expression: <VALUE_KPI_FORMULA>
+    filter_sql: null
+  time_dimension_id: dim.ent.date
+  unit_id: unit.currency
+  currency_rule_id: rule.ent.currency
+  additive_type: unresolved
+  synonyms:
+  - <VALUE_KPI_SYNONYM>
+  notes: Requires certified FX rule before NLQ execution.
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  metric_owner:
+    role: <KPI_OWNER_ROLE>
+    team: <ENTERPRISE_KPI_COUNCIL>
+  semantic_owner:
+    role: <ENTERPRISE_SEMANTIC_OWNER_ROLE>
+    team: <ENTERPRISE_DATA_GOVERNANCE_TEAM>
+    contact: <ENTERPRISE_SEMANTIC_OWNER_CONTACT>
+  compatibility:
+    min_semantic_version: 0.2.0
+    min_runtime_version: 0.1.0
+    prompt_bundle_version: prompts.ent.core.0.1.0
+- id: metric.ent.count_kpi
+  name: <ENTERPRISE_COUNT_KPI>
+  description: Enterprise count KPI. Distinct versus row count is unresolved.
+  owner:
+    role: <KPI_OWNER_ROLE>
+    team: <ENTERPRISE_KPI_COUNCIL>
+  status: draft
+  definition_status: unresolved
+  data_product_ids:
+  - dp.ent.fact_primary
+  grain: <PRIMARY_FACT_GRAIN>
+  measure:
+    aggregation: unresolved
+    sql_expression: <COUNT_KPI_FORMULA>
+    filter_sql: <COUNT_ELIGIBLE_FILTER_SQL>
+  time_dimension_id: dim.ent.date
+  unit_id: unit.count
+  currency_rule_id: null
+  additive_type: unresolved
+  synonyms:
+  - <COUNT_KPI_SYNONYM>
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  metric_owner:
+    role: <KPI_OWNER_ROLE>
+    team: <ENTERPRISE_KPI_COUNCIL>
+  semantic_owner:
+    role: <ENTERPRISE_SEMANTIC_OWNER_ROLE>
+    team: <ENTERPRISE_DATA_GOVERNANCE_TEAM>
+    contact: <ENTERPRISE_SEMANTIC_OWNER_CONTACT>
+  compatibility:
+    min_semantic_version: 0.2.0
+    min_runtime_version: 0.1.0
+    prompt_bundle_version: prompts.ent.core.0.1.0
+- id: metric.ent.ratio_kpi
+  name: <ENTERPRISE_RATIO_KPI>
+  description: Enterprise ratio or rate KPI. Non-additive; must not be summed across grains.
+  owner:
+    role: <KPI_OWNER_ROLE>
+    team: <ENTERPRISE_KPI_COUNCIL>
+  status: draft
+  definition_status: unresolved
+  data_product_ids:
+  - dp.ent.fact_primary
+  grain: <PRIMARY_FACT_GRAIN>
+  measure:
+    aggregation: formula
+    sql_expression: <RATIO_KPI_FORMULA>
+    filter_sql: null
+  time_dimension_id: dim.ent.date
+  unit_id: unit.ratio
+  currency_rule_id: null
+  additive_type: non_additive
+  synonyms:
+  - <RATIO_KPI_SYNONYM>
+  notes: Compiler must recompute the ratio at the requested grain; never sum pre-aggregated ratios.
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  metric_owner:
+    role: <KPI_OWNER_ROLE>
+    team: <ENTERPRISE_KPI_COUNCIL>
+  semantic_owner:
+    role: <ENTERPRISE_SEMANTIC_OWNER_ROLE>
+    team: <ENTERPRISE_DATA_GOVERNANCE_TEAM>
+    contact: <ENTERPRISE_SEMANTIC_OWNER_CONTACT>
+  compatibility:
+    min_semantic_version: 0.2.0
+    min_runtime_version: 0.1.0
+    prompt_bundle_version: prompts.ent.core.0.1.0
+- id: metric.ent.target_kpi
+  name: <ENTERPRISE_TARGET_KPI>
+  description: Enterprise target or budget KPI. Alignment to actuals grain is unresolved.
+  owner:
+    role: <TARGET_OWNER_ROLE>
+    team: <ENTERPRISE_FPNA_TEAM>
+  status: draft
+  definition_status: unresolved
+  data_product_ids:
+  - dp.ent.fact_targets
+  grain: <TARGET_GRAIN>
+  measure:
+    aggregation: unresolved
+    sql_expression: <TARGET_KPI_FORMULA>
+    filter_sql: null
+  time_dimension_id: dim.ent.date
+  unit_id: unit.unresolved_quantity
+  currency_rule_id: null
+  additive_type: unresolved
+  synonyms:
+  - <TARGET_KPI_SYNONYM>
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  metric_owner:
+    role: <TARGET_OWNER_ROLE>
+    team: <ENTERPRISE_FPNA_TEAM>
+  semantic_owner:
+    role: <ENTERPRISE_SEMANTIC_OWNER_ROLE>
+    team: <ENTERPRISE_DATA_GOVERNANCE_TEAM>
+    contact: <ENTERPRISE_SEMANTIC_OWNER_CONTACT>
+  compatibility:
+    min_semantic_version: 0.2.0
+    min_runtime_version: 0.1.0
+    prompt_bundle_version: prompts.ent.core.0.1.0
+dimensions:
+- id: dim.ent.date
+  name: Date
+  description: Calendar date used as the default time dimension.
+  data_product_id: dp.ent.dim_calendar
+  key_column: <DATE_KEY>
+  label_column: <CALENDAR_DATE>
+  hierarchy:
+  - <CALENDAR_DATE>
+  - <FISCAL_PERIOD>
+  - <FISCAL_QUARTER>
+  - <FISCAL_YEAR>
+  attributes:
+  - <DATE_KEY>
+  - <CALENDAR_DATE>
+  - <WEEK_START_DATE>
+  status: draft
+  synonyms:
+  - day
+  - date
+  - calendar date
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- id: dim.ent.fiscal_period
+  name: Fiscal period
+  description: Fiscal period attributes sourced from the certified calendar product.
+  data_product_id: dp.ent.dim_calendar
+  key_column: <FISCAL_PERIOD>
+  label_column: <FISCAL_PERIOD>
+  hierarchy:
+  - <FISCAL_PERIOD>
+  - <FISCAL_QUARTER>
+  - <FISCAL_YEAR>
+  attributes:
+  - <FISCAL_PERIOD>
+  - <FISCAL_QUARTER>
+  - <FISCAL_YEAR>
+  status: draft
+  synonyms:
+  - fiscal month
+  - period
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- id: dim.ent.business_unit
+  name: Business unit
+  description: Enterprise business unit from the organization product.
+  data_product_id: dp.ent.dim_organization
+  key_column: <BU_CODE_COLUMN>
+  label_column: <BU_NAME_COLUMN>
+  hierarchy:
+  - <BU_CODE_COLUMN>
+  attributes:
+  - <ORGANIZATION_KEY>
+  - <BU_CODE_COLUMN>
+  - <BU_NAME_COLUMN>
+  status: draft
+  synonyms:
+  - BU
+  - business unit
+  - <BU_SYNONYM>
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- id: dim.ent.customer
+  name: Customer
+  description: Customer dimension. Sensitive attributes are separately secured.
+  data_product_id: dp.ent.dim_customer
+  key_column: <CUSTOMER_KEY>
+  label_column: <CUSTOMER_NAME>
+  attributes:
+  - <CUSTOMER_KEY>
+  - <CUSTOMER_NAME>
+  status: draft
+  synonyms:
+  - account
+  - client
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- id: dim.ent.product
+  name: Product
+  description: Product or offering dimension.
+  data_product_id: dp.ent.dim_product
+  key_column: <PRODUCT_KEY>
+  label_column: <PRODUCT_NAME>
+  hierarchy:
+  - <PRODUCT_NAME>
+  - <PRODUCT_LINE>
+  attributes:
+  - <PRODUCT_KEY>
+  - <PRODUCT_NAME>
+  - <PRODUCT_LINE>
+  status: draft
+  synonyms:
+  - offering
+  - SKU
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- id: dim.ent.geography
+  name: Geography
+  description: Region and country geography.
+  data_product_id: dp.ent.dim_geography
+  key_column: <GEOGRAPHY_KEY>
+  label_column: <REGION_NAME>
+  hierarchy:
+  - <COUNTRY_NAME>
+  - <REGION_NAME>
+  attributes:
+  - <GEOGRAPHY_KEY>
+  - <REGION_NAME>
+  - <COUNTRY_NAME>
+  status: draft
+  synonyms:
+  - region
+  - country
+  - market
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- id: dim.ent.currency
+  name: Currency
+  description: Transaction or reporting currency codes used with FX conversion.
+  data_product_id: dp.ent.fx_rates
+  key_column: <FROM_CURRENCY>
+  label_column: <FROM_CURRENCY>
+  attributes:
+  - <FROM_CURRENCY>
+  - <TO_CURRENCY>
+  - <RATE_TYPE>
+  status: draft
+  synonyms:
+  - ccy
+  - currency code
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+entities:
+- id: ent.calendar
+  name: Calendar day
+  description: One certified calendar day.
+  data_product_id: dp.ent.dim_calendar
+  grain: <CALENDAR_DAY_GRAIN>
+  key_columns:
+  - <DATE_KEY>
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- id: ent.organization
+  name: Organization unit
+  description: One certified organization unit including business unit code.
+  data_product_id: dp.ent.dim_organization
+  grain: <ORGANIZATION_UNIT_GRAIN>
+  key_columns:
+  - <ORGANIZATION_KEY>
+  natural_keys:
+  - <BU_CODE_COLUMN>
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- id: ent.customer
+  name: Customer
+  description: One certified customer.
+  data_product_id: dp.ent.dim_customer
+  grain: <CUSTOMER_GRAIN>
+  key_columns:
+  - <CUSTOMER_KEY>
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- id: ent.product
+  name: Product
+  description: One certified product or offering.
+  data_product_id: dp.ent.dim_product
+  grain: <PRODUCT_GRAIN>
+  key_columns:
+  - <PRODUCT_KEY>
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- id: ent.geography
+  name: Geography
+  description: One certified geography member.
+  data_product_id: dp.ent.dim_geography
+  grain: <GEOGRAPHY_GRAIN>
+  key_columns:
+  - <GEOGRAPHY_KEY>
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- id: ent.primary_event
+  name: Primary fact event
+  description: Grain of the enterprise primary fact product.
+  data_product_id: dp.ent.fact_primary
+  grain: <PRIMARY_FACT_GRAIN>
+  key_columns:
+  - <PRIMARY_FACT_KEY>
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- id: ent.fx_rate
+  name: FX rate
+  description: One certified FX rate observation.
+  data_product_id: dp.ent.fx_rates
+  grain: <FX_RATE_GRAIN>
+  key_columns:
+  - <DATE_KEY>
+  - <FROM_CURRENCY>
+  - <TO_CURRENCY>
+  - <RATE_TYPE>
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- id: ent.target
+  name: Target
+  description: One certified target or budget row.
+  data_product_id: dp.ent.fact_targets
+  grain: <TARGET_GRAIN>
+  key_columns:
+  - <TARGET_KEY>
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+relationships:
+- id: rel.ent.primary_to_calendar
+  from_entity_id: ent.primary_event
+  to_entity_id: ent.calendar
+  cardinality: many_to_one
+  description: Primary fact dated by enterprise calendar.
+  join:
+    type: left
+    left_data_product_id: dp.ent.fact_primary
+    right_data_product_id: dp.ent.dim_calendar
+    condition: <CURATED_PRIMARY_FACT_DATASET>.<DATE_KEY> = <CURATED_CALENDAR_DATASET>.<DATE_KEY>
+    cardinality: many_to_one
+  approved: true
+  approved_by: <DATA_GOVERNANCE_ROLE>
+  status: draft
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  approved_direction: left_to_right
+  data_product_scope:
+  - dp.ent.fact_primary
+  - dp.ent.dim_calendar
+  business_unit_scope: null
+  security_considerations: RLS and BU filters apply on fact products independently of this join.
+  validation_status: unvalidated
+- id: rel.ent.primary_to_organization
+  from_entity_id: ent.primary_event
+  to_entity_id: ent.organization
+  cardinality: many_to_one
+  join:
+    type: left
+    left_data_product_id: dp.ent.fact_primary
+    right_data_product_id: dp.ent.dim_organization
+    condition: <CURATED_PRIMARY_FACT_DATASET>.<ORGANIZATION_KEY> = <CURATED_ORGANIZATION_DATASET>.<ORGANIZATION_KEY>
+    cardinality: many_to_one
+  approved: true
+  approved_by: <DATA_GOVERNANCE_ROLE>
+  status: draft
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  approved_direction: left_to_right
+  data_product_scope:
+  - dp.ent.fact_primary
+  - dp.ent.dim_organization
+  business_unit_scope: null
+  security_considerations: RLS and BU filters apply on fact products independently of this join.
+  validation_status: unvalidated
+- id: rel.ent.primary_to_customer
+  from_entity_id: ent.primary_event
+  to_entity_id: ent.customer
+  cardinality: many_to_one
+  join:
+    type: left
+    left_data_product_id: dp.ent.fact_primary
+    right_data_product_id: dp.ent.dim_customer
+    condition: <CURATED_PRIMARY_FACT_DATASET>.<CUSTOMER_KEY> = <CURATED_CUSTOMER_DATASET>.<CUSTOMER_KEY>
+    cardinality: many_to_one
+  approved: true
+  approved_by: <DATA_GOVERNANCE_ROLE>
+  status: draft
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  approved_direction: left_to_right
+  data_product_scope:
+  - dp.ent.fact_primary
+  - dp.ent.dim_customer
+  business_unit_scope: null
+  security_considerations: RLS and BU filters apply on fact products independently of this join.
+  validation_status: unvalidated
+- id: rel.ent.primary_to_product
+  from_entity_id: ent.primary_event
+  to_entity_id: ent.product
+  cardinality: many_to_one
+  join:
+    type: left
+    left_data_product_id: dp.ent.fact_primary
+    right_data_product_id: dp.ent.dim_product
+    condition: <CURATED_PRIMARY_FACT_DATASET>.<PRODUCT_KEY> = <CURATED_PRODUCT_DATASET>.<PRODUCT_KEY>
+    cardinality: many_to_one
+  approved: true
+  approved_by: <DATA_GOVERNANCE_ROLE>
+  status: draft
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  approved_direction: left_to_right
+  data_product_scope:
+  - dp.ent.fact_primary
+  - dp.ent.dim_product
+  business_unit_scope: null
+  security_considerations: RLS and BU filters apply on fact products independently of this join.
+  validation_status: unvalidated
+- id: rel.ent.primary_to_geography
+  from_entity_id: ent.primary_event
+  to_entity_id: ent.geography
+  cardinality: many_to_one
+  join:
+    type: left
+    left_data_product_id: dp.ent.fact_primary
+    right_data_product_id: dp.ent.dim_geography
+    condition: <CURATED_PRIMARY_FACT_DATASET>.<GEOGRAPHY_KEY> = <CURATED_GEOGRAPHY_DATASET>.<GEOGRAPHY_KEY>
+    cardinality: many_to_one
+  approved: true
+  approved_by: <DATA_GOVERNANCE_ROLE>
+  status: draft
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  approved_direction: left_to_right
+  data_product_scope:
+  - dp.ent.fact_primary
+  - dp.ent.dim_geography
+  business_unit_scope: null
+  security_considerations: RLS and BU filters apply on fact products independently of this join.
+  validation_status: unvalidated
+- id: rel.ent.target_to_calendar
+  from_entity_id: ent.target
+  to_entity_id: ent.calendar
+  cardinality: many_to_one
+  join:
+    type: left
+    left_data_product_id: dp.ent.fact_targets
+    right_data_product_id: dp.ent.dim_calendar
+    condition: <CURATED_TARGETS_DATASET>.<DATE_KEY> = <CURATED_CALENDAR_DATASET>.<DATE_KEY>
+    cardinality: many_to_one
+  approved: true
+  approved_by: <DATA_GOVERNANCE_ROLE>
+  status: draft
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  approved_direction: left_to_right
+  data_product_scope:
+  - dp.ent.fact_targets
+  - dp.ent.dim_calendar
+  business_unit_scope: null
+  security_considerations: RLS and BU filters apply on fact products independently of this join.
+  validation_status: unvalidated
+- id: rel.ent.target_to_organization
+  from_entity_id: ent.target
+  to_entity_id: ent.organization
+  cardinality: many_to_one
+  join:
+    type: left
+    left_data_product_id: dp.ent.fact_targets
+    right_data_product_id: dp.ent.dim_organization
+    condition: <CURATED_TARGETS_DATASET>.<ORGANIZATION_KEY> = <CURATED_ORGANIZATION_DATASET>.<ORGANIZATION_KEY>
+    cardinality: many_to_one
+  approved: true
+  approved_by: <DATA_GOVERNANCE_ROLE>
+  status: draft
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  approved_direction: left_to_right
+  data_product_scope:
+  - dp.ent.fact_targets
+  - dp.ent.dim_organization
+  business_unit_scope: null
+  security_considerations: RLS and BU filters apply on fact products independently of this join.
+  validation_status: unvalidated
+- id: rel.ent.target_to_product
+  from_entity_id: ent.target
+  to_entity_id: ent.product
+  cardinality: many_to_one
+  join:
+    type: left
+    left_data_product_id: dp.ent.fact_targets
+    right_data_product_id: dp.ent.dim_product
+    condition: <CURATED_TARGETS_DATASET>.<PRODUCT_KEY> = <CURATED_PRODUCT_DATASET>.<PRODUCT_KEY>
+    cardinality: many_to_one
+  approved: true
+  approved_by: <DATA_GOVERNANCE_ROLE>
+  status: draft
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  approved_direction: left_to_right
+  data_product_scope:
+  - dp.ent.fact_targets
+  - dp.ent.dim_product
+  business_unit_scope: null
+  security_considerations: RLS and BU filters apply on fact products independently of this join.
+  validation_status: unvalidated
+- id: rel.ent.fx_to_calendar
+  from_entity_id: ent.fx_rate
+  to_entity_id: ent.calendar
+  cardinality: many_to_one
+  join:
+    type: left
+    left_data_product_id: dp.ent.fx_rates
+    right_data_product_id: dp.ent.dim_calendar
+    condition: <CURATED_FX_RATES_DATASET>.<DATE_KEY> = <CURATED_CALENDAR_DATASET>.<DATE_KEY>
+    cardinality: many_to_one
+  approved: true
+  approved_by: <DATA_GOVERNANCE_ROLE>
+  status: draft
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  approved_direction: left_to_right
+  data_product_scope:
+  - dp.ent.fx_rates
+  - dp.ent.dim_calendar
+  business_unit_scope: null
+  security_considerations: RLS and BU filters apply on fact products independently of this join.
+  validation_status: unvalidated
+- id: rel.ent.organization_to_geography
+  from_entity_id: ent.organization
+  to_entity_id: ent.geography
+  cardinality: many_to_one
+  join:
+    type: left
+    left_data_product_id: dp.ent.dim_organization
+    right_data_product_id: dp.ent.dim_geography
+    condition: <CURATED_ORGANIZATION_DATASET>.<GEOGRAPHY_KEY> = <CURATED_GEOGRAPHY_DATASET>.<GEOGRAPHY_KEY>
+    cardinality: many_to_one
+  approved: true
+  approved_by: <DATA_GOVERNANCE_ROLE>
+  status: draft
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  approved_direction: left_to_right
+  data_product_scope:
+  - dp.ent.dim_organization
+  - dp.ent.dim_geography
+  business_unit_scope: null
+  security_considerations: RLS and BU filters apply on fact products independently of this join.
+  validation_status: unvalidated
+approved_joins:
+- id: join.ent.primary_to_calendar
+  relationship_id: rel.ent.primary_to_calendar
+  left_data_product_id: dp.ent.fact_primary
+  right_data_product_id: dp.ent.dim_calendar
+  join_type: left
+  condition: <CURATED_PRIMARY_FACT_DATASET>.<DATE_KEY> = <CURATED_CALENDAR_DATASET>.<DATE_KEY>
+  cardinality: many_to_one
+  allowed_for_nlq: true
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  approved_direction: left_to_right
+  business_unit_scope: null
+  security_considerations: Join allowlist only; does not grant cross-BU access.
+  validation_status: unvalidated
+- id: join.ent.primary_to_organization
+  relationship_id: rel.ent.primary_to_organization
+  left_data_product_id: dp.ent.fact_primary
+  right_data_product_id: dp.ent.dim_organization
+  join_type: left
+  condition: <CURATED_PRIMARY_FACT_DATASET>.<ORGANIZATION_KEY> = <CURATED_ORGANIZATION_DATASET>.<ORGANIZATION_KEY>
+  cardinality: many_to_one
+  allowed_for_nlq: true
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  approved_direction: left_to_right
+  business_unit_scope: null
+  security_considerations: Join allowlist only; does not grant cross-BU access.
+  validation_status: unvalidated
+- id: join.ent.primary_to_customer
+  relationship_id: rel.ent.primary_to_customer
+  left_data_product_id: dp.ent.fact_primary
+  right_data_product_id: dp.ent.dim_customer
+  join_type: left
+  condition: <CURATED_PRIMARY_FACT_DATASET>.<CUSTOMER_KEY> = <CURATED_CUSTOMER_DATASET>.<CUSTOMER_KEY>
+  cardinality: many_to_one
+  allowed_for_nlq: true
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  approved_direction: left_to_right
+  business_unit_scope: null
+  security_considerations: Join allowlist only; does not grant cross-BU access.
+  validation_status: unvalidated
+- id: join.ent.primary_to_product
+  relationship_id: rel.ent.primary_to_product
+  left_data_product_id: dp.ent.fact_primary
+  right_data_product_id: dp.ent.dim_product
+  join_type: left
+  condition: <CURATED_PRIMARY_FACT_DATASET>.<PRODUCT_KEY> = <CURATED_PRODUCT_DATASET>.<PRODUCT_KEY>
+  cardinality: many_to_one
+  allowed_for_nlq: true
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  approved_direction: left_to_right
+  business_unit_scope: null
+  security_considerations: Join allowlist only; does not grant cross-BU access.
+  validation_status: unvalidated
+- id: join.ent.primary_to_geography
+  relationship_id: rel.ent.primary_to_geography
+  left_data_product_id: dp.ent.fact_primary
+  right_data_product_id: dp.ent.dim_geography
+  join_type: left
+  condition: <CURATED_PRIMARY_FACT_DATASET>.<GEOGRAPHY_KEY> = <CURATED_GEOGRAPHY_DATASET>.<GEOGRAPHY_KEY>
+  cardinality: many_to_one
+  allowed_for_nlq: true
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  approved_direction: left_to_right
+  business_unit_scope: null
+  security_considerations: Join allowlist only; does not grant cross-BU access.
+  validation_status: unvalidated
+- id: join.ent.target_to_calendar
+  relationship_id: rel.ent.target_to_calendar
+  left_data_product_id: dp.ent.fact_targets
+  right_data_product_id: dp.ent.dim_calendar
+  join_type: left
+  condition: <CURATED_TARGETS_DATASET>.<DATE_KEY> = <CURATED_CALENDAR_DATASET>.<DATE_KEY>
+  cardinality: many_to_one
+  allowed_for_nlq: true
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  approved_direction: left_to_right
+  business_unit_scope: null
+  security_considerations: Join allowlist only; does not grant cross-BU access.
+  validation_status: unvalidated
+- id: join.ent.target_to_organization
+  relationship_id: rel.ent.target_to_organization
+  left_data_product_id: dp.ent.fact_targets
+  right_data_product_id: dp.ent.dim_organization
+  join_type: left
+  condition: <CURATED_TARGETS_DATASET>.<ORGANIZATION_KEY> = <CURATED_ORGANIZATION_DATASET>.<ORGANIZATION_KEY>
+  cardinality: many_to_one
+  allowed_for_nlq: true
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  approved_direction: left_to_right
+  business_unit_scope: null
+  security_considerations: Join allowlist only; does not grant cross-BU access.
+  validation_status: unvalidated
+- id: join.ent.target_to_product
+  relationship_id: rel.ent.target_to_product
+  left_data_product_id: dp.ent.fact_targets
+  right_data_product_id: dp.ent.dim_product
+  join_type: left
+  condition: <CURATED_TARGETS_DATASET>.<PRODUCT_KEY> = <CURATED_PRODUCT_DATASET>.<PRODUCT_KEY>
+  cardinality: many_to_one
+  allowed_for_nlq: true
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  approved_direction: left_to_right
+  business_unit_scope: null
+  security_considerations: Join allowlist only; does not grant cross-BU access.
+  validation_status: unvalidated
+- id: join.ent.fx_to_calendar
+  relationship_id: rel.ent.fx_to_calendar
+  left_data_product_id: dp.ent.fx_rates
+  right_data_product_id: dp.ent.dim_calendar
+  join_type: left
+  condition: <CURATED_FX_RATES_DATASET>.<DATE_KEY> = <CURATED_CALENDAR_DATASET>.<DATE_KEY>
+  cardinality: many_to_one
+  allowed_for_nlq: true
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  approved_direction: left_to_right
+  business_unit_scope: null
+  security_considerations: Join allowlist only; does not grant cross-BU access.
+  validation_status: unvalidated
+- id: join.ent.organization_to_geography
+  relationship_id: rel.ent.organization_to_geography
+  left_data_product_id: dp.ent.dim_organization
+  right_data_product_id: dp.ent.dim_geography
+  join_type: left
+  condition: <CURATED_ORGANIZATION_DATASET>.<GEOGRAPHY_KEY> = <CURATED_GEOGRAPHY_DATASET>.<GEOGRAPHY_KEY>
+  cardinality: many_to_one
+  allowed_for_nlq: true
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+  approved_direction: left_to_right
+  business_unit_scope: null
+  security_considerations: Join allowlist only; does not grant cross-BU access.
+  validation_status: unvalidated
+synonyms:
+- term: <PRIMARY_KPI_SYNONYM_1>
+  maps_to_kind: metric
+  maps_to_id: metric.ent.primary_kpi
+  locale: <DEFAULT_LOCALE>
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- term: <VOLUME_KPI_SYNONYM>
+  maps_to_kind: metric
+  maps_to_id: metric.ent.volume_kpi
+  locale: <DEFAULT_LOCALE>
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- term: <VALUE_KPI_SYNONYM>
+  maps_to_kind: metric
+  maps_to_id: metric.ent.value_kpi
+  locale: <DEFAULT_LOCALE>
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- term: BU
+  maps_to_kind: dimension
+  maps_to_id: dim.ent.business_unit
+  locale: <DEFAULT_LOCALE>
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- term: customer
+  maps_to_kind: entity
+  maps_to_id: ent.customer
+  locale: <DEFAULT_LOCALE>
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- term: product
+  maps_to_kind: entity
+  maps_to_id: ent.product
+  locale: <DEFAULT_LOCALE>
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+- term: region
+  maps_to_kind: dimension
+  maps_to_id: dim.ent.geography
+  locale: <DEFAULT_LOCALE>
+  origin: enterprise
+  inherits_from_id: null
+  deprecation_status: active
+  effective_date: '2026-09-10'
+fiscal_calendars:
+- id: cal.ent.fiscal
+  name: <ENTERPRISE_FISCAL_CALENDAR_NAME>
+  data_product_id: dp.ent.dim_calendar
+  fiscal_year_start_month: <FISCAL_YEAR_START_MONTH>
+  week_start: unresolved
+  definition_status: unresolved
+  notes: Fiscal start month and week-start day must be certified before time intelligence ships.
+currency_rules:
+  id: rule.ent.currency
+  reporting_currency: <REPORTING_CURRENCY>
+  fx_data_product_id: dp.ent.fx_rates
+  conversion_method: <FX_CONVERSION_METHOD>
+  rate_type: <FX_RATE_TYPE>
+  definition_status: unresolved
+  notes: Do not invent a company FX policy. Conversion is blocked until certified.
+unit_rules:
+  default_unit_id: unit.unresolved_quantity
+  units:
+  - id: unit.unresolved_quantity
+    name: <DEFAULT_QUANTITY_UNIT>
+    kind: unresolved
+    canonical_symbol: <UNIT_SYMBOL>
+    conversion_to_default: null
+    definition_status: unresolved
+  - id: unit.count
+    name: Count
+    kind: quantity
+    canonical_symbol: '#'
+    conversion_to_default: null
+    definition_status: proposed
+  - id: unit.currency
+    name: Currency amount
+    kind: currency
+    canonical_symbol: <REPORTING_CURRENCY>
+    conversion_to_default: <FX_CONVERSION_METHOD>
+    definition_status: unresolved
+  - id: unit.ratio
+    name: Ratio
+    kind: ratio
+    canonical_symbol: '%'
+    conversion_to_default: null
+    definition_status: proposed
+security:
+  enforcement_layer: deterministic_python_sqlglot
+  llm_may_bypass: false
+  select_only: true
+  single_statement_only: true
+  python_execution_allowed: false
+  max_rows: 500
+  query_timeout_seconds: 30
+  roles:
+  - id: role.ent.bu_consumer
+    name: <BU_CONSUMER_ROLE>
+    data_product_ids:
+    - dp.ent.fact_primary
+    - dp.ent.dim_calendar
+    - dp.ent.dim_organization
+    - dp.ent.dim_product
+    - dp.ent.dim_geography
+    metric_ids:
+    - metric.ent.primary_kpi
+    - metric.ent.volume_kpi
+    - metric.ent.count_kpi
+    can_query_cross_bu: false
+    maps_to_idp_group: <IDP_GROUP_BU_CONSUMER>
+  - id: role.ent.analyst
+    name: <ENTERPRISE_ANALYST_ROLE>
+    data_product_ids:
+    - dp.ent.fact_primary
+    - dp.ent.fact_targets
+    - dp.ent.fx_rates
+    - dp.ent.dim_calendar
+    - dp.ent.dim_organization
+    - dp.ent.dim_customer
+    - dp.ent.dim_product
+    - dp.ent.dim_geography
+    can_query_cross_bu: false
+    maps_to_idp_group: <IDP_GROUP_ENTERPRISE_ANALYST>
+  - id: role.ent.cross_bu_analyst
+    name: <CROSS_BU_ANALYST_ROLE>
+    data_product_ids:
+    - dp.ent.fact_primary
+    - dp.ent.fact_targets
+    - dp.ent.fx_rates
+    - dp.ent.dim_calendar
+    - dp.ent.dim_organization
+    - dp.ent.dim_customer
+    - dp.ent.dim_product
+    - dp.ent.dim_geography
+    can_query_cross_bu: true
+    maps_to_idp_group: <IDP_GROUP_CROSS_BU_ANALYST>
+  - id: role.ent.steward
+    name: <SEMANTIC_STEWARD_ROLE>
+    data_product_ids:
+    - dp.ent.fact_primary
+    - dp.ent.fact_targets
+    - dp.ent.fx_rates
+    - dp.ent.dim_calendar
+    - dp.ent.dim_organization
+    - dp.ent.dim_customer
+    - dp.ent.dim_product
+    - dp.ent.dim_geography
+    can_query_cross_bu: true
+    maps_to_idp_group: <IDP_GROUP_SEMANTIC_STEWARD>
+  row_level_policies:
+  - id: rls.ent.fact_primary_bu
+    data_product_id: dp.ent.fact_primary
+    predicate: <CURATED_PRIMARY_FACT_DATASET>.<BU_CODE_COLUMN> IN (:authorized_bu_codes)
+    applies_to_roles:
+    - role.ent.bu_consumer
+    - role.ent.analyst
+    enforced_in_sql: true
+    description: Restrict primary fact rows to authorized business units.
+  - id: rls.ent.fact_targets_bu
+    data_product_id: dp.ent.fact_targets
+    predicate: <CURATED_TARGETS_DATASET>.<BU_CODE_COLUMN> IN (:authorized_bu_codes)
+    applies_to_roles:
+    - role.ent.analyst
+    enforced_in_sql: true
+  - id: rls.ent.organization_bu
+    data_product_id: dp.ent.dim_organization
+    predicate: <CURATED_ORGANIZATION_DATASET>.<BU_CODE_COLUMN> IN (:authorized_bu_codes)
+    applies_to_roles:
+    - role.ent.bu_consumer
+    - role.ent.analyst
+    enforced_in_sql: true
+  bu_filters:
+  - id: buf.ent.fact_primary
+    data_product_id: dp.ent.fact_primary
+    column: <BU_CODE_COLUMN>
+    operator: in
+    value_source: authenticated_bu_codes
+    bypass_roles:
+    - role.ent.cross_bu_analyst
+    - role.ent.steward
+  - id: buf.ent.fact_targets
+    data_product_id: dp.ent.fact_targets
+    column: <BU_CODE_COLUMN>
+    operator: in
+    value_source: authenticated_bu_codes
+    bypass_roles:
+    - role.ent.cross_bu_analyst
+    - role.ent.steward
+  - id: buf.ent.organization
+    data_product_id: dp.ent.dim_organization
+    column: <BU_CODE_COLUMN>
+    operator: in
+    value_source: authenticated_bu_codes
+    bypass_roles:
+    - role.ent.cross_bu_analyst
+    - role.ent.steward
+  sensitive_columns:
+  - data_product_id: dp.ent.dim_customer
+    column: <CUSTOMER_PII_COLUMN>
+    action: deny
+    allowed_roles:
+    - role.ent.steward
+    classification: pii
+  denied_operations:
+  - DROP
+  - DELETE
+  - UPDATE
+  - INSERT
+  - ALTER
+  - TRUNCATE
+  - MERGE
+  - CREATE
+  - REPLACE
+  - GRANT
+  - REVOKE
+  - EXEC
+  - EXECUTE
+  - CALL
+  - COPY
+  - UNLOAD
+  - LOAD
+  - INTO
+  allowlisted_databases:
+  - <DATABASE_NAME>
+  allowlisted_schemas:
+  - <SCHEMA_NAME>
+  column_level_policies:
+  - id: cls.ent.customer_pii
+    data_product_id: dp.ent.dim_customer
+    column: <CUSTOMER_PII_COLUMN>
+    action: deny
+    applies_to_roles:
+    - role.ent.bu_consumer
+    - role.ent.analyst
+    classification: pii
+    notes: Steward may be granted via sensitive_columns.allowed_roles.
+  sensitive_data_classifications:
+  - id: class.pii
+    name: Personally identifiable information
+    default_action: deny
+  - id: class.confidential
+    name: Confidential business data
+    default_action: mask
+  aggregation_required_columns: []
+  query_cost_guards:
+    max_estimated_bytes: <MAX_QUERY_BYTES>
+    max_joins: 4
+    block_cartesian_joins: true
+    notes: Cost guards unresolved until DEP-03 and warehouse dialect are known.
+data_freshness:
+- data_product_id: dp.ent.dim_calendar
+  sla_hours: <FRESHNESS_SLA_HOURS>
+  freshness_column: <CALENDAR_DATE>
+  stale_behavior: unresolved
+  expected_update_cadence: <CALENDAR_UPDATE_CADENCE>
+- data_product_id: dp.ent.dim_organization
+  sla_hours: <FRESHNESS_SLA_HOURS>
+  freshness_column: <ORGANIZATION_STATUS>
+  stale_behavior: unresolved
+  expected_update_cadence: <ORGANIZATION_UPDATE_CADENCE>
+- data_product_id: dp.ent.dim_customer
+  sla_hours: <FRESHNESS_SLA_HOURS>
+  freshness_column: <CUSTOMER_NAME>
+  stale_behavior: warn
+  expected_update_cadence: <CUSTOMER_UPDATE_CADENCE>
+- data_product_id: dp.ent.dim_product
+  sla_hours: <FRESHNESS_SLA_HOURS>
+  freshness_column: <PRODUCT_STATUS>
+  stale_behavior: warn
+  expected_update_cadence: <PRODUCT_UPDATE_CADENCE>
+- data_product_id: dp.ent.dim_geography
+  sla_hours: <FRESHNESS_SLA_HOURS>
+  freshness_column: <REGION_NAME>
+  stale_behavior: warn
+  expected_update_cadence: <GEOGRAPHY_UPDATE_CADENCE>
+- data_product_id: dp.ent.fact_primary
+  sla_hours: <FRESHNESS_SLA_HOURS>
+  freshness_column: <LAST_REFRESHED_AT>
+  stale_behavior: unresolved
+  expected_update_cadence: <PRIMARY_FACT_UPDATE_CADENCE>
+- data_product_id: dp.ent.fx_rates
+  sla_hours: <FRESHNESS_SLA_HOURS>
+  freshness_column: <LAST_REFRESHED_AT>
+  stale_behavior: unresolved
+  expected_update_cadence: <FX_UPDATE_CADENCE>
+- data_product_id: dp.ent.fact_targets
+  sla_hours: <FRESHNESS_SLA_HOURS>
+  freshness_column: <LAST_REFRESHED_AT>
+  stale_behavior: unresolved
+  expected_update_cadence: <TARGET_UPDATE_CADENCE>
+sample_questions:
+- id: sq.ent.trend.primary
+  question: How has <ENTERPRISE_PRIMARY_KPI> changed over the last <N> <TIME_GRAIN>s?
+  question_class: trend
+  expected_behavior: answer
+  metric_ids:
+  - metric.ent.primary_kpi
+  dimension_ids:
+  - dim.ent.date
+- id: sq.ent.compare.bu
+  question: Compare <ENTERPRISE_PRIMARY_KPI> for <BU_NAME> versus <PEER_BU_NAME> in <FISCAL_PERIOD>.
+  question_class: cross_bu
+  expected_behavior: answer
+  metric_ids:
+  - metric.ent.primary_kpi
+  dimension_ids:
+  - dim.ent.business_unit
+  requires_cross_bu: true
+- id: sq.ent.rank.product
+  question: Which <PRODUCT_LINE> ranks highest on <ENTERPRISE_VOLUME_KPI> this <FISCAL_QUARTER>?
+  question_class: ranking
+  expected_behavior: answer
+  metric_ids:
+  - metric.ent.volume_kpi
+  dimension_ids:
+  - dim.ent.product
+- id: sq.ent.variance.target
+  question: What is the variance of <ENTERPRISE_PRIMARY_KPI> to <ENTERPRISE_TARGET_KPI> for <BU_NAME>?
+  question_class: variance
+  expected_behavior: answer
+  metric_ids:
+  - metric.ent.primary_kpi
+  - metric.ent.target_kpi
+  dimension_ids:
+  - dim.ent.business_unit
+- id: sq.ent.ambiguous.performance
+  question: How are we performing?
+  question_class: ambiguous
+  expected_behavior: clarify
+  metric_ids: []
+  notes: Must not guess a default KPI.
+- id: sq.ent.unsupported.forecast
+  question: Forecast next year's unmodeled market share using external web data.
+  question_class: unsupported
+  expected_behavior: refuse_unsupported
+  metric_ids: []
+- id: sq.ent.unauthorized.pii
+  question: Show <CUSTOMER_PII_COLUMN> for every customer in <BU_NAME>.
+  question_class: unauthorized
+  expected_behavior: refuse_unauthorized
+  metric_ids: []
+  dimension_ids:
+  - dim.ent.customer
+semantic_versions:
+- version: 0.1.0
+  effective_date: '2026-09-10'
+  status: deprecated
+  change_summary: Initial placeholder enterprise semantic core.
+  compatible_prompt_bundle: prompts.ent.core.0.1.0
+  compatible_runtime: 0.1.0
+- version: 0.2.0
+  effective_date: '2026-09-15'
+  status: draft
+  change_summary: 'Local-first AI-for-BI design: NL-to-SQL interface pin, golden questions, DQ hooks,
+    CLS, inheritance metadata.'
+  compatible_prompt_bundle: prompts.ent.core.0.1.0
+  compatible_runtime: 0.1.0
+assumptions:
+- Inspected local repository uses src/nlq for NL-to-SQL (LangGraph), not a python/ folder. Target layout
+  python/ is a packaging assumption until NLSQL-01 closes.
+- Existing NL-to-SQL must not be rebuilt in this phase; semantic planning and frontend integrate through
+  contracts.
+- All components currently run locally; Dataiku API Designer / Kubernetes / cloud hosting are future considerations
+  only.
+- NLQ may query only certified curated data products, never raw, quality, or standardization zones.
+- The semantic layer is a metric, grain, join, and security contract, not a table-description dump.
+- Metrics must be resolved into a semantic query plan before the existing NL-to-SQL component generates
+  SQL.
+- Security is enforced by deterministic Python and SQLGlot, independent of the LLM.
+- Dashboard and chatbot share the same semantic definitions, auth context, and audit framework.
+- 'Chatbot answers are dashboard-independent: a metric need not appear as a KPI card to be queryable.'
+- Company-specific KPI formulae remain placeholders in this enterprise template. Domain YAML under semantic/domains/
+  may hold certified definitions separately after governance approval.
+- Local KPI parquet extract path <LOCAL_KPI_PARQUET_PATH> is an observed development fixture shape only
+  until D-01 certifies the curated product.
+- External GitHub semantic_layer reference was not fetchable (HTTP 404) at design time; treat as unresolved
+  (GOV-11).
+- BU extensions may add objects but must not override enterprise metric formulas in v0.2.0 without SM-08
+  approval.
+- New business units are onboarded by YAML configuration, not by rewriting agent or NL-to-SQL code.
+unresolved_decisions:
+- id: ud.ent.kpi_formula
+  topic: Certified formula for <ENTERPRISE_PRIMARY_KPI>
+  impact: SQL compilation and evaluation oracles cannot be finalized in the placeholder core.
+  discovery_question_id: KPI-01
+- id: ud.ent.nl_layout
+  topic: Canonical package path python/ vs observed src/nlq
+  impact: Integration docs and onboarding scripts.
+  discovery_question_id: NLSQL-01
+- id: ud.ent.nl_io
+  topic: Frozen input/output JSON for existing NL-to-SQL entrypoints
+  impact: Semantic query plan adapter shape.
+  discovery_question_id: NLSQL-03
+- id: ud.ent.frontend
+  topic: Local frontend framework (Streamlit vs other)
+  impact: Dashboard/chatbot implementation phase.
+  discovery_question_id: FE-01
+- id: ud.ent.local_auth
+  topic: Local authentication approach for dashboard and chatbot
+  impact: AuthN node and security-aware views.
+  discovery_question_id: AUTH-01
+- id: ud.ent.fx_method
+  topic: FX conversion method and rate type
+  impact: Value KPI answers may be incomparable across BUs.
+  discovery_question_id: KPI-06
+- id: ud.ent.fiscal_calendar
+  topic: Fiscal year start and week-start day
+  impact: Time intelligence and period comparisons are blocked.
+  discovery_question_id: SM-04
+- id: ud.ent.cross_bu_policy
+  topic: Who may compare BUs and at what grain
+  impact: Cross-BU routing and RLS bypass roles cannot be certified.
+  discovery_question_id: XBU-01
+- id: ud.ent.metric_override
+  topic: Whether a BU may override an enterprise KPI
+  impact: Merge policy is locked to no-override until this is decided.
+  discovery_question_id: SM-08
+- id: ud.ent.stale_behavior
+  topic: Warn versus block on stale data products
+  impact: Result-validation policy is incomplete.
+  discovery_question_id: FR-03
+- id: ud.ent.github_sem
+  topic: Availability of external semantic_layer GitHub repository
+  impact: Cannot import external semantic assets.
+  discovery_question_id: GOV-11
+nl_to_sql_interface:
+  plan_schema_version: semantic_query_plan.v1
+  expects_semantic_query_plan: true
+  must_not_bypass_plan: true
+  existing_entrypoints:
+  - <EXISTING_NL_TO_SQL_ENTRYPOINT>
+  - observed_local:src/nlq/graph/runner.py:NLQRunner.run
+  - observed_local:src/nlq/notebook_runner.py:ask_nlq
+  - target_layout:python/nl_to_sql/<MODULE>
+  notes: Phase 1 documents the contract only. Do not rewrite the existing NL-to-SQL package. Inspected
+    repo has src/nlq (not python/). Target layout python/ remains an assumption for packaging alignment.
+data_quality:
+- id: dq.ent.primary_pk
+  data_product_id: dp.ent.fact_primary
+  rule_type: unique
+  severity: Primary key uniqueness on <PRIMARY_FACT_KEY>
+  severity_column: <PRIMARY_FACT_KEY>
+  definition_status: unresolved
+  blocking: true
+- id: dq.ent.primary_fresh
+  data_product_id: dp.ent.fact_primary
+  rule_type: freshness
+  severity: <LAST_REFRESHED_AT> within <FRESHNESS_SLA_HOURS>
+  severity_column: <LAST_REFRESHED_AT>
+  definition_status: unresolved
+  blocking: false
+golden_questions:
+- id: gq.ent.trend.primary
+  question: How has <ENTERPRISE_PRIMARY_KPI> changed over the last <N> <TIME_GRAIN>s?
+  question_class: trend
+  expected_behavior: answer
+  metric_ids:
+  - metric.ent.primary_kpi
+  dimension_ids:
+  - dim.ent.date
+  expected_plan_shape: metric+time_grain; no raw tables
+  dashboard_independent: true
+  requires_cross_bu: false
+  semantic_version: 0.2.0
+  notes: Must work even if the KPI card is not on the dashboard.
+- id: gq.ent.not_on_dashboard
+  question: What is <ENTERPRISE_RATIO_KPI> for <BU_NAME> in <FISCAL_PERIOD>?
+  question_class: not_on_dashboard
+  expected_behavior: answer
+  metric_ids:
+  - metric.ent.ratio_kpi
+  dimension_ids:
+  - dim.ent.business_unit
+  dashboard_independent: true
+  semantic_version: 0.2.0
+- id: gq.ent.clarify.performance
+  question: How are we performing?
+  question_class: ambiguous
+  expected_behavior: clarify
+  metric_ids: []
+  dashboard_independent: true
+  semantic_version: 0.2.0
+- id: gq.ent.unauthorized.pii
+  question: Show <CUSTOMER_PII_COLUMN> for every customer in <BU_NAME>.
+  question_class: unauthorized
+  expected_behavior: refuse_unauthorized
+  metric_ids: []
+  dashboard_independent: true
+  semantic_version: 0.2.0
