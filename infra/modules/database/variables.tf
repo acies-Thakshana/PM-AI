@@ -32,8 +32,3 @@ variable "existing_dynamodb_table_arns" {
   description = "Existing table ARNs when create_dynamodb_tables=false."
   type        = list(string)
 }
-
-variable "dynamodb_table_name_overrides" {
-  description = "Optional per-table names that replace the default <project>-<purpose>-<environment> names. Keys: profiles, docs, audit_log. Empty = use the defaults."
-  type        = map(string)
-}

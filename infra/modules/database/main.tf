@@ -8,12 +8,12 @@
 # ----------------------------------------------------------------------------------------------
 
 locals {
-  # Table names follow <project>-<purpose>-<environment>. Any single name can be replaced through
-  # var.dynamodb_table_name_overrides (keys: profiles, docs, audit_log).
+  # Table names follow <project>-<purpose>-dynamodb-<environment> (naming sheet), for example
+  # uda327-records-dynamodb-uat. To change the pattern, edit it here: it applies to every environment.
   table_names = {
-    profiles  = lookup(var.dynamodb_table_name_overrides, "profiles", "${var.project}-profiles-${var.environment}")
-    docs      = lookup(var.dynamodb_table_name_overrides, "docs", "${var.project}-records-${var.environment}")
-    audit_log = lookup(var.dynamodb_table_name_overrides, "audit_log", "${var.project}-events-${var.environment}")
+    profiles  = "${var.project}-profiles-dynamodb-${var.environment}"
+    docs      = "${var.project}-records-dynamodb-${var.environment}"
+    audit_log = "${var.project}-events-dynamodb-${var.environment}"
   }
 
   # DynamoDB names. These match the current app architecture: profiles, docs (records), audit log (events).

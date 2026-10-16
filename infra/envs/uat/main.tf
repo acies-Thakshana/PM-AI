@@ -105,7 +105,7 @@ module "storage" {
   s3_abort_multipart_days           = var.s3_abort_multipart_days
 }
 
-# Database: the four DynamoDB tables
+# Database: the DynamoDB tables
 module "database" {
   source = "../../modules/database"
 
@@ -116,7 +116,6 @@ module "database" {
   dynamodb_ttl_attribute        = var.dynamodb_ttl_attribute
   existing_dynamodb_table_names = var.existing_dynamodb_table_names
   existing_dynamodb_table_arns  = var.existing_dynamodb_table_arns
-  dynamodb_table_name_overrides = var.dynamodb_table_name_overrides
 }
 
 # IAM: execution role and task role

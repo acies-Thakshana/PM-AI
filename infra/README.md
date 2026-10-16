@@ -100,7 +100,7 @@ in every environment and only `project` and `environment` (in `terraform.tfvars`
 | ECR repository | `uda327-backend-dev` |
 | IAM roles | `uda327-ecs-execution-role-dev`, `uda327-ecs-task-role-dev` |
 | S3 bucket | `uda327-storage-s3-dev` |
-| DynamoDB tables | `uda327-records-dev`, `uda327-profiles-dev`, `uda327-events-dev` |
+| DynamoDB tables | `uda327-records-dynamodb-dev`, `uda327-profiles-dynamodb-dev`, `uda327-events-dynamodb-dev` |
 | Load balancer, target group | `uda327-alb-dev`, `uda327-alb-tg-dev` |
 | ECS cluster, task definition, service | `uda327-ecs-dev`, `uda327-task-ecs-dev`, `uda327-service-ecs-dev` |
 | API Gateway, VPC Link, stage label | `uda327-api-dev`, `uda327-vpclink-dev`, `uda327-api-stage-dev` |
@@ -109,9 +109,9 @@ in every environment and only `project` and `environment` (in `terraform.tfvars`
 The code creates exactly **one** S3 bucket per environment (`uda327-storage-s3-<environment>`). The OpenTofu
 state bucket named in `backend.tf` is separate: it is created by hand and is not part of the modules.
 
-Two names can be set by hand when a client's naming differs from the pattern:
-`ecr_repository_name` (ECR) and `dynamodb_table_name_overrides` (DynamoDB). UAT uses both, because its sheet
-names are `uda327-backend-ecr-uat` and `uda327-<records|profiles|events>-dynamodb-uat`.
+One name can be set by hand when a client's naming differs from the pattern: `ecr_repository_name` (ECR; UAT uses
+`uda327-backend-ecr-uat`). The DynamoDB names follow `<project>-<records|profiles|events>-dynamodb-<environment>`,
+fixed inside `modules/database/main.tf` (there is no per-environment override).
 An S3 bucket name must be unique across all of AWS. If `uda327-storage-s3-dev` is taken, set `s3_bucket_name`.
 
 ## Notes

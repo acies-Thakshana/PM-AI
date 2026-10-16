@@ -13,9 +13,9 @@
 # To try a folder without S3, comment this block out: the state then stays in this folder as terraform.tfstate.
 terraform {
   backend "s3" {
-    bucket       = "pmai-tfstate-372544872383-eu-north-1" # Acies practice state bucket
+    bucket       = "" #  state bucket
     key          = "envs/prod/terraform.tfstate"
-    region       = "eu-north-1"
+    region       = "us-east-1"
     encrypt      = true
     use_lockfile = true # blocks two people applying at once (OpenTofu 1.10+)
   }

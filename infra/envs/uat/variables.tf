@@ -10,13 +10,13 @@ variable "project" {
 variable "environment" {
   description = "Environment name (dev, uat or prod). It ends every resource name, for example uda327-alb-dev."
   type        = string
-  default     = "opentofu"
+  default     = "uat"
 }
 
 variable "aws_region" {
   description = "AWS region where resources are deployed."
   type        = string
-  default     = "eu-north-1"
+  default     = "us-east-1"
 }
 
 variable "aws_profile" {
@@ -545,12 +545,6 @@ variable "existing_dynamodb_table_arns" {
   description = "Existing table ARNs when create_dynamodb_tables=false."
   type        = list(string)
   default     = []
-}
-
-variable "dynamodb_table_name_overrides" {
-  description = "Optional per-table names that replace the default <project>-<purpose>-<environment> names. Keys: profiles, docs, audit_log. Empty = use the defaults."
-  type        = map(string)
-  default     = {}
 }
 
 # -----------------------------
