@@ -61,19 +61,19 @@ variable "create_vpc" {
 variable "vpc_cidr" {
   description = "CIDR for newly-created practice VPC. Ignored when create_vpc=false."
   type        = string
-  default     = "10.0.0.0/16"
+  default     = ""
 }
 
 variable "public_subnet_cidrs" {
   description = "Public subnet CIDRs for practice VPC. Ignored when create_vpc=false."
   type        = list(string)
-  default     = ["10.0.0.0/24", "10.0.1.0/24"]
+  default     = []
 }
 
 variable "private_subnet_cidrs" {
   description = "Private subnet CIDRs for practice VPC. Ignored when create_vpc=false."
   type        = list(string)
-  default     = ["10.0.10.0/24", "10.0.11.0/24"]
+  default     = []
 }
 
 variable "existing_vpc_id" {
@@ -130,7 +130,7 @@ variable "existing_ecs_security_group_id" {
 variable "allowed_egress_cidrs" {
   description = "Outbound CIDRs for created security groups. CG may restrict this."
   type        = list(string)
-  default     = ["0.0.0.0/0"]
+  default     = []
 }
 
 # -----------------------------
@@ -263,7 +263,7 @@ variable "extra_cors_origins" {
   description = <<-EOT
     EXTRA browser origins allowed by API Gateway, S3 and the backend, on top of the Amplify URL.
     The Amplify URL itself is added automatically (see local.cors_origins in locals.tf), so do NOT
-    type it here. Use this for local development (http://localhost:5173) or a custom domain.
+    type it here. 
   EOT
   type        = list(string)
   default     = []
