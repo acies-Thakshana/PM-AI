@@ -10,13 +10,13 @@ variable "project" {
 variable "environment" {
   description = "Environment name (dev, uat or prod). It ends every resource name, for example uda327-alb-dev."
   type        = string
-  default     = "opentofu"
+  default     = "prod"
 }
 
 variable "aws_region" {
   description = "AWS region where resources are deployed."
   type        = string
-  default     = "eu-north-1"
+  default     = "us-east-1"
 }
 
 variable "aws_profile" {
@@ -61,19 +61,19 @@ variable "create_vpc" {
 variable "vpc_cidr" {
   description = "CIDR for newly-created practice VPC. Ignored when create_vpc=false."
   type        = string
-  default     = "10.0.0.0/16"
+  default     = ""
 }
 
 variable "public_subnet_cidrs" {
   description = "Public subnet CIDRs for practice VPC. Ignored when create_vpc=false."
   type        = list(string)
-  default     = ["10.0.0.0/24", "10.0.1.0/24"]
+  default     = []
 }
 
 variable "private_subnet_cidrs" {
   description = "Private subnet CIDRs for practice VPC. Ignored when create_vpc=false."
   type        = list(string)
-  default     = ["10.0.10.0/24", "10.0.11.0/24"]
+  default     = []
 }
 
 variable "existing_vpc_id" {
