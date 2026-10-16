@@ -13,7 +13,7 @@
 
 project     = "uda327"
 environment = "prod"
-aws_region  = "eu-north-1"
+aws_region  = "us-east-1"
 
 # For local practice only. Replace with your AWS CLI/SSO profile name.
 # For CI/CD or CG platform-run execution, leave aws_profile empty and use role-based auth.
@@ -29,14 +29,14 @@ additional_tags = {
 
 # Create a new practice VPC similar to the manual E2E setup.
 create_vpc           = true
-vpc_cidr             = "10.0.0.0/16"
-public_subnet_cidrs  = ["10.0.0.0/24", "10.0.1.0/24"]
-private_subnet_cidrs = ["10.0.10.0/24", "10.0.11.0/24"]
+vpc_cidr             = ""
+public_subnet_cidrs  = []
+private_subnet_cidrs = []
 enable_vpc_endpoints = true
 
 # Create app-specific security groups.
 create_security_groups = true
-allowed_egress_cidrs   = ["0.0.0.0/0"]
+allowed_egress_cidrs   = []
 
 # Backend sizing based on the manual ECS/Fargate setup.
 container_port = 8000
@@ -46,9 +46,7 @@ ecs_memory     = 4096
 # image_tag is NOT set in this file. It changes with every release, so it is given at deploy time:
 #   tofu apply -var "image_tag=<version>"      (or set  $env:TF_VAR_image_tag="<version>"  first)
 
-# 1-step method: start 1 container straight away. The ECR repo is empty during the apply, so
-# the container cannot start until you push image_tag; push it, then force a new deployment.
-# (3-step method: set 0 here, push the image, then set 1 and apply again.)
+
 desired_count = 1
 
 # CORS: the Amplify URL is added automatically (main.tf). Only list EXTRA origins here.
@@ -90,8 +88,8 @@ entra_client_id = ""
 
 # Amplify is part of target architecture, but enable only after repo URL/access is ready.
 enable_amplify         = true
-amplify_repository_url = "https://github.com/acies-Thakshana/PM-AI"
-amplify_branch_name    = "enhanced-with-agents"  # REVIEW: this environment's Git branch
+amplify_repository_url = "https://github.com/Carrier-Intelligence/UDA-327-CST-Virtual-C-I-Program-Manager-Report-Agent-AWS.git"
+amplify_branch_name    = ""  # REVIEW: this environment's Git branch
 
 # REVIEW: prompt ids belong to an AWS account + region. Create the prompts in this environment's
 # account (python scripts/bedrock_prompts.py create) and paste ITS ids here.
