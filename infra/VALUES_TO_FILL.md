@@ -7,7 +7,7 @@ This file lists what to fill and where.
 Edit:
 
 ```text
-environments/opentofu/opentofu-acies-practice.tfvars
+envs/dev/terraform.tfvars
 ```
 
 Fill:
@@ -37,7 +37,7 @@ desired_count = 1
 Edit:
 
 ```text
-environments/opentofu/opentofu-cg-existing-vpc.tfvars
+templates/cg-existing-vpc.tfvars.example
 ```
 
 Fill these first:

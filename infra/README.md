@@ -1,172 +1,116 @@
-# PMAI OpenTofu Infrastructure
-
-This `/infra` folder is a template implementation for the PMAI AWS setup.
-
-It follows the same architecture described in the E2E/backend/frontend deployment notes:
+# PMAI infrastructure (OpenTofu): one folder per environment, shared modules
 
 ```text
-Amplify frontend
-   -> API Gateway HTTP API
-   -> VPC Link
-   -> internal ALB
-   -> ECS Fargate FastAPI backend
-   -> S3, DynamoDB, Secrets Manager, CloudWatch, Translate, Bedrock
+Amplify frontend -> API Gateway -> VPC Link -> internal ALB -> ECS Fargate backend -> S3, DynamoDB, Bedrock, Translate
 ```
 
-## Important safety point
-
-This code does **not** contain real AWS credentials, account IDs, secret values, subnet IDs, or client-specific values.
-
-You must fill the values in one of these files:
+## Folder layout
 
 ```text
-environments/opentofu/opentofu-acies-practice.tfvars
-environments/opentofu/opentofu-cg-existing-vpc.tfvars
+infra/
+├── envs/                      one folder per environment = one working directory = one state
+│   ├── dev/
+│   │   ├── backend.tf         WHERE this environment's state lives (differs per env: the key)
+│   │   ├── main.tf            calls the modules (IDENTICAL in dev, uat, prod)
+│   │   ├── providers.tf       OpenTofu + AWS provider settings (identical)
+│   │   ├── variables.tf       every input the environment accepts (identical)
+│   │   ├── outputs.tf         values printed after apply (identical)
+│   │   └── terraform.tfvars   THE VALUES for this environment (differs per env)
+│   ├── uat/   (same six files)
+│   └── prod/  (same six files)
+├── modules/                   the real code, written once and reused by every environment
+│   ├── network/    VPC, subnets, internet gateway, NAT, route tables, S3/DynamoDB endpoints
+│   ├── security/   the three chained firewalls (security groups)
+│   ├── registry/   ECR repository + clean-up policy
+│   ├── secrets/    legacy API-key containers (switched off today)
+│   ├── storage/    S3 data bucket and its settings
+│   ├── database/   the four DynamoDB tables
+│   ├── iam/        execution role + task role and their permissions
+│   ├── compute/    internal load balancer + ECS (cluster, task definition, service)
+│   ├── api/        API Gateway, VPC Link, route, stage
+│   └── frontend/   Amplify app + branch
+├── templates/
+│   └── cg-existing-vpc.tfvars.example   values for a client that supplies its own VPC (not used directly)
+├── VALUES_TO_FILL.md
+└── README.md
 ```
 
-## Two modes
+Each module has exactly three files: `main.tf` (the resources), `variables.tf` (its inputs), `outputs.tf` (what it hands back).
 
-### 1. Acies learning/practice mode
+## How to use an environment
 
-Use:
+Run every command from inside that environment's folder.
 
-```hcl
-create_vpc = true
-```
+```powershell
+cd infra\envs\dev
+$env:AWS_PROFILE="rishikesh"                      # your AWS login (the state backend reads this)
+$env:TF_VAR_amplify_access_token="<github token>" # never put the token in a file
 
-This creates a fresh VPC, public/private subnets, NAT, route tables, and app resources.
-
-Run with:
-
-```bash
-tofu init
-tofu fmt -recursive
+tofu init        # first time per folder: downloads the provider, connects to the state
 tofu validate
-tofu plan -var-file=environments/opentofu/opentofu-acies-practice.tfvars
+tofu plan        # read it carefully
+tofu apply
 ```
 
-Only apply after reading the plan:
+There is **no `-var-file` flag any more**: OpenTofu loads `terraform.tfvars` from the folder by itself.
 
-```bash
-tofu apply -var-file=environments/opentofu/opentofu-acies-practice.tfvars
-```
+Before the first `init` the state bucket named in `backend.tf` must exist (create it once, by hand, with
+versioning and encryption on). To try a folder without S3, comment out the block in `backend.tf`; the state
+then stays in that folder.
 
-### 2. CG existing VPC mode
+## Why this fixes the state problem
 
-Use:
+| Before (one folder, several tfvars) | Now |
+|---|---|
+| One state shared by every environment | One state per folder (the `key` in `backend.tf` is different) |
+| You had to switch with `init -reconfigure` | You `cd` into the environment. The folder IS the environment. |
+| A wrong `-var-file` could plan to destroy dev | `plan` in `envs/uat` cannot read dev's state |
 
-```hcl
-create_vpc = false
-existing_vpc_id = "vpc-..."
-existing_private_subnet_ids = ["subnet-a", "subnet-b"]
-```
+## What must stay identical, and what may differ
 
-This reuses CG's existing VPC and private subnets, while creating the PMAI app resources.
+| File | dev / uat / prod |
+|---|---|
+| `main.tf`, `providers.tf`, `variables.tf`, `outputs.tf` | **Identical.** Check with: `Compare-Object (Get-Content envs\dev\main.tf) (Get-Content envs\uat\main.tf)` (no output = identical) |
+| `backend.tf` | Same except the state `key` (and, for a real rollout, the bucket and region) |
+| `terraform.tfvars` | The only place the environments differ: names, sizes, ids, flags |
 
-Run with:
+## Adding a new environment
 
-```bash
-tofu init -backend-config=environments/opentofu/backend.hcl
-tofu fmt -recursive
-tofu validate
-tofu plan -var-file=environments/opentofu/opentofu-cg-existing-vpc.tfvars
-```
+1. Copy an existing folder: `Copy-Item envs\uat envs\staging -Recurse`
+2. In `envs\staging\backend.tf` change the state `key` to `envs/staging/terraform.tfstate`.
+3. In `envs\staging\terraform.tfvars` set `environment = "staging"` and review every `REVIEW` line.
+4. `cd envs\staging`, then `tofu init`, `tofu plan`.
 
-Only apply after CG reviews the plan:
+## Naming
 
-```bash
-tofu apply -var-file=environments/opentofu/opentofu-cg-existing-vpc.tfvars
-```
+Every resource is named `<project>-<thing>-<environment>`; with `project = "uda327"` that gives names such as
+`uda327-alb-dev`, `uda327-alb-uat`, `uda327-alb-prod`. The names live inside the modules, so they are the same
+in every environment and only `project` and `environment` (in `terraform.tfvars`) change.
 
-## Recommended first deployment flow
+| Resource | Name (dev shown) |
+|---|---|
+| Security groups | `uda327-vpclink-sg-dev`, `uda327-alb-sg-dev`, `uda327-ecs-sg-dev` |
+| ECR repository | `uda327-backend-dev` |
+| IAM roles | `uda327-ecs-execution-role-dev`, `uda327-ecs-task-role-dev` |
+| S3 bucket | `uda327-storage-s3-dev` |
+| DynamoDB tables | `uda327-records-dev`, `uda327-profiles-dev`, `uda327-events-dev` (and `uda327-sessions-dev`) |
+| Load balancer, target group | `uda327-alb-dev`, `uda327-alb-tg-dev` |
+| ECS cluster, task definition, service | `uda327-ecs-dev`, `uda327-task-ecs-dev`, `uda327-service-ecs-dev` |
+| API Gateway, VPC Link, stage label | `uda327-api-dev`, `uda327-vpclink-dev`, `uda327-api-stage-dev` |
+| Amplify app | `uda327-frontend-dev` |
 
-Use `desired_count = 0` for the first apply. This creates infrastructure but does not start the backend container yet.
+Two names can be set by hand when a client's naming differs from the pattern:
+`ecr_repository_name` (ECR) and `dynamodb_table_name_overrides` (DynamoDB). UAT uses both, because its sheet
+names are `uda327-backend-ecr-uat` and `uda327-<records|profiles|events>-dynamodb-uat`.
+An S3 bucket name must be unique across all of AWS. If `uda327-storage-s3-dev` is taken, set `s3_bucket_name`.
 
-Then:
+## Notes
 
-1. Push the Docker image to ECR.
-2. Add secret values to Secrets Manager, if OpenRouter/DeepL are enabled.
-3. Set `desired_count = 1`.
-4. Run `tofu plan` and `tofu apply` again.
-
-## Main values to fill for CG
-
-Use `environments/opentofu/opentofu-cg-existing-vpc.tfvars`.
-
-Required values:
-
-```hcl
-aws_region = "CHANGE_ME_CG_REGION"
-existing_vpc_id = "CHANGE_ME_VPC_ID"
-existing_private_subnet_ids = [
-  "CHANGE_ME_PRIVATE_SUBNET_ID_A",
-  "CHANGE_ME_PRIVATE_SUBNET_ID_B"
-]
-extra_cors_origins = []   # the Amplify URL is added automatically; list only extra origins
-owner = "CHANGE_ME_OWNER"
-cost_center = "CHANGE_ME_COST_CENTER"
-bedrock_model_id = "CHANGE_ME_CG_APPROVED_BEDROCK_MODEL_ID"
-bedrock_model_arns = ["CHANGE_ME_CG_APPROVED_BEDROCK_MODEL_ARN_OR_STAR_FOR_INITIAL_TEST"]
-```
-
-Optional depending on CG rules:
-
-```hcl
-enable_vpc_endpoints = true
-existing_private_route_table_ids = ["rtb-a", "rtb-b"]
-permissions_boundary_arn = "arn:..."
-create_iam_roles = false
-existing_ecs_execution_role_arn = "arn:..."
-existing_ecs_task_role_arn = "arn:..."
-create_security_groups = false
-existing_vpclink_security_group_id = "sg-..."
-existing_alb_security_group_id = "sg-..."
-existing_ecs_security_group_id = "sg-..."
-```
-
-## Bedrock
-
-Bedrock is enabled by default as an application runtime option:
-
-```hcl
-enable_bedrock = true
-bedrock_model_id = "CHANGE_ME_CG_APPROVED_BEDROCK_MODEL_ID"
-bedrock_model_arns = ["CHANGE_ME_CG_APPROVED_BEDROCK_MODEL_ARN_OR_STAR_FOR_INITIAL_TEST"]
-```
-
-This version intentionally does **not** create a prompt registry or Bedrock Prompt Management resource.
-
-## Secret values
-
-Secret containers can be created by OpenTofu, but secret values should be inserted separately.
-
-Example:
-
-```bash
-aws secretsmanager put-secret-value \
-  --secret-id <openrouter_secret_arn_or_name> \
-  --secret-string '<actual-secret-value>' \
-  --region <region>
-```
-
-Do not put secret values inside `.tf` or `.tfvars` files.
-
-## File map
-
-```text
-versions.tf                  Provider version and optional backend block
-providers.tf                 AWS provider configuration
-variables.tf                 All configurable values
-locals.tf                    Derived names/IDs/env vars
-network.tf                   VPC/subnets/NAT/routes/endpoints
-security_groups.tf           VPC Link, ALB, ECS security groups
-ecr.tf                       Backend Docker image repository
-iam.tf                       ECS roles and app permissions
-secrets.tf                   Placeholder secret containers
-storage.tf                   S3 bucket and DynamoDB tables
-load_balancer.tf             Internal ALB, target group, listener
-ecs.tf                       ECS cluster, task definition, service
-api_gateway.tf               HTTP API, VPC Link, ALB integration
-amplify.tf                   Optional Amplify app and branch
-outputs.tf                   Useful output values
-```
+- `envs/uat` and `envs/prod` currently hold a **copy of the dev values** with the environment name changed (UAT also carries its naming-sheet names). They are
+  a starting point; lines marked `REVIEW` must be checked before real use (for example `ecr_force_delete`,
+  `allow_anon`, `bedrock_model_arns`, the prompt ids, and the ECR repository name if two environments share
+  one AWS account).
+- Prompt ids (`bedrock_prompt_ids`) belong to an AWS account and region. Create them in each environment's
+  account.
+- `required_version` is `>= 1.10.0` because the S3 state lock file (`use_lockfile`) needs OpenTofu 1.10+.
+- The old flat layout is saved in git commit `439ddab` and in a copy outside the repository.
