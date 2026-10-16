@@ -1,15 +1,9 @@
 # ----------------------------------------------------------------------------------------------
-# Module: iam
+# IAM
 #
-# The two roles the containers use and what they may do:
-#   - execution role: ECS pulls the image and writes logs (AWS managed policy), reads secrets if any
-#   - task role: the app's own access to S3, DynamoDB, Bedrock (models + prompts) and Translate
-#
-# With create_iam_roles = false the client's role ARNs are used instead.
-# Moved unchanged from iam.tf; the bucket / table / secret ARNs now arrive as inputs (var.*).
+# Execution role (ECS pulls the image, writes logs) and task role (the app's own access to S3, DynamoDB,
+# Bedrock and Translate).
 # ----------------------------------------------------------------------------------------------
-
-data "aws_caller_identity" "current" {}
 
 locals {
   # IAM role selection.
@@ -49,17 +43,17 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_managed" {
 }
 
 data "aws_iam_policy_document" "ecs_execution_secrets" {
-  count = var.create_iam_roles && length(var.secret_arns) > 0 ? 1 : 0
+  count = var.create_iam_roles && length(local.secret_arns) > 0 ? 1 : 0
 
   statement {
     effect    = "Allow"
     actions   = ["secretsmanager:GetSecretValue"]
-    resources = var.secret_arns
+    resources = local.secret_arns
   }
 }
 
 resource "aws_iam_role_policy" "ecs_execution_secrets" {
-  count = var.create_iam_roles && length(var.secret_arns) > 0 ? 1 : 0
+  count = var.create_iam_roles && length(local.secret_arns) > 0 ? 1 : 0
 
   name   = "${var.project}-execution-secrets-${var.environment}"
   role   = aws_iam_role.ecs_execution[0].id
@@ -89,14 +83,14 @@ data "aws_iam_policy_document" "app_permissions" {
       "s3:PutObject",
       "s3:DeleteObject"
     ]
-    resources = ["${var.s3_bucket_arn}/*"]
+    resources = ["${local.s3_bucket_arn}/*"]
   }
 
   statement {
     sid       = "S3ListBucket"
     effect    = "Allow"
     actions   = ["s3:ListBucket"]
-    resources = [var.s3_bucket_arn]
+    resources = [local.s3_bucket_arn]
   }
 
   statement {
@@ -112,16 +106,16 @@ data "aws_iam_policy_document" "app_permissions" {
       "dynamodb:BatchGetItem",
       "dynamodb:BatchWriteItem"
     ]
-    resources = concat(var.dynamodb_table_arns, [for arn in var.dynamodb_table_arns : "${arn}/index/*"])
+    resources = concat(local.dynamodb_table_arns, [for arn in local.dynamodb_table_arns : "${arn}/index/*"])
   }
 
   dynamic "statement" {
-    for_each = length(var.secret_arns) > 0 ? [1] : []
+    for_each = length(local.secret_arns) > 0 ? [1] : []
     content {
       sid       = "SecretsRead"
       effect    = "Allow"
       actions   = ["secretsmanager:GetSecretValue"]
-      resources = var.secret_arns
+      resources = local.secret_arns
     }
   }
 

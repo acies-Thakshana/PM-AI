@@ -1,11 +1,8 @@
 # ----------------------------------------------------------------------------------------------
-# Module: api
+# API Gateway
 #
-# The public front door: API Gateway HTTP API (with CORS), the VPC Link into the private network,
-# the integration to the load balancer listener, the catch-all route, the $default stage and its
-# access-log group.
-#
-# Moved unchanged from api_gateway.tf; the CORS list, firewall, subnets and listener ARN are inputs.
+# HTTP API (with CORS), VPC Link into the private network, integration to the load balancer listener,
+# catch-all route and the $default stage with its access-log group.
 # ----------------------------------------------------------------------------------------------
 
 resource "aws_cloudwatch_log_group" "api_gateway" {
@@ -25,7 +22,7 @@ resource "aws_apigatewayv2_api" "backend" {
     allow_credentials = false
     allow_headers     = ["*"]
     allow_methods     = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
-    allow_origins     = var.cors_origins
+    allow_origins     = local.cors_origins
     expose_headers    = ["*"]
     max_age           = var.api_gateway_cors_max_age_seconds
   }
@@ -37,8 +34,8 @@ resource "aws_apigatewayv2_api" "backend" {
 
 resource "aws_apigatewayv2_vpc_link" "backend" {
   name               = "${var.project}-vpclink-${var.environment}"
-  security_group_ids = [var.vpclink_security_group_id]
-  subnet_ids         = var.private_subnet_ids
+  security_group_ids = [local.vpclink_security_group_id]
+  subnet_ids         = local.private_subnet_ids
 
   tags = {
     Name = "${var.project}-vpclink-${var.environment}"
@@ -49,7 +46,7 @@ resource "aws_apigatewayv2_integration" "alb" {
   api_id                 = aws_apigatewayv2_api.backend.id
   integration_type       = "HTTP_PROXY"
   integration_method     = "ANY"
-  integration_uri        = var.listener_arn
+  integration_uri        = aws_lb_listener.http.arn
   payload_format_version = "1.0"
   connection_type        = "VPC_LINK"
   connection_id          = aws_apigatewayv2_vpc_link.backend.id

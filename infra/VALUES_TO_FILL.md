@@ -7,7 +7,7 @@ This file lists what to fill and where.
 Edit:
 
 ```text
-envs/dev/terraform.tfvars
+uat.tfvars
 ```
 
 Fill:

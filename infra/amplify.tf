@@ -1,12 +1,7 @@
 # ----------------------------------------------------------------------------------------------
-# Module: frontend
+# Amplify
 #
-# The frontend: Amplify app (build recipe, repository, token) and branch (carries the API URL).
-#
-# local.amplify_origin is the URL the site is served at (https://<branch>.<app domain>). It exists as
-# soon as the app is created, so the environment can add it to every CORS list in a single apply.
-# The API URL is given to the BRANCH, not the app, to avoid a circular dependency.
-# Moved unchanged from amplify.tf (+ amplify_origin from locals.tf).
+# Amplify app and branch. The API URL is set on the BRANCH (not the app) to avoid a circular dependency.
 # ----------------------------------------------------------------------------------------------
 
 locals {
@@ -68,7 +63,7 @@ resource "aws_amplify_branch" "frontend" {
   stage     = upper(var.environment) == "PROD" ? "PRODUCTION" : "DEVELOPMENT"
 
   environment_variables = {
-    VITE_API_BASE_URL = trimsuffix(var.api_url, "/")
+    VITE_API_BASE_URL = trimsuffix(aws_apigatewayv2_stage.default.invoke_url, "/")
   }
 
   tags = {

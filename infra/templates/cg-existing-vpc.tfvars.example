@@ -1,7 +1,7 @@
 # ----------------------------------------------------------------------------------------------
 # Template: client environment that supplies its own VPC
 #
-# Not used directly. Copy the values you need into envs/<env>/terraform.tfvars when the client provides
+# Not used directly. Copy the values you need into uat.tfvars (or another -var-file) when the client provides
 # the VPC and subnets (create_vpc = false). Unchanged from the old opentofu-cg-existing-vpc.tfvars.
 # ----------------------------------------------------------------------------------------------
 

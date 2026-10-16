@@ -10,13 +10,13 @@ variable "project" {
 variable "environment" {
   description = "Environment name (dev, uat or prod). It ends every resource name, for example uda327-alb-dev."
   type        = string
-  default     = "opentofu"
+  default     = "uat"
 }
 
 variable "aws_region" {
   description = "AWS region where resources are deployed."
   type        = string
-  default     = "eu-north-1"
+  default     = "us-east-1"
 }
 
 variable "aws_profile" {
@@ -530,7 +530,7 @@ variable "dynamodb_billing_mode" {
 }
 
 variable "dynamodb_ttl_attribute" {
-  description = "TTL attribute name. Backend writes epoch seconds here. Table keys are fixed per table in modules/database to match the backend (docs: session_id+doc; profiles: user_id+profile; audit-log: session_id+ts_event + by-user index)."
+  description = "TTL attribute name. Backend writes epoch seconds here. Table keys are fixed per table in storage.tf to match the backend (docs: session_id+doc; profiles: user_id+profile; audit-log: session_id+ts_event + by-user index)."
   type        = string
   default     = "ttl"
 }

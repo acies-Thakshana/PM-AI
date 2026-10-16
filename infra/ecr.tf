@@ -1,10 +1,7 @@
 # ----------------------------------------------------------------------------------------------
-# Module: registry
+# ECR
 #
-# The ECR repository that stores the backend Docker image, plus its clean-up (lifecycle) policy.
-#
-# With create_ecr = false the client's existing repository URL is used instead.
-# Moved unchanged from ecr.tf (+ the ECR chooser locals from locals.tf).
+# The repository that stores the backend Docker image, plus its clean-up (lifecycle) policy.
 # ----------------------------------------------------------------------------------------------
 
 locals {

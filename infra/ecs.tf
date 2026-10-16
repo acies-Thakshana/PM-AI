@@ -1,14 +1,7 @@
 # ----------------------------------------------------------------------------------------------
-# Module: compute
+# ECS
 #
-# Everything that runs and serves the backend container:
-#   - internal Application Load Balancer, target group (health check) and listener
-#   - ECS: log group, cluster, task definition (the container recipe) and service
-#
-# locals.ecs_environment builds the container's environment variables (DDB_*, S3_BUCKET, CORS_ORIGINS,
-# BEDROCK_*, ALLOW_ANON, ENTRA_*). Moved unchanged from load_balancer.tf, ecs.tf and locals.tf.
-# The only logic change: the ECS service no longer lists the IAM policy attachment in depends_on (it
-# lives in another module); the iam module's output waits for it instead, which gives the same order.
+# The container's environment variables, log group, cluster, task definition and service.
 # ----------------------------------------------------------------------------------------------
 
 locals {
@@ -16,14 +9,14 @@ locals {
   # DDB_DOCS switches the backend to AWS storage (S3_BUCKET only holds the downloadable files);
   # without it the backend falls back to local files.
   ecs_environment = concat([
-    { name = "CORS_ORIGINS", value = join(",", var.cors_origins) },
+    { name = "CORS_ORIGINS", value = join(",", local.cors_origins) },
     { name = "BEDROCK_PROMPT_IDS", value = jsonencode(var.bedrock_prompt_ids) },
     { name = "AWS_REGION", value = var.aws_region },
     { name = "TRANSLATE_REGION", value = var.aws_region },
-    { name = "S3_BUCKET", value = var.s3_bucket_name },
-    { name = "DDB_DOCS", value = lookup(var.dynamodb_table_names, "docs", "") },
-    { name = "DDB_PROFILES", value = lookup(var.dynamodb_table_names, "profiles", "") },
-    { name = "DDB_AUDIT", value = lookup(var.dynamodb_table_names, "audit_log", "") }
+    { name = "S3_BUCKET", value = local.s3_bucket_name },
+    { name = "DDB_DOCS", value = lookup(local.dynamodb_table_names, "docs", "") },
+    { name = "DDB_PROFILES", value = lookup(local.dynamodb_table_names, "profiles", "") },
+    { name = "DDB_AUDIT", value = lookup(local.dynamodb_table_names, "audit_log", "") }
     ], var.enable_bedrock ? [
     { name = "BEDROCK_REGION", value = var.aws_region },
     { name = "BEDROCK_CHEAP_MODEL", value = var.bedrock_cheap_model_id },
@@ -35,60 +28,6 @@ locals {
       { name = "ENTRA_TENANT_ID", value = var.entra_tenant_id },
       { name = "ENTRA_CLIENT_ID", value = var.entra_client_id }
   ] : [])
-}
-
-resource "aws_lb" "backend" {
-  name               = "${var.project}-alb-${var.environment}"
-  internal           = true
-  load_balancer_type = "application"
-  security_groups    = [var.alb_security_group_id]
-  subnets            = var.private_subnet_ids
-  idle_timeout       = var.alb_idle_timeout_seconds
-
-  tags = {
-    Name = "${var.project}-alb-${var.environment}"
-  }
-}
-
-resource "aws_lb_target_group" "backend" {
-  name        = "${var.project}-alb-tg-${var.environment}"
-  port        = var.container_port
-  protocol    = "HTTP"
-  target_type = "ip"
-  vpc_id      = var.vpc_id
-
-  health_check {
-    enabled             = true
-    path                = var.health_check_path
-    matcher             = var.health_check_matcher
-    port                = "traffic-port"
-    protocol            = "HTTP"
-    interval            = var.health_check_interval_seconds
-    timeout             = var.health_check_timeout_seconds
-    healthy_threshold   = var.health_check_healthy_threshold
-    unhealthy_threshold = var.health_check_unhealthy_threshold
-  }
-
-  tags = {
-    Name = "${var.project}-alb-tg-${var.environment}"
-  }
-}
-
-resource "aws_lb_listener" "http" {
-  load_balancer_arn = aws_lb.backend.arn
-  port              = var.alb_listener_port
-  protocol          = var.alb_listener_protocol
-  certificate_arn   = var.alb_listener_protocol == "HTTPS" ? var.alb_certificate_arn : null
-  ssl_policy        = var.alb_listener_protocol == "HTTPS" ? "ELBSecurityPolicy-TLS13-1-2-2021-06" : null
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.backend.arn
-  }
-
-  tags = {
-    Name = "${var.project}-alb-listener-${var.environment}"
-  }
 }
 
 resource "aws_cloudwatch_log_group" "backend" {
@@ -119,8 +58,8 @@ resource "aws_ecs_task_definition" "backend" {
   network_mode             = "awsvpc"
   cpu                      = tostring(var.ecs_cpu)
   memory                   = tostring(var.ecs_memory)
-  execution_role_arn       = var.ecs_execution_role_arn
-  task_role_arn            = var.ecs_task_role_arn
+  execution_role_arn       = local.ecs_execution_role_arn
+  task_role_arn            = local.ecs_task_role_arn
 
   runtime_platform {
     operating_system_family = "LINUX"
@@ -130,7 +69,7 @@ resource "aws_ecs_task_definition" "backend" {
   container_definitions = jsonencode([
     {
       name      = "backend"
-      image     = "${var.ecr_repository_url}:${var.image_tag}"
+      image     = "${local.ecr_repository_url}:${var.image_tag}"
       essential = true
 
       portMappings = [
@@ -142,7 +81,7 @@ resource "aws_ecs_task_definition" "backend" {
       ]
 
       environment = local.ecs_environment
-      secrets     = var.container_secrets
+      secrets     = local.ecs_container_secrets
 
       logConfiguration = {
         logDriver = "awslogs"
@@ -176,8 +115,8 @@ resource "aws_ecs_service" "backend" {
   }
 
   network_configuration {
-    subnets          = var.private_subnet_ids
-    security_groups  = [var.ecs_security_group_id]
+    subnets          = local.private_subnet_ids
+    security_groups  = [local.ecs_security_group_id]
     assign_public_ip = false
   }
 
@@ -188,7 +127,8 @@ resource "aws_ecs_service" "backend" {
   }
 
   depends_on = [
-    aws_lb_listener.http
+    aws_lb_listener.http,
+    aws_iam_role_policy_attachment.ecs_execution_managed # ECS must not start before the role can pull images
   ]
 
   tags = {

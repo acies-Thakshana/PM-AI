@@ -1,11 +1,8 @@
 # ----------------------------------------------------------------------------------------------
-# Module: network
+# Network
 #
 # The private network: VPC, public and private subnets, internet gateway, NAT gateway, route tables
-# and the S3 / DynamoDB gateway endpoints.
-#
-# With create_vpc = false nothing here is created and the client's VPC and subnet ids are passed through.
-# Moved unchanged from the old flat network.tf (+ the network chooser locals from locals.tf).
+# and the S3 / DynamoDB gateway endpoints. With create_vpc = false nothing is created and the client's ids are used.
 # ----------------------------------------------------------------------------------------------
 
 data "aws_availability_zones" "available" {

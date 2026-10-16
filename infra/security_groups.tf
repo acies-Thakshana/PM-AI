@@ -1,11 +1,8 @@
 # ----------------------------------------------------------------------------------------------
-# Module: security
+# Security groups
 #
-# The three chained firewalls (security groups): VPC Link -> load balancer (port alb_listener_port)
-# -> ECS containers (port container_port). Each only accepts traffic from the one before it.
-#
-# With create_security_groups = false the client's three group ids are passed through.
-# Moved unchanged from security_groups.tf; only local.vpc_id became var.vpc_id.
+# The three chained firewalls: VPC Link -> load balancer -> ECS containers. Each only accepts traffic
+# from the one before it.
 # ----------------------------------------------------------------------------------------------
 
 locals {
@@ -20,7 +17,7 @@ resource "aws_security_group" "vpclink" {
 
   name        = "${var.project}-vpclink-sg-${var.environment}"
   description = "API Gateway VPC Link security group"
-  vpc_id      = var.vpc_id
+  vpc_id      = local.vpc_id
 
   egress {
     description = "Allow outbound from VPC Link"
@@ -40,7 +37,7 @@ resource "aws_security_group" "alb" {
 
   name        = "${var.project}-alb-sg-${var.environment}"
   description = "Internal ALB security group"
-  vpc_id      = var.vpc_id
+  vpc_id      = local.vpc_id
 
   ingress {
     description     = "HTTP from API Gateway VPC Link"
@@ -68,7 +65,7 @@ resource "aws_security_group" "ecs" {
 
   name        = "${var.project}-ecs-sg-${var.environment}"
   description = "ECS backend task security group"
-  vpc_id      = var.vpc_id
+  vpc_id      = local.vpc_id
 
   ingress {
     description     = "Backend traffic from internal ALB"

@@ -1,12 +1,8 @@
 # ----------------------------------------------------------------------------------------------
-# Module: secrets
+# Secrets
 #
-# Empty Secrets Manager containers for the legacy OpenRouter / DeepL API keys, and the lists the
-# other modules need (secret ARNs for IAM, name+ARN pairs for the container).
-#
-# Both are switched off in the current setup (enable_openrouter / enable_deepl = false), so this module
-# creates nothing today. Secret VALUES are never stored here.
-# Moved unchanged from secrets.tf (+ the secret locals from locals.tf).
+# Empty Secrets Manager containers for the legacy OpenRouter / DeepL keys. Off today (enable_openrouter and
+# enable_deepl are false), so this creates nothing. Secret VALUES are never stored here.
 # ----------------------------------------------------------------------------------------------
 
 locals {
