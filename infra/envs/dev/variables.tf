@@ -143,9 +143,8 @@ variable "container_port" {
 }
 
 variable "image_tag" {
-  description = "Backend Docker image tag used by ECS."
+  description = "Backend Docker image tag ECS runs. No default and not in tfvars: it changes with every release, so pass it at deploy time (-var \"image_tag=1.2.3\" or TF_VAR_image_tag)."
   type        = string
-  default     = "1.0.0"
 }
 
 variable "ecs_cpu" {
@@ -395,10 +394,22 @@ variable "enable_bedrock" {
   default     = true
 }
 
-variable "bedrock_model_id" {
-  description = "Bedrock model ID used by the backend. Replace with CG-approved model."
+variable "bedrock_cheap_model_id" {
+  description = "Bedrock model for the cheap, high-volume calls. Reaches the container as BEDROCK_CHEAP_MODEL."
   type        = string
-  default     = "anthropic.claude-3-5-sonnet-20240620-v1:0"
+  default     = "us.amazon.nova-pro-v1:0"
+}
+
+variable "bedrock_default_model_id" {
+  description = "Bedrock model for the everyday calls. Reaches the container as BEDROCK_DEFAULT_MODEL."
+  type        = string
+  default     = "us.anthropic.claude-haiku-4-5-20251001"
+}
+
+variable "bedrock_strong_model_id" {
+  description = "Bedrock model for the heavy reasoning calls (planner, code writing). Reaches the container as BEDROCK_STRONG_MODEL."
+  type        = string
+  default     = "us.anthropic.claude-sonnet-4-6"
 }
 
 variable "bedrock_model_arns" {
@@ -519,13 +530,13 @@ variable "dynamodb_billing_mode" {
 }
 
 variable "dynamodb_ttl_attribute" {
-  description = "TTL attribute name. Backend writes epoch seconds here. Table keys are fixed per table in storage.tf to match the backend (sessions: session_id; docs: session_id+doc; profiles: user_id+profile; audit-log: session_id+ts_event + by-user index)."
+  description = "TTL attribute name. Backend writes epoch seconds here. Table keys are fixed per table in modules/database to match the backend (docs: session_id+doc; profiles: user_id+profile; audit-log: session_id+ts_event + by-user index)."
   type        = string
   default     = "ttl"
 }
 
 variable "existing_dynamodb_table_names" {
-  description = "Existing table names when create_dynamodb_tables=false. Keys: sessions, profiles, docs, audit_log."
+  description = "Existing table names when create_dynamodb_tables=false. Keys: profiles, docs, audit_log."
   type        = map(string)
   default     = {}
 }
@@ -537,7 +548,7 @@ variable "existing_dynamodb_table_arns" {
 }
 
 variable "dynamodb_table_name_overrides" {
-  description = "Optional per-table names that replace the default <project>-<purpose>-<environment> names. Keys: sessions, profiles, docs, audit_log. Empty = use the defaults."
+  description = "Optional per-table names that replace the default <project>-<purpose>-<environment> names. Keys: profiles, docs, audit_log. Empty = use the defaults."
   type        = map(string)
   default     = {}
 }

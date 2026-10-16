@@ -1,5 +1,5 @@
 output "dynamodb_table_names" {
-  description = "Map of table names: sessions, profiles, docs, audit_log."
+  description = "Map of table names: profiles, docs, audit_log."
   value       = local.dynamodb_table_names
 }
 

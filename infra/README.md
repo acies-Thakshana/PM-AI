@@ -24,7 +24,7 @@ infra/
 │   ├── registry/   ECR repository + clean-up policy
 │   ├── secrets/    legacy API-key containers (switched off today)
 │   ├── storage/    S3 data bucket and its settings
-│   ├── database/   the four DynamoDB tables
+│   ├── database/   the three DynamoDB tables
 │   ├── iam/        execution role + task role and their permissions
 │   ├── compute/    internal load balancer + ECS (cluster, task definition, service)
 │   ├── api/        API Gateway, VPC Link, route, stage
@@ -46,11 +46,18 @@ cd infra\envs\dev
 $env:AWS_PROFILE="rishikesh"                      # your AWS login (the state backend reads this)
 $env:TF_VAR_amplify_access_token="<github token>" # never put the token in a file
 
+$env:TF_VAR_image_tag="1.1.0"                   # the image tag you pushed: NOT stored in terraform.tfvars
+
 tofu init        # first time per folder: downloads the provider, connects to the state
 tofu validate
 tofu plan        # read it carefully
 tofu apply
 ```
+
+`image_tag` is the one value that is **not** in `terraform.tfvars` and has no default. It changes with every
+release, so it is supplied when you run: `$env:TF_VAR_image_tag="<version>"` (as above) or
+`tofu apply -var "image_tag=<version>"`. A pipeline passes the commit or release tag the same way. It must
+equal the tag you pushed to ECR. `plan`, `apply` and `destroy` all need a value (any text works for `destroy`).
 
 There is **no `-var-file` flag any more**: OpenTofu loads `terraform.tfvars` from the folder by itself.
 
@@ -93,11 +100,14 @@ in every environment and only `project` and `environment` (in `terraform.tfvars`
 | ECR repository | `uda327-backend-dev` |
 | IAM roles | `uda327-ecs-execution-role-dev`, `uda327-ecs-task-role-dev` |
 | S3 bucket | `uda327-storage-s3-dev` |
-| DynamoDB tables | `uda327-records-dev`, `uda327-profiles-dev`, `uda327-events-dev` (and `uda327-sessions-dev`) |
+| DynamoDB tables | `uda327-records-dev`, `uda327-profiles-dev`, `uda327-events-dev` |
 | Load balancer, target group | `uda327-alb-dev`, `uda327-alb-tg-dev` |
 | ECS cluster, task definition, service | `uda327-ecs-dev`, `uda327-task-ecs-dev`, `uda327-service-ecs-dev` |
 | API Gateway, VPC Link, stage label | `uda327-api-dev`, `uda327-vpclink-dev`, `uda327-api-stage-dev` |
 | Amplify app | `uda327-frontend-dev` |
+
+The code creates exactly **one** S3 bucket per environment (`uda327-storage-s3-<environment>`). The OpenTofu
+state bucket named in `backend.tf` is separate: it is created by hand and is not part of the modules.
 
 Two names can be set by hand when a client's naming differs from the pattern:
 `ecr_repository_name` (ECR) and `dynamodb_table_name_overrides` (DynamoDB). UAT uses both, because its sheet

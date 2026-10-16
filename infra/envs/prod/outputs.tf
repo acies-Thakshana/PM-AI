@@ -59,9 +59,19 @@ output "deepl_secret_arn" {
   value       = module.secrets.deepl_secret_arn
 }
 
-output "bedrock_model_id" {
-  description = "Configured Bedrock model ID."
-  value       = var.enable_bedrock ? var.bedrock_model_id : ""
+output "bedrock_cheap_model_id" {
+  description = "Configured cheap Bedrock model."
+  value       = var.enable_bedrock ? var.bedrock_cheap_model_id : ""
+}
+
+output "bedrock_default_model_id" {
+  description = "Configured default Bedrock model."
+  value       = var.enable_bedrock ? var.bedrock_default_model_id : ""
+}
+
+output "bedrock_strong_model_id" {
+  description = "Configured strong Bedrock model."
+  value       = var.enable_bedrock ? var.bedrock_strong_model_id : ""
 }
 
 output "amplify_app_id" {

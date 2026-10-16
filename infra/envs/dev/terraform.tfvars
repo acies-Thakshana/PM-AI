@@ -17,7 +17,7 @@ aws_region  = "eu-north-1"
 
 # For local practice only. Replace with your AWS CLI/SSO profile name.
 # For CI/CD or CG platform-run execution, leave aws_profile empty and use role-based auth.
-aws_profile     = "rishikesh"
+aws_profile     = ""
 assume_role_arn = ""
 
 owner       = "pmai-team"
@@ -42,15 +42,17 @@ allowed_egress_cidrs   = ["0.0.0.0/0"]
 container_port = 8000
 ecs_cpu        = 1024
 ecs_memory     = 4096
-image_tag      = "1.1.0"
+
+# image_tag is NOT set in this file. It changes with every release, so it is given at deploy time:
+#   tofu apply -var "image_tag=<version>"      (or set  $env:TF_VAR_image_tag="<version>"  first)
 
 # 1-step method: start 1 container straight away. The ECR repo is empty during the apply, so
 # the container cannot start until you push image_tag; push it, then force a new deployment.
 # (3-step method: set 0 here, push the image, then set 1 and apply again.)
 desired_count = 1
 
-# CORS: the Amplify URL is added automatically (locals.tf). Only list EXTRA origins here.
-extra_cors_origins = ["http://localhost:5173"]
+# CORS: the Amplify URL is added automatically (main.tf). Only list EXTRA origins here.
+extra_cors_origins = ["https://uda327-dev-users.d3hnw0ut3bugln.amplifyapp.com"]
 
 # ECR / app resources are created by OpenTofu.
 create_ecr                = true
@@ -73,10 +75,12 @@ enable_openrouter = false
 enable_deepl      = false
 
 # Bedrock + Translate added for the new version.
-enable_bedrock     = true
-enable_translate   = true
-bedrock_model_id   = "openai.gpt-oss-20b-1:0"
-bedrock_model_arns = ["*"]
+enable_bedrock           = true
+enable_translate         = true
+bedrock_cheap_model_id   = "us.amazon.nova-pro-v1:0"
+bedrock_default_model_id = "us.anthropic.claude-haiku-4-5-20251001"
+bedrock_strong_model_id  = "us.anthropic.claude-sonnet-4-6"
+bedrock_model_arns       = ["*"]
 
 # API sign-in. With AWS storage on, the backend needs Entra OR allow_anon.
 # Practice only: no sign-in. For a client environment set the two Entra IDs instead.

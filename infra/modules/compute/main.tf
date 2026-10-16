@@ -13,22 +13,22 @@
 
 locals {
   # Names below are the ones the backend reads (backend/app/config.py, deploy/taskdef.json).
-  # S3_BUCKET + DDB_SESSIONS + DDB_DOCS must all be set, or the backend falls back to local files.
+  # DDB_DOCS switches the backend to AWS storage (S3_BUCKET only holds the downloadable files);
+  # without it the backend falls back to local files.
   ecs_environment = concat([
     { name = "CORS_ORIGINS", value = join(",", var.cors_origins) },
     { name = "BEDROCK_PROMPT_IDS", value = jsonencode(var.bedrock_prompt_ids) },
     { name = "AWS_REGION", value = var.aws_region },
     { name = "TRANSLATE_REGION", value = var.aws_region },
     { name = "S3_BUCKET", value = var.s3_bucket_name },
-    { name = "DDB_SESSIONS", value = lookup(var.dynamodb_table_names, "sessions", "") },
     { name = "DDB_DOCS", value = lookup(var.dynamodb_table_names, "docs", "") },
     { name = "DDB_PROFILES", value = lookup(var.dynamodb_table_names, "profiles", "") },
     { name = "DDB_AUDIT", value = lookup(var.dynamodb_table_names, "audit_log", "") }
     ], var.enable_bedrock ? [
     { name = "BEDROCK_REGION", value = var.aws_region },
-    { name = "BEDROCK_CHEAP_MODEL", value = var.bedrock_model_id },
-    { name = "BEDROCK_DEFAULT_MODEL", value = var.bedrock_model_id },
-    { name = "BEDROCK_STRONG_MODEL", value = var.bedrock_model_id }
+    { name = "BEDROCK_CHEAP_MODEL", value = var.bedrock_cheap_model_id },
+    { name = "BEDROCK_DEFAULT_MODEL", value = var.bedrock_default_model_id },
+    { name = "BEDROCK_STRONG_MODEL", value = var.bedrock_strong_model_id }
     ] : [],
     var.allow_anon ? [{ name = "ALLOW_ANON", value = "1" }] : [],
     var.entra_tenant_id != "" && var.entra_client_id != "" ? [

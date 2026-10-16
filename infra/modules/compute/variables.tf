@@ -59,7 +59,7 @@ variable "s3_bucket_name" {
 }
 
 variable "dynamodb_table_names" {
-  description = "Table names (sessions, profiles, docs, audit_log), passed to the container as DDB_* (from the database module)."
+  description = "Table names (profiles, docs, audit_log), passed to the container as DDB_* (from the database module)."
   type        = map(string)
 }
 
@@ -173,8 +173,18 @@ variable "enable_bedrock" {
   type        = bool
 }
 
-variable "bedrock_model_id" {
-  description = "Bedrock model ID used by the backend. Replace with CG-approved model."
+variable "bedrock_cheap_model_id" {
+  description = "Bedrock model for the cheap, high-volume calls. Reaches the container as BEDROCK_CHEAP_MODEL."
+  type        = string
+}
+
+variable "bedrock_default_model_id" {
+  description = "Bedrock model for the everyday calls. Reaches the container as BEDROCK_DEFAULT_MODEL."
+  type        = string
+}
+
+variable "bedrock_strong_model_id" {
+  description = "Bedrock model for the heavy reasoning calls (planner, code writing). Reaches the container as BEDROCK_STRONG_MODEL."
   type        = string
 }
 

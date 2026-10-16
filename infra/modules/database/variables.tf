@@ -19,12 +19,12 @@ variable "dynamodb_billing_mode" {
 }
 
 variable "dynamodb_ttl_attribute" {
-  description = "TTL attribute name. Backend writes epoch seconds here. Table keys are fixed per table in storage.tf to match the backend (sessions: session_id; docs: session_id+doc; profiles: user_id+profile; audit-log: session_id+ts_event + by-user index)."
+  description = "TTL attribute name. Backend writes epoch seconds here. Table keys are fixed per table in modules/database to match the backend (docs: session_id+doc; profiles: user_id+profile; audit-log: session_id+ts_event + by-user index)."
   type        = string
 }
 
 variable "existing_dynamodb_table_names" {
-  description = "Existing table names when create_dynamodb_tables=false. Keys: sessions, profiles, docs, audit_log."
+  description = "Existing table names when create_dynamodb_tables=false. Keys: profiles, docs, audit_log."
   type        = map(string)
 }
 
@@ -34,6 +34,6 @@ variable "existing_dynamodb_table_arns" {
 }
 
 variable "dynamodb_table_name_overrides" {
-  description = "Optional per-table names that replace the default <project>-<purpose>-<environment> names. Keys: sessions, profiles, docs, audit_log. Empty = use the defaults."
+  description = "Optional per-table names that replace the default <project>-<purpose>-<environment> names. Keys: profiles, docs, audit_log. Empty = use the defaults."
   type        = map(string)
 }

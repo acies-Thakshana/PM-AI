@@ -17,7 +17,7 @@ aws_region  = "eu-north-1"
 
 # For local practice only. Replace with your AWS CLI/SSO profile name.
 # For CI/CD or CG platform-run execution, leave aws_profile empty and use role-based auth.
-aws_profile     = "rishikesh"  # REVIEW: this environment's AWS login (or leave empty and use an assumed role)
+aws_profile     = ""  # REVIEW: this environment's AWS login (or leave empty and use an assumed role)
 assume_role_arn = ""
 
 owner       = "pmai-team"
@@ -42,15 +42,17 @@ allowed_egress_cidrs   = ["0.0.0.0/0"]
 container_port = 8000
 ecs_cpu        = 1024
 ecs_memory     = 4096
-image_tag      = "1.1.0"
+
+# image_tag is NOT set in this file. It changes with every release, so it is given at deploy time:
+#   tofu apply -var "image_tag=<version>"      (or set  $env:TF_VAR_image_tag="<version>"  first)
 
 # 1-step method: start 1 container straight away. The ECR repo is empty during the apply, so
 # the container cannot start until you push image_tag; push it, then force a new deployment.
 # (3-step method: set 0 here, push the image, then set 1 and apply again.)
 desired_count = 1
 
-# CORS: the Amplify URL is added automatically (locals.tf). Only list EXTRA origins here.
-extra_cors_origins = ["http://localhost:5173"]  # REVIEW: localhost is for development only
+# CORS: the Amplify URL is added automatically (main.tf). Only list EXTRA origins here.
+extra_cors_origins = []  # REVIEW: localhost is for development only
 
 # ECR / app resources are created by OpenTofu.
 # UAT name from the naming sheet (dev and prod use the default <project>-backend-<environment>)
@@ -70,12 +72,10 @@ create_iam_roles           = true
 create_placeholder_secrets = true
 
 # UAT table names from the naming sheet. They carry "-dynamodb-", which the default pattern does not.
-# (sessions is not on the sheet; it is named in the same style.)
 dynamodb_table_name_overrides = {
   docs      = "uda327-records-dynamodb-uat"
   profiles  = "uda327-profiles-dynamodb-uat"
   audit_log = "uda327-events-dynamodb-uat"
-  sessions  = "uda327-sessions-dynamodb-uat"
 }
 
 # Current backend can keep OpenRouter wiring for practice.
@@ -84,10 +84,12 @@ enable_openrouter = false
 enable_deepl      = false
 
 # Bedrock + Translate added for the new version.
-enable_bedrock     = true
-enable_translate   = true
-bedrock_model_id   = "openai.gpt-oss-20b-1:0"
-bedrock_model_arns = ["*"]  # REVIEW: list the approved model ARN(s)
+enable_bedrock           = true
+enable_translate         = true
+bedrock_cheap_model_id   = "us.amazon.nova-pro-v1:0"
+bedrock_default_model_id = "us.anthropic.claude-haiku-4-5-20251001"
+bedrock_strong_model_id  = "us.anthropic.claude-sonnet-4-6"
+bedrock_model_arns       = ["*"]  # REVIEW: list the approved model ARN(s)
 
 # API sign-in. With AWS storage on, the backend needs Entra OR allow_anon.
 # Practice only: no sign-in. For a client environment set the two Entra IDs instead.
@@ -105,23 +107,5 @@ amplify_branch_name    = "enhanced-with-agents"  # REVIEW: this environment's Gi
 # Bedrock Prompt Management ids (from: python scripts/bedrock_prompts.py create).
 # Without these the backend answers 503 "No system prompt for 'planner_agent'".
 bedrock_prompt_ids = {
-  planner_agent                    = "8DBE2WI9FO:1",
-  drilldown_path                   = "6UL0FSAT59:1",
-  feature_agent_think              = "2IM936UH9P:1",
-  feature_agent_write_code         = "A2FYQ8K4CG:1",
-  feature_agent_validate           = "PUFTNPNB54:1",
-  feature_suggester                = "H3EPIZ7NIP:1",
-  analysis_agent_think             = "N8HR6ATR60:1",
-  analysis_agent_write_code        = "Q2Q371FEKT:1",
-  analysis_agent_chart_suggestion  = "EC7LSY02QR:1",
-  analysis_agent_interpret         = "FSZC2XYIGR:1",
-  analysis_agent_drilldown         = "HPLYFJOPF7:1",
-  analysis_designer_template_match = "SP5RSZVKJ0:1",
-  analysis_designer_chart          = "NSE77L2OQI:1",
-  analysis_suggester               = "T55QEVWPGQ:1",
-  drilldown_agent                  = "L9OOWU040Z:1",
-  drilldown_agent_more             = "KQHBQPEJVZ:1",
-  audit_agent                      = "BBEA7GIIBA:1",
-  overall_analysis_agent           = "WQLYTHR71Q:1",
-  report_final_summary_agent       = "908YYO0K5S:1"
+
 }

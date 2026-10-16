@@ -56,7 +56,9 @@ existing_ecs_security_group_id     = ""
 container_port = 8000
 ecs_cpu        = 1024
 ecs_memory     = 4096
-image_tag      = "1.0.0"
+
+# image_tag is NOT set in this file. It changes with every release, so it is given at deploy time:
+#   tofu apply -var "image_tag=<version>"      (or set  $env:TF_VAR_image_tag="<version>"  first)
 
 # Recommended CG handoff flow:
 # 1) First run with 0
@@ -91,9 +93,11 @@ enable_deepl          = false
 deepl_secret_arn      = ""
 
 # Bedrock + Translate.
-enable_bedrock   = true
-enable_translate = true
-bedrock_model_id = "CHANGE_ME_CG_APPROVED_BEDROCK_MODEL_ID"
+enable_bedrock           = true
+enable_translate         = true
+bedrock_cheap_model_id   = "CHANGE_ME_CG_APPROVED_CHEAP_MODEL_ID"
+bedrock_default_model_id = "CHANGE_ME_CG_APPROVED_DEFAULT_MODEL_ID"
+bedrock_strong_model_id  = "CHANGE_ME_CG_APPROVED_STRONG_MODEL_ID"
 bedrock_model_arns = [
   "CHANGE_ME_CG_APPROVED_BEDROCK_MODEL_ARN_OR_STAR_FOR_INITIAL_TEST"
 ]

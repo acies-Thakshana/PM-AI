@@ -175,7 +175,9 @@ module "compute" {
   health_check_healthy_threshold   = var.health_check_healthy_threshold
   health_check_unhealthy_threshold = var.health_check_unhealthy_threshold
   enable_bedrock                   = var.enable_bedrock
-  bedrock_model_id                 = var.bedrock_model_id
+  bedrock_cheap_model_id           = var.bedrock_cheap_model_id
+  bedrock_default_model_id         = var.bedrock_default_model_id
+  bedrock_strong_model_id          = var.bedrock_strong_model_id
   bedrock_prompt_ids               = var.bedrock_prompt_ids
   allow_anon                       = var.allow_anon
   entra_tenant_id                  = var.entra_tenant_id

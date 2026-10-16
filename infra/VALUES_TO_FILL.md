@@ -16,8 +16,8 @@ Fill:
 |---|---|---|
 | AWS CLI profile | `aws_profile` | Your Acies/SSO profile name |
 | Region | `aws_region` | Keep same as practice account region |
-| Backend image tag | `image_tag` | `1.0.0` |
-| Bedrock model ID | `bedrock_model_id` | Put approved model ID, or keep placeholder until ready |
+| Backend image tag | **not in tfvars** | Passed at deploy time: `tofu apply -var "image_tag=<version>"` |
+| Bedrock models | `bedrock_cheap_model_id`, `bedrock_default_model_id`, `bedrock_strong_model_id` | The three model ids the backend uses (cheap, default, strong) |
 | Extra CORS origins | `extra_cors_origins` | Only extras (for example `http://localhost:5173`). The Amplify URL is added automatically. |
 
 Keep first run:
@@ -51,7 +51,7 @@ Fill these first:
 | Private route table IDs | `existing_private_route_table_ids` | Needed only if `enable_vpc_endpoints=true` |
 | Extra CORS origins | `extra_cors_origins` | CG custom domain, if any. The Amplify URL is added automatically when `enable_amplify = true`; if Amplify is off, list the frontend origin here. |
 | Tags | `owner`, `cost_center`, `additional_tags` | CG governance tags |
-| Bedrock model ID | `bedrock_model_id` | CG-approved Bedrock model |
+| Bedrock models | `bedrock_cheap_model_id`, `bedrock_default_model_id`, `bedrock_strong_model_id` | CG-approved Bedrock models (cheap, default, strong) |
 | Bedrock model ARNs | `bedrock_model_arns` | Specific ARNs if CG provides them; `*` only for early test if allowed |
 | Repo URL | `amplify_repository_url` | Only if `enable_amplify=true` |
 | Branch | `amplify_branch_name` | `uat`, `main`, etc. |
@@ -81,7 +81,6 @@ existing_s3_bucket_name = "..."
 
 create_dynamodb_tables = false
 existing_dynamodb_table_names = {
-  sessions  = "..."
   profiles  = "..."
   docs      = "..."
   audit_log = "..."
