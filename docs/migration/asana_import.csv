@@ -1,0 +1,285 @@
+﻿ID,Parent,Name,Description,Section/Column,Priority,Estimate (days)
+A1,,A1. Remove hardcoded KPI_data table and column coupling,Depends on: -,A. Remove Sample / Demo Dependencies,High,6
+A1.1,A1,"Grep and list every hardcoded table/column name (KPI_data, ACTUAL_COL, FORECAST_COL, BU_COL, QUARTER_COL) in semantic_executor.py, kpi_data.py, kpi_analytics.py, ask_service.py, llmkg/engine.py, llmkg/seed.py",,A. Remove Sample / Demo Dependencies,High,
+A1.2,A1,Move column mappings into config/data_products.yaml 'columns' (the schema already exists) and load them per data product,,A. Remove Sample / Demo Dependencies,High,
+A1.3,A1,Parameterise SQL builders in semantic_executor.py (about 12 f-strings) by data product id instead of the literal KPI_data,,A. Remove Sample / Demo Dependencies,High,
+A1.4,A1,"Delete default_kpi_path() fallbacks (Downloads folder, nl2sql_root)",,A. Remove Sample / Demo Dependencies,High,
+A1.5,A1,"Remove the 'KPI_data' defaults in ask_service.py:50, llmkg/engine.py:384 and llmkg/seed.py:110",,A. Remove Sample / Demo Dependencies,High,
+A1.6,A1,Remove KPI_data wording from frontend/app/main.py UI text,,A. Remove Sample / Demo Dependencies,High,
+A1.7,A1,"Add a test that runs the same questions against a second, differently-named product to prove nothing is hardcoded",,A. Remove Sample / Demo Dependencies,High,
+A2,,A2. Remove sample data and fixtures from the product,Depends on: -,A. Remove Sample / Demo Dependencies,High,4
+A2.1,A2,"Classify data/purchase_details.csv (real PO numbers, buyer names, vendor ids): confirm whether it is real company data",,A. Remove Sample / Demo Dependencies,High,
+A2.2,A2,"If real or sensitive: remove from the repo and from git history (git filter-repo), and report to data owner",,A. Remove Sample / Demo Dependencies,High,
+A2.3,A2,Delete local_data/fixtures/KPI_data.parquet and service_ops/*.csv from the app; recreate tiny synthetic fixtures under tests/fixtures/ only (no real emails),,A. Remove Sample / Demo Dependencies,High,
+A2.4,A2,Delete local_data/cache and data/README.md guidance about laptop datasets,,A. Remove Sample / Demo Dependencies,High,
+A2.5,A2,"Delete Created/ (Invoice_Processing_SOP.docx, Traditional_ML_Status_Text.pdf): unrelated to the product",,A. Remove Sample / Demo Dependencies,High,
+A2.6,A2,Point config/data_products.yaml at S3/DB locations via environment config; no relative local paths,,A. Remove Sample / Demo Dependencies,High,
+A3,,A3. Remove sample domains and make domain an explicit input,Depends on: -,A. Remove Sample / Demo Dependencies,High,4
+A3.1,A3,Decide with owners which domains are real (service_ops? generic_cube? kpi_productivity?) and which are samples,,A. Remove Sample / Demo Dependencies,High,
+A3.2,A3,"Move sample domains (onboarding/domains/generic_cube, service_ops; semantic/business_units/example_bu.yaml) to examples/ or tests/fixtures/",,A. Remove Sample / Demo Dependencies,High,
+A3.3,A3,"Remove default domain arguments: llmkg/engine.py:39 (generic_cube), run_onboard.py:32 (service_ops), frontend/app/services/backend.py:117 (service_ops); make domain required",,A. Remove Sample / Demo Dependencies,High,
+A3.4,A3,Move semantic/domains/_template_domain.yaml and onboarding/templates/contract.yaml into docs/templates,,A. Remove Sample / Demo Dependencies,High,
+A3.5,A3,"Update config/platform.yaml, dashboard.yaml and visual_templates.yaml so they hold no sample names",,A. Remove Sample / Demo Dependencies,High,
+A4,,A4. Replace demo users and local auth,Depends on: -,A. Remove Sample / Demo Dependencies,High,3
+A4.1,A4,"Delete config/local_users.yaml (local.cross_bu, local.analyst 'Climate Solutions Americas', local.steward)",,A. Remove Sample / Demo Dependencies,High,
+A4.2,A4,"Refactor aibi/auth.py to take identity and BU scope from a verified token, behind an interface",,A. Remove Sample / Demo Dependencies,High,
+A4.3,A4,Keep a test-only fake identity provider under tests/,,A. Remove Sample / Demo Dependencies,High,
+A5,,A5. Separate sample evaluation from real evaluation,Depends on: A3,A. Remove Sample / Demo Dependencies,Medium,3
+A5.1,A5,Move evaluation/excel_escape/service_ops.yaml to tests/ as a regression sample,,A. Remove Sample / Demo Dependencies,Medium,
+A5.2,A5,Define the real Excel Escape question set per real domain with business owners and expected values,,A. Remove Sample / Demo Dependencies,Medium,
+A5.3,A5,Make eval.py (aibi/experience/eval.py) read from a configurable location (S3 or repo path),,A. Remove Sample / Demo Dependencies,Medium,
+A6,,A6. Remove machine-specific paths and personal references,Depends on: -,A. Remove Sample / Demo Dependencies,High,2
+A6.1,A6,"Replace C:\Users\BharadNa paths in aibi/settings.py, config/settings.yaml, .env.example, README.md, run_dashboard.bat/.ps1 and docs",,A. Remove Sample / Demo Dependencies,High,
+A6.2,A6,Introduce environment-variable driven settings (12-factor); delete AI_BI_NL2SQL_ROOT,,A. Remove Sample / Demo Dependencies,High,
+A6.3,A6,Delete Windows-only launch scripts or replace with a cross-platform Makefile/docker compose,,A. Remove Sample / Demo Dependencies,High,
+A7,,A7. Rewrite docs that describe the sample/local/Dataiku setup,"Depends on: A1,A3,A6",A. Remove Sample / Demo Dependencies,Medium,3
+A7.1,A7,Review all 14 docs in docs/ and mark keep / rewrite / delete,,A. Remove Sample / Demo Dependencies,Medium,
+A7.2,A7,"Delete docs/dataiku_flow.md, docs/dss_kpi_cube_recipe.md, docs/local_hosting.md, docs/local_project_layout.md",,A. Remove Sample / Demo Dependencies,Medium,
+A7.3,A7,Write a new README and an architecture doc for the AWS design,,A. Remove Sample / Demo Dependencies,Medium,
+B1,,B1. Inventory and classify every Dataiku touchpoint,Depends on: -,B. Remove Dataiku Dependency,High,1
+B1.1,B1,"List imports of dataiku, nlq.dataiku_adapters, flask-in-DSS across the repo",,B. Remove Dataiku Dependency,High,
+B1.2,B1,"For each, label: LLM / dataset I/O / config / webapp / test / doc",,B. Remove Dataiku Dependency,High,
+B1.3,B1,Produce the replacement for each (owner ticket),,B. Remove Dataiku Dependency,High,
+B2,,B2. Replace the LLM access layer,Depends on: B1,B. Remove Dataiku Dependency,High,5
+B2.1,B2,"Define an LLMClient interface (complete text, complete JSON, token usage)",,B. Remove Dataiku Dependency,High,
+B2.2,B2,"Implement a Bedrock client with retry, timeout and error mapping",,B. Remove Dataiku Dependency,High,
+B2.3,B2,Rewrite llmkg/llm.py to use the interface; delete _dss_llm,,B. Remove Dataiku Dependency,High,
+B2.4,B2,Remove _require_mesh_in_dss from ask_service.py and the Mesh connection id from settings,,B. Remove Dataiku Dependency,High,
+B2.5,B2,Add a fake LLM for tests,,B. Remove Dataiku Dependency,High,
+B2.6,B2,Check prompt behaviour on the new model: re-run the eval set and compare,,B. Remove Dataiku Dependency,High,
+B3,,B3. Eliminate the external 'nlq' package dependency,Depends on: B1,B. Remove Dataiku Dependency,High,6
+B3.1,B3,"Trace exactly which nlq modules are used (nlq.graph.runner, nlq.config.settings, notebook_runner)",,B. Remove Dataiku Dependency,High,
+B3.2,B3,Check licence and ownership of the dataiku-langgraph-nlq repo,,B. Remove Dataiku Dependency,High,
+B3.3,B3,"Vendor the required modules in as an internal package, or publish it as a versioned internal library",,B. Remove Dataiku Dependency,High,
+B3.4,B3,Delete nlq.dataiku_adapters and python/nl_to_sql/bridge.py,,B. Remove Dataiku Dependency,High,
+B3.5,B3,Add missing deps (langgraph etc.) to requirements,,B. Remove Dataiku Dependency,High,
+B3.6,B3,Run the old and new path on the same questions to confirm parity,,B. Remove Dataiku Dependency,High,
+B4,,B4. Extract logic from recipes before deleting them,Depends on: B1,B. Remove Dataiku Dependency,High,6
+B4.1,B4,"Read the 6 recipes and list logic that is not in aibi/ (validation rules, summaries, evaluation scoring)",,B. Remove Dataiku Dependency,High,
+B4.2,B4,Move that logic into aibi modules with unit tests,,B. Remove Dataiku Dependency,High,
+B4.3,B4,Rewrite each recipe as a plain CLI entrypoint with S3/DB input and output,,B. Remove Dataiku Dependency,High,
+B4.4,B4,Package the CLIs as SageMaker Processing / Step Functions jobs (see G4),,B. Remove Dataiku Dependency,High,
+B5,,B5. Extract logic from the DSS webapp backend,Depends on: B1,B. Remove Dataiku Dependency,Medium,4
+B5.1,B5,"Catalog its routes: summary, catalog, SQL execution, LLM routes",,B. Remove Dataiku Dependency,Medium,
+B5.2,B5,Map each to a new API endpoint (see F1),,B. Remove Dataiku Dependency,Medium,
+B5.3,B5,Port the select-only SQL guard (_is_select_only) and keep its tests,,B. Remove Dataiku Dependency,Medium,
+B5.4,B5,Port or retire the bundled body.html / app.js / style.css (replaced by the new frontend),,B. Remove Dataiku Dependency,Medium,
+B6,,B6. Delete Dataiku code and fix tests,"Depends on: B2,B3,B4,B5",B. Remove Dataiku Dependency,Medium,1
+B6.1,B6,Delete dataiku/ and tests/factory/test_dss_recipe_io.py,,B. Remove Dataiku Dependency,Medium,
+B6.2,B6,Confirm: grep for 'dataiku' and 'dss' returns nothing outside git history,,B. Remove Dataiku Dependency,Medium,
+C1,,C1. Map the real dependency graph and set boundaries,Depends on: A1,C. Service Separation (hardest part),High,3
+C1.1,C1,Generate the module import graph (pydeps or import-linter) and commit it,,C. Service Separation (hardest part),High,
+C1.2,C1,Mark shared code vs service-specific code,,C. Service Separation (hardest part),High,
+C1.3,C1,"Draft the target services: ask-api (orchestration, auth, audit), semantic-catalog (factory loader/catalog/glossary/validate/compile), query-execution (catalog_executor, semantic_executor, tabular), llm-gateway, knowledge-graph store, batch jobs (onboarding, evaluation), frontend, shared lib",,C. Service Separation (hardest part),High,
+C1.4,C1,Decide modular monolith first vs separate network services per boundary (ADR),,C. Service Separation (hardest part),High,
+C1.5,C1,Review with the team and freeze the boundaries,,C. Service Separation (hardest part),High,
+C2,,C2. Resolve duplicated and overlapping engines,Depends on: C1,C. Service Separation (hardest part),High,5
+C2.1,C2,Delete the identical copy of grounding.py (keep one in a shared module),,C. Service Separation (hardest part),High,
+C2.2,C2,"Compare the three engines (llmkg, semantic_executor, factory/catalog_executor) on the eval set; document which questions each handles",,C. Service Separation (hardest part),High,
+C2.3,C2,Choose routing rules or a single engine; retire dead code,,C. Service Separation (hardest part),High,
+C2.4,C2,Resolve overlap of kpi_analytics.py with semantic_executor.py,,C. Service Separation (hardest part),High,
+C3,,C3. Extract the shared library,Depends on: C1,C. Service Separation (hardest part),High,4
+C3.1,C3,"Move models, security_tags, auth interface, audit and logging into a shared package",,C. Service Separation (hardest part),High,
+C3.2,C3,Replace the global settings/PROJECT_ROOT with injected configuration objects,,C. Service Separation (hardest part),High,
+C3.3,C3,Remove direct file path access from shared code,,C. Service Separation (hardest part),High,
+C4,,C4. Define interfaces between components,Depends on: C3,C. Service Separation (hardest part),High,4
+C4.1,C4,"Write protocols: LLMClient, DataSource, ProductRegistry, CatalogResolver, QueryExecutor, KnowledgeGraphStore, AuditSink, IdentityProvider",,C. Service Separation (hardest part),High,
+C4.2,C4,Provide local/file and AWS implementations of each,,C. Service Separation (hardest part),High,
+C4.3,C4,Make engines depend on these interfaces only,,C. Service Separation (hardest part),High,
+C5,,C5. Break up ask_service.py into router and handlers,Depends on: C4,C. Service Separation (hardest part),High,5
+C5.1,C5,"Separate: identity/scope, routing (semantic vs catalog vs llmkg vs NL-to-SQL), execution, audit, response shaping",,C. Service Separation (hardest part),High,
+C5.2,C5,Remove module-level state and implicit file reads,,C. Service Separation (hardest part),High,
+C5.3,C5,Add unit tests per handler before moving code,,C. Service Separation (hardest part),High,
+C6,,C6. Refactor semantic_executor.py (619 lines),"Depends on: A1,C4",C. Service Separation (hardest part),High,5
+C6.1,C6,"Split SQL building, execution and response formatting",,C. Service Separation (hardest part),High,
+C6.2,C6,"Drive it from the semantic model, not constants",,C. Service Separation (hardest part),High,
+C7,,C7. Enforce boundaries in CI,Depends on: C4,C. Service Separation (hardest part),Medium,2
+C7.1,C7,Add import-linter rules so a service cannot import another's internals,,C. Service Separation (hardest part),Medium,
+C7.2,C7,Fail the build on circular imports,,C. Service Separation (hardest part),Medium,
+C8,,C8. Semantic catalog service,Depends on: C5,C. Service Separation (hardest part),Medium,5
+C8.1,C8,Load semantic and onboarding artifacts from versioned S3 instead of local YAML,,C. Service Separation (hardest part),Medium,
+C8.2,C8,Add in-memory cache with version invalidation,,C. Service Separation (hardest part),Medium,
+C8.3,C8,"Expose read endpoints: domains, metrics, glossary, versions",,C. Service Separation (hardest part),Medium,
+C9,,C9. Knowledge graph store,Depends on: C4,C. Service Separation (hardest part),High,5
+C9.1,C9,Replace local JSON writes with a store (S3/DynamoDB),,C. Service Separation (hardest part),High,
+C9.2,C9,Handle concurrent writers (optimistic locking or append-only events),,C. Service Separation (hardest part),High,
+C9.3,C9,Backfill or reseed existing graphs; decide retention,,C. Service Separation (hardest part),High,
+C10,,C10. Decouple the frontend from in-process imports,Depends on: F1,C. Service Separation (hardest part),High,4
+C10.1,C10,Replace frontend/app/services/backend.py (imports aibi.* directly) with an HTTP client,,C. Service Separation (hardest part),High,
+C10.2,C10,Remove aibi from the frontend's dependencies,,C. Service Separation (hardest part),High,
+C11,,C11. Inter-service concerns,"Depends on: C8,C9",C. Service Separation (hardest part),Medium,4
+C11.1,C11,"Define timeouts, retries and error mapping between services",,C. Service Separation (hardest part),Medium,
+C11.2,C11,Propagate correlation ids across calls and logs,,C. Service Separation (hardest part),Medium,
+C11.3,C11,Add contract tests for every service boundary,,C. Service Separation (hardest part),Medium,
+C11.4,C11,"Per-service Dockerfile, requirements and health check",,C. Service Separation (hardest part),Medium,
+C12,,C12. Parity check and cutover from the old structure,"Depends on: C5,C6,C11",C. Service Separation (hardest part),High,3
+C12.1,C12,Run the eval set on old and new; any diff must be explained,,C. Service Separation (hardest part),High,
+C12.2,C12,"Remove old entrypoints (run_cli.py, run_onboard.py wrappers) once covered",,C. Service Separation (hardest part),High,
+D1,,D1. Repo hygiene,Depends on: -,D. Repo Cleanup,Medium,2
+D1.1,D1,"Add .gitignore (none exists): caches, local_data, .env, knowledge_graph output",,D. Repo Cleanup,Medium,
+D1.2,D1,Add secret scanning and pre-commit,,D. Repo Cleanup,Medium,
+D1.3,D1,"Delete python/ alias layout (python/nl_to_sql, notebooks) if unused",,D. Repo Cleanup,Medium,
+D1.4,D1,Consolidate semantic/ vs onboarding/ vs metadata/ definitions into one source of truth with a written rule,,D. Repo Cleanup,Medium,
+D1.5,D1,"Delete empty folders (frontend/app/chatbot, components, dashboard stubs) or implement them",,D. Repo Cleanup,Medium,
+D2,,D2. Packaging,Depends on: C1,D. Repo Cleanup,Medium,2
+D2.1,D2,"requirements.txt lacks LLM, AWS and NL-to-SQL deps: create pyproject and pinned per-service requirements",,D. Repo Cleanup,Medium,
+D2.2,D2,Add lockfiles and a reproducible build,,D. Repo Cleanup,Medium,
+E1,,E1. Multi-metric and comparison questions,Depends on: C5,E. Engine Correctness Defects,High,3
+E1.1,E1,resolve_metric to return a list,,E. Engine Correctness Defects,High,
+E1.2,E1,Executor returns one row per metric,,E. Engine Correctness Defects,High,
+E1.3,E1,Eval asserts all metric ids,,E. Engine Correctness Defects,High,
+E2,,E2. Unknown scope must clarify or refuse,Depends on: -,E. Engine Correctness Defects,High,2
+E2.1,E2,Detect unrecognised region tokens,,E. Engine Correctness Defects,High,
+E2.2,E2,Return a clarification instead of the default metric,,E. Engine Correctness Defects,High,
+E2.3,E2,Add AMER to the catalog if intended,,E. Engine Correctness Defects,High,
+E3,,E3. Time and status filters,Depends on: -,E. Engine Correctness Defects,High,5
+E3.1,E3,Parse date phrases,,E. Engine Correctness Defects,High,
+E3.2,E3,Apply to compute filter,,E. Engine Correctness Defects,High,
+E3.3,E3,Warn when a filter cannot be applied,,E. Engine Correctness Defects,High,
+E4,,E4. Group-by and ranking,Depends on: -,E. Engine Correctness Defects,Medium,4
+E4.1,E4,Detect 'which/by region' intent,,E. Engine Correctness Defects,Medium,
+E4.2,E4,Group in executor,,E. Engine Correctness Defects,Medium,
+E4.3,E4,Return a table,,E. Engine Correctness Defects,Medium,
+E5,,E5. Count metrics for service_ops,Depends on: -,E. Engine Correctness Defects,Medium,2
+E5.1,E5,Define case_count and open_cases in dictionary.yaml,,E. Engine Correctness Defects,Medium,
+E5.2,E5,Recompile metrics.yaml,,E. Engine Correctness Defects,Medium,
+E6,,E6. Strengthen the evaluation gate,Depends on: A5,E. Engine Correctness Defects,High,2
+E6.1,E6,Compare test must assert both metrics,,E. Engine Correctness Defects,High,
+E6.2,E6,Add a case per defect above,,E. Engine Correctness Defects,High,
+E6.3,E6,Run in CI as a blocking gate,,E. Engine Correctness Defects,High,
+F1,,F1. API contract (OpenAPI),Depends on: C1,F. Backend API and Upload,High,3
+F1.1,F1,"Endpoints: POST /v1/ask, POST /v1/ask/stream, GET /v1/domains, GET /v1/metrics, POST /v1/drill, GET /v1/explain/{id}, POST /v1/uploads, GET /v1/uploads/{id}, POST /v1/onboarding/validate, GET /v1/eval/{domain}, GET /health",,F. Backend API and Upload,High,
+F1.2,F1,"Request/response schemas, error model, pagination, versioning",,F. Backend API and Upload,High,
+F1.3,F1,Review with frontend and freeze,,F. Backend API and Upload,High,
+F2,,F2. Implement the API service,"Depends on: F1,C5",F. Backend API and Upload,High,6
+F2.1,F2,FastAPI app and routers,,F. Backend API and Upload,High,
+F2.2,F2,"Dependency injection of LLM, data, KG",,F. Backend API and Upload,High,
+F2.3,F2,Structured errors and logging,,F. Backend API and Upload,High,
+F3,,F3. Upload feature,"Depends on: F1,A2",F. Backend API and Upload,High,8
+F3.1,F3,Presigned S3 upload URL endpoint,,F. Backend API and Upload,High,
+F3.2,F3,"Limits: file types, size, row count",,F. Backend API and Upload,High,
+F3.3,F3,"Validate against the onboarding contract (schema, types, keys)",,F. Backend API and Upload,High,
+F3.4,F3,PII / restricted column detection (security_tags),,F. Backend API and Upload,High,
+F3.5,F3,Virus scan,,F. Backend API and Upload,High,
+F3.6,F3,Register as a data product and trigger onboarding validation as a job,,F. Backend API and Upload,High,
+F3.7,F3,Status endpoint and failure messages,,F. Backend API and Upload,High,
+F3.8,F3,Delete/replace uploaded dataset,,F. Backend API and Upload,High,
+F4,,F4. Authentication and row-level security,Depends on: A4,F. Backend API and Upload,High,4
+F4.1,F4,Validate JWT,,F. Backend API and Upload,High,
+F4.2,F4,Map claims to authorised BU codes,,F. Backend API and Upload,High,
+F4.3,F4,Enforce in every executor,,F. Backend API and Upload,High,
+F4.4,F4,Tests that BU A cannot read BU B,,F. Backend API and Upload,High,
+F5,,F5. SageMaker inference adapter,Depends on: F2,F. Backend API and Upload,High,3
+F5.1,F5,/ping and /invocations wrapper,,F. Backend API and Upload,High,
+F5.2,F5,Payload size limits,,F. Backend API and Upload,High,
+F5.3,F5,Sync vs async decision for slow LLM calls,,F. Backend API and Upload,High,
+F6,,F6. Hardening,Depends on: F2,F. Backend API and Upload,Medium,2
+F6.1,F6,Rate limiting,,F. Backend API and Upload,Medium,
+F6.2,F6,CORS,,F. Backend API and Upload,Medium,
+F6.3,F6,Request validation,,F. Backend API and Upload,Medium,
+F6.4,F6,29-second API Gateway limit: streaming or async job pattern,,F. Backend API and Upload,Medium,
+G1,,G1. Container image,Depends on: D2,G. SageMaker,High,3
+G1.1,G1,Dockerfile per deployable,,G. SageMaker,High,
+G1.2,G1,Push to ECR,,G. SageMaker,High,
+G1.3,G1,Vulnerability scan,,G. SageMaker,High,
+G1.4,G1,Non-root user,,G. SageMaker,High,
+G2,,G2. Run locally in SageMaker local mode,"Depends on: G1,F5",G. SageMaker,High,3
+G2.1,G2,Verify /ping and /invocations,,G. SageMaker,High,
+G2.2,G2,Verify Bedrock and S3 access with dev credentials,,G. SageMaker,High,
+G3,,G3. Dev endpoint,Depends on: G2,G. SageMaker,High,4
+G3.1,G3,Choose real-time vs async vs serverless,,G. SageMaker,High,
+G3.2,G3,Instance sizing and autoscaling,,G. SageMaker,High,
+G3.3,G3,"VPC, security groups, VPC endpoints",,G. SageMaker,High,
+G3.4,G3,Least-privilege IAM role and KMS,,G. SageMaker,High,
+G4,,G4. Batch jobs,Depends on: B4,G. SageMaker,Medium,4
+G4.1,G4,"Onboarding/validation, metric compile, evaluation as Processing jobs",,G. SageMaker,Medium,
+G4.2,G4,Step Functions orchestration,,G. SageMaker,Medium,
+G4.3,G4,Failure alerts,,G. SageMaker,Medium,
+G5,,G5. Artifact versioning,Depends on: C8,G. SageMaker,Medium,2
+G5.1,G5,S3 versioning for semantic/onboarding files,,G. SageMaker,Medium,
+G5.2,G5,Dev to prod promotion and rollback,,G. SageMaker,Medium,
+G6,,G6. Load and latency tests,Depends on: G3,G. SageMaker,Medium,3
+G6.1,G6,Set SLOs,,G. SageMaker,Medium,
+G6.2,G6,Concurrent user test,,G. SageMaker,Medium,
+G6.3,G6,Tune timeouts and instance count,,G. SageMaker,Medium,
+G7,,G7. Full functional test on SageMaker,Depends on: G3,G. SageMaker,High,3
+G7.1,G7,Run whole eval set,,G. SageMaker,High,
+G7.2,G7,Test every endpoint and the upload flow,,G. SageMaker,High,
+G7.3,G7,Sign-off report,,G. SageMaker,High,
+H1,,H1. Choose framework,Depends on: -,H. Frontend,High,1
+H1.1,H1,Streamlit vs React/Next.js,,H. Frontend,High,
+H1.2,H1,Decision on hosting and auth integration,,H. Frontend,High,
+H2,,H2. UX design,Depends on: H1,H. Frontend,High,6
+H2.1,H2,User personas and top journeys,,H. Frontend,High,
+H2.2,H2,"Wireframes: chat, dashboard, upload, drill, explain",,H. Frontend,High,
+H2.3,H2,"States: loading, empty, error, clarification",,H. Frontend,High,
+H2.4,H2,Stakeholder review,,H. Frontend,High,
+H3,,H3. App shell and login,Depends on: H2,H. Frontend,High,4
+H3.1,H3,SSO / Cognito flow,,H. Frontend,High,
+H3.2,H3,Token storage and refresh,,H. Frontend,High,
+H3.3,H3,Layout and navigation,,H. Frontend,High,
+H4,,H4. Chat UI,Depends on: H3,H. Frontend,High,6
+H4.1,H4,Streaming answers,,H. Frontend,High,
+H4.2,H4,Clarification prompts,,H. Frontend,High,
+H4.3,H4,"Show metric, version, SQL, provenance",,H. Frontend,High,
+H4.4,H4,History,,H. Frontend,High,
+H5,,H5. Dashboard,Depends on: H3,H. Frontend,Medium,6
+H5.1,H5,KPI tiles and charts from visual_templates.yaml,,H. Frontend,Medium,
+H5.2,H5,BU/region filters,,H. Frontend,Medium,
+H6,,H6. Upload UI,"Depends on: H3,F3",H. Frontend,High,4
+H6.1,H6,Drag and drop,,H. Frontend,High,
+H6.2,H6,Progress and validation errors,,H. Frontend,High,
+H6.3,H6,Uploaded products list,,H. Frontend,High,
+H7,,H7. Drill and explain views,Depends on: H3,H. Frontend,Medium,4
+H7.1,H7,Consume /drill and /explain,,H. Frontend,Medium,
+H8,,H8. Quality and hosting,Depends on: H4,H. Frontend,Medium,6
+H8.1,H8,Accessibility and responsive checks,,H. Frontend,Medium,
+H8.2,H8,Static hosting (S3 + CloudFront) with WAF and TLS,,H. Frontend,Medium,
+I1,,I1. Typed API client,Depends on: F1,I. Frontend-Backend Connection,Medium,1
+I1.1,I1,Generate client from OpenAPI,,I. Frontend-Backend Connection,Medium,
+I2,,I2. Connect to dev backend,"Depends on: G3,I1,C10",I. Frontend-Backend Connection,High,4
+I2.1,I2,Per-environment config,,I. Frontend-Backend Connection,High,
+I2.2,I2,CORS,,I. Frontend-Backend Connection,High,
+I2.3,I2,Token forwarding,,I. Frontend-Backend Connection,High,
+I2.4,I2,Error mapping,,I. Frontend-Backend Connection,High,
+I3,,I3. Contract and end-to-end tests,Depends on: I2,I. Frontend-Backend Connection,High,6
+I3.1,I3,Schemathesis/Pact in CI,,I. Frontend-Backend Connection,High,
+I3.2,I3,"Playwright: login, upload, ask, drill, explain",,I. Frontend-Backend Connection,High,
+I3.3,I3,Negative paths,,I. Frontend-Backend Connection,High,
+J1,,J1. Infrastructure as code,Depends on: G1,J. Infrastructure and Operations,High,8
+J1.1,J1,VPC and endpoints,,J. Infrastructure and Operations,High,
+J1.2,J1,"S3, ECR, SageMaker, API Gateway, Cognito, CloudFront, IAM",,J. Infrastructure and Operations,High,
+J1.3,J1,Dev/test/prod stacks,,J. Infrastructure and Operations,High,
+J2,,J2. CI/CD,Depends on: J1,J. Infrastructure and Operations,High,5
+J2.1,J2,"Lint, tests, eval gate",,J. Infrastructure and Operations,High,
+J2.2,J2,Image build and deploy with approvals,,J. Infrastructure and Operations,High,
+J2.3,J2,Rollback,,J. Infrastructure and Operations,High,
+J3,,J3. Monitoring and cost,Depends on: G3,J. Infrastructure and Operations,Medium,4
+J3.1,J3,"Latency, errors, LLM tokens/cost",,J. Infrastructure and Operations,Medium,
+J3.2,J3,Alarms and dashboards,,J. Infrastructure and Operations,Medium,
+J3.3,J3,Budgets and tags,,J. Infrastructure and Operations,Medium,
+K1,,K1. Port existing unit tests,Depends on: C12,K. Testing and Security,High,3
+K1.1,K1,Fix tests broken by moves,,K. Testing and Security,High,
+K1.2,K1,Add tests for new interfaces,,K. Testing and Security,High,
+K2,,K2. Security review,Depends on: F2,K. Testing and Security,High,5
+K2.1,K2,Prompt injection,,K. Testing and Security,High,
+K2.2,K2,SQL injection in generated SQL,,K. Testing and Security,High,
+K2.3,K2,Upload abuse,,K. Testing and Security,High,
+K2.4,K2,Authorisation bypass,,K. Testing and Security,High,
+K2.5,K2,Secrets,,K. Testing and Security,High,
+K3,,K3. PII review,Depends on: F3,K. Testing and Security,High,2
+K3.1,K3,Confirm restricted columns (for example contact_email) never reach LLM prompts or UI,,K. Testing and Security,High,
+K4,,K4. User acceptance testing,Depends on: I2,K. Testing and Security,High,5
+K4.1,K4,Business owners run their real questions,,K. Testing and Security,High,
+K4.2,K4,Triage and fix failures,,K. Testing and Security,High,
+L1,,L1. Operations readiness,Depends on: J3,L. Go-Live,High,3
+L1.1,L1,Runbook,,L. Go-Live,High,
+L1.2,L1,On-call,,L. Go-Live,High,
+L1.3,L1,Rollback plan,,L. Go-Live,High,
+L2,,L2. Documentation and training,Depends on: A7,L. Go-Live,Medium,3
+L2.1,L2,How to onboard a new domain,,L. Go-Live,Medium,
+L2.2,L2,API docs,,L. Go-Live,Medium,
+L2.3,L2,User guide,,L. Go-Live,Medium,
+L3,,L3. Cutover and hypercare,"Depends on: K4,L1",L. Go-Live,High,3
+L3.1,L3,Production deploy,,L. Go-Live,High,
+L3.2,L3,Monitor closely for two weeks,,L. Go-Live,High,

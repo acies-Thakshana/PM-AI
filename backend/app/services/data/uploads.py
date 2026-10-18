@@ -15,14 +15,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
-from botocore.exceptions import ClientError
+# AWS-DISABLED: from botocore.exceptions import ClientError
 
 from app.config import UPLOAD_EXTENSIONS
 from app.errors import DataNotFoundError, InvalidInputError
-from app.services.common import aws_clients
+# AWS-DISABLED: from app.services.common import aws_clients
 from app.services.common.naming import table_name_from_filename, validate_domain
 from app.services.data.cache import DataCache
-from app.services.data.s3_source import dataset_key
+# AWS-DISABLED: from app.services.data.s3_source import dataset_key
 from app.services.data.source import DatasetSource
 from app.services.data.tabular import read_table_bytes
 
@@ -85,47 +85,47 @@ class LocalDatasetStorage:
         self._path(domain, filename).unlink(missing_ok=True)
 
 
-class S3DatasetStorage:
-    def __init__(self, bucket: str, *, expiry_seconds: int, max_bytes: int) -> None:
-        self._bucket = bucket
-        self._expiry = expiry_seconds
-        self._max_bytes = max_bytes
+# AWS-DISABLED: class S3DatasetStorage:
+# AWS-DISABLED:     def __init__(self, bucket: str, *, expiry_seconds: int, max_bytes: int) -> None:
+# AWS-DISABLED:         self._bucket = bucket
+# AWS-DISABLED:         self._expiry = expiry_seconds
+# AWS-DISABLED:         self._max_bytes = max_bytes
 
-    def presign(self, domain: str, filename: str) -> UploadTarget | None:
-        key = dataset_key(validate_domain(domain), filename)
-        post = aws_clients.s3().generate_presigned_post(
-            Bucket=self._bucket,
-            Key=key,
-            Conditions=[["content-length-range", 1, self._max_bytes]],
-            ExpiresIn=self._expiry,
-        )
-        return UploadTarget(
-            mode="presigned",
-            table=table_name_from_filename(filename),
-            filename=filename,
-            url=post["url"],
-            fields=post["fields"],
-            max_bytes=self._max_bytes,
-        )
+# AWS-DISABLED:     def presign(self, domain: str, filename: str) -> UploadTarget | None:
+# AWS-DISABLED:         key = dataset_key(validate_domain(domain), filename)
+# AWS-DISABLED:         post = aws_clients.s3().generate_presigned_post(
+# AWS-DISABLED:             Bucket=self._bucket,
+# AWS-DISABLED:             Key=key,
+# AWS-DISABLED:             Conditions=[["content-length-range", 1, self._max_bytes]],
+# AWS-DISABLED:             ExpiresIn=self._expiry,
+# AWS-DISABLED:         )
+# AWS-DISABLED:         return UploadTarget(
+# AWS-DISABLED:             mode="presigned",
+# AWS-DISABLED:             table=table_name_from_filename(filename),
+# AWS-DISABLED:             filename=filename,
+# AWS-DISABLED:             url=post["url"],
+# AWS-DISABLED:             fields=post["fields"],
+# AWS-DISABLED:             max_bytes=self._max_bytes,
+# AWS-DISABLED:         )
 
-    def save(self, domain: str, filename: str, data: bytes) -> None:
-        aws_clients.s3().put_object(Bucket=self._bucket, Key=dataset_key(domain, filename), Body=data)
+# AWS-DISABLED:     def save(self, domain: str, filename: str, data: bytes) -> None:
+# AWS-DISABLED:         aws_clients.s3().put_object(Bucket=self._bucket, Key=dataset_key(domain, filename), Body=data)
 
-    def size(self, domain: str, filename: str) -> int | None:
-        try:
-            head = aws_clients.s3().head_object(Bucket=self._bucket, Key=dataset_key(domain, filename))
-        except ClientError as exc:
-            if exc.response.get("Error", {}).get("Code") in {"404", "NoSuchKey", "NotFound"}:
-                return None
-            raise
-        return int(head["ContentLength"])
+# AWS-DISABLED:     def size(self, domain: str, filename: str) -> int | None:
+# AWS-DISABLED:         try:
+# AWS-DISABLED:             head = aws_clients.s3().head_object(Bucket=self._bucket, Key=dataset_key(domain, filename))
+# AWS-DISABLED:         except ClientError as exc:
+# AWS-DISABLED:             if exc.response.get("Error", {}).get("Code") in {"404", "NoSuchKey", "NotFound"}:
+# AWS-DISABLED:                 return None
+# AWS-DISABLED:             raise
+# AWS-DISABLED:         return int(head["ContentLength"])
 
-    def read(self, domain: str, filename: str) -> bytes:
-        response = aws_clients.s3().get_object(Bucket=self._bucket, Key=dataset_key(domain, filename))
-        return response["Body"].read()
+# AWS-DISABLED:     def read(self, domain: str, filename: str) -> bytes:
+# AWS-DISABLED:         response = aws_clients.s3().get_object(Bucket=self._bucket, Key=dataset_key(domain, filename))
+# AWS-DISABLED:         return response["Body"].read()
 
-    def delete(self, domain: str, filename: str) -> None:
-        aws_clients.s3().delete_object(Bucket=self._bucket, Key=dataset_key(domain, filename))
+# AWS-DISABLED:     def delete(self, domain: str, filename: str) -> None:
+# AWS-DISABLED:         aws_clients.s3().delete_object(Bucket=self._bucket, Key=dataset_key(domain, filename))
 
 
 def _check_filename(filename: str) -> str:

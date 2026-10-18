@@ -15,7 +15,7 @@ import threading
 from pathlib import Path
 from typing import Protocol
 
-from app.services.common import dynamo
+# AWS-DISABLED: from app.services.common import dynamo
 from app.services.knowledge.graph import GraphChanges, KnowledgeGraph
 
 
@@ -65,52 +65,52 @@ class LocalGraphStore:
             os.replace(temporary, self._path(graph.domain))
 
 
-class DynamoGraphStore:
-    """Partition ``domain``; sort key ``node#<id>``, ``edge#<src>|<rel>|<dst>`` or ``episode#<ts>#<id>``.
+# AWS-DISABLED: class DynamoGraphStore:
+# AWS-DISABLED:     """Partition ``domain``; sort key ``node#<id>``, ``edge#<src>|<rel>|<dst>`` or ``episode#<ts>#<id>``.
 
-    Loading reads every node and edge but only the newest ``max_episodes`` episodes, which keeps
-    the cost of a request bounded as the history grows. Episodes expire after ``ttl_days``.
-    """
+# AWS-DISABLED:     Loading reads every node and edge but only the newest ``max_episodes`` episodes, which keeps
+# AWS-DISABLED:     the cost of a request bounded as the history grows. Episodes expire after ``ttl_days``.
+# AWS-DISABLED:     """
 
-    def __init__(self, table: str, max_episodes: int, ttl_days: int) -> None:
-        self._table = table
-        self._max_episodes = max_episodes
-        self._ttl_days = ttl_days
+# AWS-DISABLED:     def __init__(self, table: str, max_episodes: int, ttl_days: int) -> None:
+# AWS-DISABLED:         self._table = table
+# AWS-DISABLED:         self._max_episodes = max_episodes
+# AWS-DISABLED:         self._ttl_days = ttl_days
 
-    def load(self, domain: str) -> KnowledgeGraph:
-        key = ("domain", domain)
-        graph = KnowledgeGraph(domain)
-        for item in dynamo.query(self._table, key, sort_prefix=("sort_key", "node#")):
-            node = json.loads(item["payload"])
-            graph.nodes[node["id"]] = node
-        for item in dynamo.query(self._table, key, sort_prefix=("sort_key", "edge#")):
-            edge = json.loads(item["payload"])
-            graph.add_edge(edge["src"], edge["rel"], edge["dst"])
-        newest_first = dynamo.query(
-            self._table, key, sort_prefix=("sort_key", "episode#"), newest_first=True, limit=self._max_episodes
-        )
-        graph.episodes = [json.loads(item["payload"]) for item in reversed(newest_first)]
-        graph.mark_clean()
-        return graph
+# AWS-DISABLED:     def load(self, domain: str) -> KnowledgeGraph:
+# AWS-DISABLED:         key = ("domain", domain)
+# AWS-DISABLED:         graph = KnowledgeGraph(domain)
+# AWS-DISABLED:         for item in dynamo.query(self._table, key, sort_prefix=("sort_key", "node#")):
+# AWS-DISABLED:             node = json.loads(item["payload"])
+# AWS-DISABLED:             graph.nodes[node["id"]] = node
+# AWS-DISABLED:         for item in dynamo.query(self._table, key, sort_prefix=("sort_key", "edge#")):
+# AWS-DISABLED:             edge = json.loads(item["payload"])
+# AWS-DISABLED:             graph.add_edge(edge["src"], edge["rel"], edge["dst"])
+# AWS-DISABLED:         newest_first = dynamo.query(
+# AWS-DISABLED:             self._table, key, sort_prefix=("sort_key", "episode#"), newest_first=True, limit=self._max_episodes
+# AWS-DISABLED:         )
+# AWS-DISABLED:         graph.episodes = [json.loads(item["payload"]) for item in reversed(newest_first)]
+# AWS-DISABLED:         graph.mark_clean()
+# AWS-DISABLED:         return graph
 
-    def save(self, graph: KnowledgeGraph) -> None:
-        changes = graph.drain_changes()
-        if changes:
-            dynamo.batch_put(self._table, self._items(graph.domain, changes))
+# AWS-DISABLED:     def save(self, graph: KnowledgeGraph) -> None:
+# AWS-DISABLED:         changes = graph.drain_changes()
+# AWS-DISABLED:         if changes:
+# AWS-DISABLED:             dynamo.batch_put(self._table, self._items(graph.domain, changes))
 
-    def _items(self, domain: str, changes: GraphChanges) -> list[dynamo.Item]:
-        items: list[dynamo.Item] = []
-        for node in changes.nodes:
-            items.append(self._item(domain, f"node#{node['id']}", node))
-        for edge in changes.edges:
-            items.append(self._item(domain, f"edge#{edge['src']}|{edge['rel']}|{edge['dst']}", edge))
-        for episode in changes.episodes:
-            sort_key = f"episode#{episode['recorded_at']}#{episode.get('question_id', '')}"
-            items.append(self._item(domain, sort_key, episode, expires=True))
-        return items
+# AWS-DISABLED:     def _items(self, domain: str, changes: GraphChanges) -> list[dynamo.Item]:
+# AWS-DISABLED:         items: list[dynamo.Item] = []
+# AWS-DISABLED:         for node in changes.nodes:
+# AWS-DISABLED:             items.append(self._item(domain, f"node#{node['id']}", node))
+# AWS-DISABLED:         for edge in changes.edges:
+# AWS-DISABLED:             items.append(self._item(domain, f"edge#{edge['src']}|{edge['rel']}|{edge['dst']}", edge))
+# AWS-DISABLED:         for episode in changes.episodes:
+# AWS-DISABLED:             sort_key = f"episode#{episode['recorded_at']}#{episode.get('question_id', '')}"
+# AWS-DISABLED:             items.append(self._item(domain, sort_key, episode, expires=True))
+# AWS-DISABLED:         return items
 
-    def _item(self, domain: str, sort_key: str, payload: dict, *, expires: bool = False) -> dynamo.Item:
-        item: dynamo.Item = {"domain": domain, "sort_key": sort_key, "payload": json.dumps(payload, default=str)}
-        if expires:
-            item["expires_at"] = dynamo.expiry(self._ttl_days)
-        return item
+# AWS-DISABLED:     def _item(self, domain: str, sort_key: str, payload: dict, *, expires: bool = False) -> dynamo.Item:
+# AWS-DISABLED:         item: dynamo.Item = {"domain": domain, "sort_key": sort_key, "payload": json.dumps(payload, default=str)}
+# AWS-DISABLED:         if expires:
+# AWS-DISABLED:             item["expires_at"] = dynamo.expiry(self._ttl_days)
+# AWS-DISABLED:         return item

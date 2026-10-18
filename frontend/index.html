@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NL2SQL · Live dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="workspace-shell">
+  <header class="workspace-topbar">
+    <div class="workspace-topbar-left">
+      <div class="workspace-brand">
+        <img class="workspace-logo" alt="Carrier" src="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 48'%3E%3Crect width='180' height='48' rx='24' fill='%23152c73'/%3E%3Ctext x='90' y='31' text-anchor='middle' fill='%23ffffff' font-family='Georgia, serif' font-size='22'%3ECarrier%3C/text%3E%3C/svg%3E" />
+        <div>
+          <p class="workspace-brand-name">NL2SQL</p>
+          <p class="workspace-brand-tag">AI CoE · Semantic analytics</p>
+        </div>
+      </div>
+      <span class="topbar-divider" aria-hidden="true"></span>
+      <div>
+        <p class="topbar-title">Dashboard</p>
+        <p class="topbar-subtitle">Project data</p>
+      </div>
+      <div class="dataset-chip">Current dataset: <strong>Project data</strong></div>
+    </div>
+    <nav class="view-nav" aria-label="Views">
+      <button type="button" class="view-btn active" data-view="dashboard">Dashboard</button>
+      <button type="button" class="view-btn" data-view="ask">Ask</button>
+      <button type="button" class="view-btn" data-view="upload">Upload data</button>
+    </nav>
+  </header>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <img id="side-logo" class="carrier-logo" alt="Carrier" />
+        <p class="product-name">NL2SQL</p>
+        <p class="product-tag">Dashboard · Project data</p>
+      </div>
+      <div class="side-views">
+        <button type="button" class="side-view active" data-view="dashboard">Dashboard</button>
+        <button type="button" class="side-view" data-view="ask">Ask</button>
+        <button type="button" class="side-view side-view-wide" data-view="upload">Upload data</button>
+      </div>
+      <div class="sidebar-section">
+        <p class="sidebar-label">Domain</p>
+        <select id="domain-select" class="domain-select" aria-label="Domain"></select>
+      </div>
+      <button id="new-chat" class="new-chat" type="button" hidden><span class="icon-plus" aria-hidden="true"></span> New conversation</button>
+      <div class="sidebar-section">
+        <p class="sidebar-label">Tables</p>
+        <ul id="tables" class="table-list"></ul>
+      </div>
+      <div class="sidebar-section">
+        <p class="sidebar-label">Columns</p>
+        <ul id="columns" class="column-list"></ul>
+      </div>
+      <div class="sidebar-section">
+        <p class="sidebar-label">Recent</p>
+        <ul id="recent" class="recent-list"></ul>
+      </div>
+      <p id="status-foot" class="sidebar-foot">Loading datasets…</p>
+    </aside>
+
+    <div class="main">
+      <section id="dashboard" class="dashboard">
+        <header class="dash-head">
+          <div>
+            <p class="eyebrow">Carrier · Semantic analytics</p>
+            <h1>Operations dashboard</h1>
+            <p class="dash-lede">Figures appear after the recipe stores answers on the project.</p>
+          </div>
+          <img id="dash-logo" class="carrier-logo" alt="Carrier" />
+        </header>
+        <div id="dash-kpis" class="dash-kpis"><p class="dash-note">Loading figures from the project…</p></div>
+        <div id="dash-charts" class="dash-charts"></div>
+        <div id="dash-answers" class="answer-stack"></div>
+        <button id="open-ask" class="dash-ask" type="button">Ask a question about these numbers</button>
+      </section>
+
+      <section id="upload-view" class="upload-view" hidden>
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Carrier · NL2SQL workspace</p>
+            <h1>Upload data</h1>
+          </div>
+        </header>
+        <div class="upload-body">
+          <article class="dash-card">
+            <h2>1. Add files to a domain</h2>
+            <p class="dash-note">CSV, TSV, Excel, Parquet or JSON. Each file becomes one table named after the file. A new domain id creates a new domain.</p>
+            <form id="upload-form" class="upload-form">
+              <label class="field">
+                <span>Domain id</span>
+                <input id="upload-domain" list="domain-options" type="text" placeholder="e.g. finance_ops" autocomplete="off" required />
+                <datalist id="domain-options"></datalist>
+              </label>
+              <label class="field">
+                <span>Files</span>
+                <input id="upload-files" type="file" multiple accept=".csv,.tsv,.xlsx,.xlsm,.parquet,.json,.jsonl" required />
+              </label>
+              <button type="submit" class="primary-btn" id="upload-submit">Upload</button>
+            </form>
+            <ul id="upload-results" class="upload-results"></ul>
+          </article>
+          <article class="dash-card">
+            <h2>2. Learn the semantics</h2>
+            <p class="dash-note">Onboarding reads the uploaded tables and proposes metrics, joins and glossary terms. Without a model it uses local rules. Run it once after uploading.</p>
+            <button type="button" class="primary-btn" id="onboard-run" disabled>Run onboarding</button>
+            <p id="onboard-status" class="dash-note onboard-status"></p>
+            <pre id="onboard-result" class="sql" hidden></pre>
+          </article>
+        </div>
+      </section>
+
+      <div id="ask-view" hidden>
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Carrier · NL2SQL workspace</p>
+            <h1>Ask</h1>
+          </div>
+        </header>
+        <div id="chat" class="chat chat-empty-mode"></div>
+        <form id="composer" class="composer" hidden>
+          <input id="follow-input" type="text" autocomplete="off" placeholder="Ask a question about the connected tables…" />
+          <button type="submit">Send</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

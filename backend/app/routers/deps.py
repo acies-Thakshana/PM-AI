@@ -12,7 +12,7 @@ from fastapi.concurrency import run_in_threadpool
 from app.config import Settings, get_settings
 from app.errors import AuthenticationError, ForbiddenError
 from app.services.common import request_context
-from app.services.common.entra import TokenValidator
+# AWS-DISABLED: from app.services.common.entra import TokenValidator
 from app.services.common.naming import validate_domain
 from app.services.context import AppContext, get_context
 
@@ -27,10 +27,11 @@ class User:
     groups: frozenset[str] = field(default_factory=frozenset)
 
 
-@lru_cache(maxsize=1)
-def _validator() -> TokenValidator:
-    settings = get_settings()
-    return TokenValidator(settings.entra_tenant_id, settings.entra_client_id, settings.entra_required_scope)
+# AWS-DISABLED: Microsoft Entra ID token validation.
+# @lru_cache(maxsize=1)
+# def _validator() -> TokenValidator:
+#     settings = get_settings()
+#     return TokenValidator(settings.entra_tenant_id, settings.entra_client_id, settings.entra_required_scope)
 
 
 def settings_dep() -> Settings:
@@ -55,14 +56,16 @@ async def get_user(settings: SettingsDep, authorization: Annotated[str | None, H
     This is ``async`` on purpose: it binds the user to the request's context so every log line
     and audit event below it is attributed correctly, which a threadpool dependency cannot do.
     """
-    if not settings.auth_enabled:
-        user = User(ANONYMOUS, roles=frozenset({settings.role_user, settings.role_steward}))
-    else:
-        scheme, _, token = (authorization or "").partition(" ")
-        if scheme.lower() != "bearer" or not token:
-            raise AuthenticationError("Send the sign-in token as 'Authorization: Bearer <token>'.")
-        identity = await run_in_threadpool(_validator().validate, token.strip())
-        user = User(identity.user_id, identity.name, identity.roles, identity.groups)
+    # AWS-DISABLED: Entra sign-in. While it is off, everyone is one local user holding every role.
+    user = User(ANONYMOUS, roles=frozenset({settings.role_user, settings.role_steward}))
+    # if not settings.auth_enabled:
+    #     user = User(ANONYMOUS, roles=frozenset({settings.role_user, settings.role_steward}))
+    # else:
+    #     scheme, _, token = (authorization or "").partition(" ")
+    #     if scheme.lower() != "bearer" or not token:
+    #         raise AuthenticationError("Send the sign-in token as 'Authorization: Bearer <token>'.")
+    #     identity = await run_in_threadpool(_validator().validate, token.strip())
+    #     user = User(identity.user_id, identity.name, identity.roles, identity.groups)
     request_context.current_user_id.set(user.id)
     return user
 

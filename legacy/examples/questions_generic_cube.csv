@@ -1,7 +1,0 @@
-input_question,Expected_SQL_Query
-What is the total productivity achieved so far?,"SELECT SUM(""Actual Productivity"") FROM KPI_data"
-What is productivity by BU for csa?,"SELECT SUM(""Actual Productivity"") FROM KPI_data WHERE BU = 'Climate Solutions Americas'"
-Which sites have the highest productivity?,"SELECT ""Site Name"", SUM(""Actual Productivity"") AS p FROM KPI_data GROUP BY ""Site Name"" ORDER BY p DESC LIMIT 5"
-What is productivity by quarter?,"SELECT Quarter, SUM(""Actual Productivity"") FROM KPI_data GROUP BY Quarter"
-top 3 initiatives by probability weighted productivity,"SELECT ""Initiative name"", SUM(""Agg Productivity"") AS p FROM KPI_data GROUP BY ""Initiative name"" ORDER BY p DESC LIMIT 3"
-Which BU has the lowest productivity?,"SELECT BU, SUM(""Actual Productivity"") AS p FROM KPI_data GROUP BY BU ORDER BY p ASC LIMIT 1"

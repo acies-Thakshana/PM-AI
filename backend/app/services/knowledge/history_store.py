@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
 
-from app.services.common import dynamo
+# AWS-DISABLED: from app.services.common import dynamo
 
 _TURN_FIELDS = ("question", "metric", "answer", "sql_query", "status")
 
@@ -63,32 +63,32 @@ class LocalHistoryStore:
         return [_summary(turn) for turn in turns[-limit:]]
 
 
-class DynamoHistoryStore:
-    """Partition ``session_key`` (``<domain>#<session id>``), sort ``sort_key`` (timestamp)."""
+# AWS-DISABLED: class DynamoHistoryStore:
+# AWS-DISABLED:     """Partition ``session_key`` (``<domain>#<session id>``), sort ``sort_key`` (timestamp)."""
 
-    def __init__(self, table: str, ttl_days: int) -> None:
-        self._table = table
-        self._ttl_days = ttl_days
+# AWS-DISABLED:     def __init__(self, table: str, ttl_days: int) -> None:
+# AWS-DISABLED:         self._table = table
+# AWS-DISABLED:         self._ttl_days = ttl_days
 
-    @staticmethod
-    def _key(domain: str, session_id: str) -> str:
-        return f"{domain}#{session_id}"
+# AWS-DISABLED:     @staticmethod
+# AWS-DISABLED:     def _key(domain: str, session_id: str) -> str:
+# AWS-DISABLED:         return f"{domain}#{session_id}"
 
-    def append(self, domain: str, session_id: str, turn: dict[str, Any]) -> None:
-        dynamo.put_item(
-            self._table,
-            {
-                "session_key": self._key(domain, session_id),
-                "sort_key": datetime.now(timezone.utc).isoformat(timespec="microseconds"),
-                "payload": json.dumps(turn, default=str),
-                "expires_at": dynamo.expiry(self._ttl_days),
-            },
-        )
+# AWS-DISABLED:     def append(self, domain: str, session_id: str, turn: dict[str, Any]) -> None:
+# AWS-DISABLED:         dynamo.put_item(
+# AWS-DISABLED:             self._table,
+# AWS-DISABLED:             {
+# AWS-DISABLED:                 "session_key": self._key(domain, session_id),
+# AWS-DISABLED:                 "sort_key": datetime.now(timezone.utc).isoformat(timespec="microseconds"),
+# AWS-DISABLED:                 "payload": json.dumps(turn, default=str),
+# AWS-DISABLED:                 "expires_at": dynamo.expiry(self._ttl_days),
+# AWS-DISABLED:             },
+# AWS-DISABLED:         )
 
-    def recent(self, domain: str, session_id: str | None, limit: int) -> list[dict[str, Any]]:
-        if not session_id or limit <= 0:
-            return []
-        items = dynamo.query(
-            self._table, ("session_key", self._key(domain, session_id)), newest_first=True, limit=limit
-        )
-        return [_summary(json.loads(item["payload"])) for item in reversed(items)]
+# AWS-DISABLED:     def recent(self, domain: str, session_id: str | None, limit: int) -> list[dict[str, Any]]:
+# AWS-DISABLED:         if not session_id or limit <= 0:
+# AWS-DISABLED:             return []
+# AWS-DISABLED:         items = dynamo.query(
+# AWS-DISABLED:             self._table, ("session_key", self._key(domain, session_id)), newest_first=True, limit=limit
+# AWS-DISABLED:         )
+# AWS-DISABLED:         return [_summary(json.loads(item["payload"])) for item in reversed(items)]

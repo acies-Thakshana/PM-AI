@@ -15,19 +15,19 @@ from app.config import Settings, get_settings
 from app.services.common.llm import LlmClient, get_llm_client
 from app.services.data.cache import DataCache
 from app.services.data.local_files import LocalFileSource
-from app.services.data.s3_source import S3Source
+# AWS-DISABLED: from app.services.data.s3_source import S3Source
 from app.services.data.source import ChainedSource, DatasetSource
-from app.services.data.uploads import DatasetStorage, LocalDatasetStorage, S3DatasetStorage, UploadService
+from app.services.data.uploads import DatasetStorage, LocalDatasetStorage, UploadService  # AWS-DISABLED: S3DatasetStorage
 from app.services.guardrails.sql_policy import SqlPolicy
-from app.services.knowledge.graph_store import DynamoGraphStore, GraphStore, LocalGraphStore
-from app.services.knowledge.history_store import DynamoHistoryStore, HistoryStore, LocalHistoryStore
-from app.services.onboarding.catalog_store import CatalogStore, LocalCatalogStore, S3CatalogStore
-from app.services.onboarding.job_store import DynamoJobStore, JobStore, LocalJobStore
+from app.services.knowledge.graph_store import GraphStore, LocalGraphStore  # AWS-DISABLED: DynamoGraphStore
+from app.services.knowledge.history_store import HistoryStore, LocalHistoryStore  # AWS-DISABLED: DynamoHistoryStore
+from app.services.onboarding.catalog_store import CatalogStore, LocalCatalogStore  # AWS-DISABLED: S3CatalogStore
+from app.services.onboarding.job_store import JobStore, LocalJobStore  # AWS-DISABLED: DynamoJobStore
 from app.services.onboarding.jobs import JobRunner
 from app.services.output.answers import AnswerGenerator
 from app.services.output.followups import FollowupGenerator
 from app.services.output.visualization import VisualizationBuilder
-from app.services.semantic.registry_store import DynamoRegistryStore, LocalRegistryStore, RegistryStore
+from app.services.semantic.registry_store import LocalRegistryStore, RegistryStore  # AWS-DISABLED: DynamoRegistryStore
 from app.services.semantic.store import SemanticStore
 from app.services.sql.executor import SqliteFrameExecutor
 from app.services.sql.generator import SqlGenerator
@@ -83,18 +83,19 @@ def _local_storage(settings: Settings) -> _Storage:
     )
 
 
-def _aws_storage(settings: Settings) -> _Storage:
-    return _Storage(
-        registry=DynamoRegistryStore(settings.ddb_registry),
-        graphs=DynamoGraphStore(settings.ddb_kg, settings.graph_max_episodes, settings.record_ttl_days),
-        history=DynamoHistoryStore(settings.ddb_history, settings.record_ttl_days),
-        catalogs=S3CatalogStore(settings.s3_bucket),
-        jobs=DynamoJobStore(settings.ddb_jobs, settings.record_ttl_days),
-        source=ChainedSource([S3Source(settings.s3_bucket), LocalFileSource(settings.samples_root)]),
-        datasets=S3DatasetStorage(
-            settings.s3_bucket, expiry_seconds=settings.presign_expiry_seconds, max_bytes=settings.upload_max_bytes
-        ),
-    )
+# AWS-DISABLED: re-enable together with the AWS imports above to switch to S3 and DynamoDB.
+# def _aws_storage(settings: Settings) -> _Storage:
+#     return _Storage(
+#         registry=DynamoRegistryStore(settings.ddb_registry),
+#         graphs=DynamoGraphStore(settings.ddb_kg, settings.graph_max_episodes, settings.record_ttl_days),
+#         history=DynamoHistoryStore(settings.ddb_history, settings.record_ttl_days),
+#         catalogs=S3CatalogStore(settings.s3_bucket),
+#         jobs=DynamoJobStore(settings.ddb_jobs, settings.record_ttl_days),
+#         source=ChainedSource([S3Source(settings.s3_bucket), LocalFileSource(settings.samples_root)]),
+#         datasets=S3DatasetStorage(
+#             settings.s3_bucket, expiry_seconds=settings.presign_expiry_seconds, max_bytes=settings.upload_max_bytes
+#         ),
+#     )
 
 
 def build_context(
@@ -106,7 +107,8 @@ def build_context(
     graphs: GraphStore | None = None,
 ) -> AppContext:
     settings = settings or get_settings()
-    storage = _aws_storage(settings) if settings.use_aws_storage else _local_storage(settings)
+    # AWS-DISABLED: storage = _aws_storage(settings) if settings.use_aws_storage else _local_storage(settings)
+    storage = _local_storage(settings)
     source = source or storage.source
     client = llm or get_llm_client(settings)
     semantic = SemanticStore(settings.semantic_root)

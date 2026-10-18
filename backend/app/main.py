@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from app import __version__
 from app.config import get_settings
@@ -23,6 +25,10 @@ from app.services.context import get_context
 LOGGER = logging.getLogger(__name__)
 
 _LOCALHOST_ORIGIN = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
+
+# The dashboard UI lives next to the backend folder. When present it is served at /app/ so one
+# process runs everything locally.
+_FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
 
 def _error(status: int, code: str, message: str, **extra: object) -> JSONResponse:
@@ -98,6 +104,14 @@ def create_app() -> FastAPI:
 
     for module in (system, ask, domains, registry, upload, onboard):
         app.include_router(module.router)
+
+    if _FRONTEND_DIR.is_dir():
+        app.mount("/app", StaticFiles(directory=_FRONTEND_DIR, html=True), name="frontend")
+
+        @app.get("/", include_in_schema=False)
+        def _home() -> RedirectResponse:
+            return RedirectResponse("/app/")
+
     return app
 
 

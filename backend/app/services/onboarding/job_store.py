@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
-from app.services.common import dynamo
+# AWS-DISABLED: from app.services.common import dynamo
 
 JobStatus = Literal["queued", "running", "succeeded", "failed"]
 
@@ -73,30 +73,30 @@ class LocalJobStore:
             return Job.from_dict(json.loads(path.read_text(encoding="utf-8")))
 
 
-class DynamoJobStore:
-    def __init__(self, table: str, ttl_days: int) -> None:
-        self._table = table
-        self._ttl_days = ttl_days
+# AWS-DISABLED: class DynamoJobStore:
+# AWS-DISABLED:     def __init__(self, table: str, ttl_days: int) -> None:
+# AWS-DISABLED:         self._table = table
+# AWS-DISABLED:         self._ttl_days = ttl_days
 
-    def save(self, job: Job) -> None:
-        job.updated_at = _now()
-        dynamo.put_item(
-            self._table,
-            {
-                "job_id": job.job_id,
-                "domain": job.domain,
-                "user_id": job.user_id,
-                "status": job.status,
-                "created_at": job.created_at,
-                "updated_at": job.updated_at,
-                "error": job.error,
-                "payload": json.dumps(job.result, default=str),
-                "expires_at": dynamo.expiry(self._ttl_days),
-            },
-        )
+# AWS-DISABLED:     def save(self, job: Job) -> None:
+# AWS-DISABLED:         job.updated_at = _now()
+# AWS-DISABLED:         dynamo.put_item(
+# AWS-DISABLED:             self._table,
+# AWS-DISABLED:             {
+# AWS-DISABLED:                 "job_id": job.job_id,
+# AWS-DISABLED:                 "domain": job.domain,
+# AWS-DISABLED:                 "user_id": job.user_id,
+# AWS-DISABLED:                 "status": job.status,
+# AWS-DISABLED:                 "created_at": job.created_at,
+# AWS-DISABLED:                 "updated_at": job.updated_at,
+# AWS-DISABLED:                 "error": job.error,
+# AWS-DISABLED:                 "payload": json.dumps(job.result, default=str),
+# AWS-DISABLED:                 "expires_at": dynamo.expiry(self._ttl_days),
+# AWS-DISABLED:             },
+# AWS-DISABLED:         )
 
-    def get(self, job_id: str) -> Job | None:
-        item = dynamo.get_item(self._table, {"job_id": job_id})
-        if item is None:
-            return None
-        return Job.from_dict({**item, "result": json.loads(item.get("payload") or "{}")})
+# AWS-DISABLED:     def get(self, job_id: str) -> Job | None:
+# AWS-DISABLED:         item = dynamo.get_item(self._table, {"job_id": job_id})
+# AWS-DISABLED:         if item is None:
+# AWS-DISABLED:             return None
+# AWS-DISABLED:         return Job.from_dict({**item, "result": json.loads(item.get("payload") or "{}")})

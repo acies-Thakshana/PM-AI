@@ -13,7 +13,7 @@ import threading
 from pathlib import Path
 from typing import Any, Protocol
 
-from app.services.common import dynamo
+# AWS-DISABLED: from app.services.common import dynamo
 from app.services.semantic.registry import SemanticArtifact, SemanticRegistry
 
 
@@ -61,34 +61,34 @@ class LocalRegistryStore:
         return len(pending)
 
 
-class DynamoRegistryStore:
-    """Partition ``domain``, sort ``<type>#<id>#<created_at>#<version>``, JSON ``payload``.
+# AWS-DISABLED: class DynamoRegistryStore:
+# AWS-DISABLED:     """Partition ``domain``, sort ``<type>#<id>#<created_at>#<version>``, JSON ``payload``.
 
-    Every version is its own item, so a write never touches another version's item.
-    """
+# AWS-DISABLED:     Every version is its own item, so a write never touches another version's item.
+# AWS-DISABLED:     """
 
-    def __init__(self, table: str) -> None:
-        self._table = table
+# AWS-DISABLED:     def __init__(self, table: str) -> None:
+# AWS-DISABLED:         self._table = table
 
-    @staticmethod
-    def _sort_key(artifact: SemanticArtifact) -> str:
-        return f"{artifact.artifact_type}#{artifact.artifact_id}#{artifact.created_at}#{artifact.semantic_version}"
+# AWS-DISABLED:     @staticmethod
+# AWS-DISABLED:     def _sort_key(artifact: SemanticArtifact) -> str:
+# AWS-DISABLED:         return f"{artifact.artifact_type}#{artifact.artifact_id}#{artifact.created_at}#{artifact.semantic_version}"
 
-    def load(self, domain: str) -> SemanticRegistry:
-        items = dynamo.query(self._table, ("domain", domain))
-        return SemanticRegistry.from_records(json.loads(item["artifact"]) for item in items)
+# AWS-DISABLED:     def load(self, domain: str) -> SemanticRegistry:
+# AWS-DISABLED:         items = dynamo.query(self._table, ("domain", domain))
+# AWS-DISABLED:         return SemanticRegistry.from_records(json.loads(item["artifact"]) for item in items)
 
-    def save(self, domain: str, registry: SemanticRegistry) -> int:
-        pending = registry.drain_pending()
-        dynamo.batch_put(
-            self._table,
-            (
-                {
-                    "domain": domain,
-                    "sort_key": self._sort_key(artifact),
-                    "artifact": json.dumps(artifact.to_record(), default=str),
-                }
-                for artifact in pending
-            ),
-        )
-        return len(pending)
+# AWS-DISABLED:     def save(self, domain: str, registry: SemanticRegistry) -> int:
+# AWS-DISABLED:         pending = registry.drain_pending()
+# AWS-DISABLED:         dynamo.batch_put(
+# AWS-DISABLED:             self._table,
+# AWS-DISABLED:             (
+# AWS-DISABLED:                 {
+# AWS-DISABLED:                     "domain": domain,
+# AWS-DISABLED:                     "sort_key": self._sort_key(artifact),
+# AWS-DISABLED:                     "artifact": json.dumps(artifact.to_record(), default=str),
+# AWS-DISABLED:                 }
+# AWS-DISABLED:                 for artifact in pending
+# AWS-DISABLED:             ),
+# AWS-DISABLED:         )
+# AWS-DISABLED:         return len(pending)

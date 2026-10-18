@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.config import get_settings
-from app.services.common import dynamo, request_context
+from app.services.common import request_context  # AWS-DISABLED: dynamo
 
 LOGGER = logging.getLogger(__name__)
 
@@ -43,23 +43,24 @@ def record(event: str, **fields: Any) -> None:
             "domain": request_context.current_domain.get() or "-",
             "fields": {key: _clip(value) for key, value in fields.items()},
         }
-        if settings.use_aws_storage:
-            dynamo.put_item(
-                settings.ddb_audit,
-                {
-                    "session_id": entry["request_id"],
-                    "ts_event": f"{entry['ts']}#{event}#{uuid.uuid4().hex[:8]}",
-                    "user_id": entry["user_id"],
-                    "event": event,
-                    "domain": entry["domain"],
-                    "payload": json.dumps(entry["fields"], default=str),
-                    "expires_at": dynamo.expiry(settings.audit_ttl_days),
-                },
-            )
-        else:
-            path = settings.local_state_root / "audit.jsonl"
-            path.parent.mkdir(parents=True, exist_ok=True)
-            with _file_lock, path.open("a", encoding="utf-8") as handle:
-                handle.write(json.dumps(entry, default=str) + "\n")
+        # AWS-DISABLED: DynamoDB audit table. Audit events go to the local file only.
+        # if settings.use_aws_storage:
+        #     dynamo.put_item(
+        #         settings.ddb_audit,
+        #         {
+        #             "session_id": entry["request_id"],
+        #             "ts_event": f"{entry['ts']}#{event}#{uuid.uuid4().hex[:8]}",
+        #             "user_id": entry["user_id"],
+        #             "event": event,
+        #             "domain": entry["domain"],
+        #             "payload": json.dumps(entry["fields"], default=str),
+        #             "expires_at": dynamo.expiry(settings.audit_ttl_days),
+        #         },
+        #     )
+        # else:
+        path = settings.local_state_root / "audit.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with _file_lock, path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(entry, default=str) + "\n")
     except Exception:  # noqa: BLE001 - auditing is best effort by design
         LOGGER.warning("Could not write audit event %s", event, exc_info=True)

@@ -12,7 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.config import BACKEND_DIR, Settings, get_settings
-from app.services.common import aws_clients, prompt_files
+from app.services.common import prompt_files  # AWS-DISABLED: aws_clients
 from app.services.context import AppContext, build_context, get_context
 
 _ENV_PREFIXES = ("AWS_", "DDB_", "S3_", "ENTRA_", "BEDROCK_", "AI4BI_", "DOMAIN_", "MODEL_", "LLM_", "ALLOW_")
@@ -37,7 +37,8 @@ def clean_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterat
 def _reset_caches() -> None:
     get_settings.cache_clear()
     get_context.cache_clear()
-    aws_clients.reset()
+    # AWS-DISABLED: aws_clients.reset()
+    pass
     prompt_files.clear_cache()
 
 
@@ -83,3 +84,6 @@ def wait_for_job(client: TestClient, job_id: str, headers: dict[str, str] | None
             break
         time.sleep(0.2)
     return status
+
+# AWS-DISABLED: these suites need boto3, moto and PyJWT. Remove this line when AWS is re-enabled.
+collect_ignore = ["test_aws.py", "test_auth.py"]

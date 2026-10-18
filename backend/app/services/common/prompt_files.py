@@ -15,7 +15,7 @@ from functools import cache
 
 from app.config import get_settings
 from app.errors import ConfigError
-from app.services.common import aws_clients
+# AWS-DISABLED: from app.services.common import aws_clients
 
 LOGGER = logging.getLogger(__name__)
 
@@ -32,19 +32,22 @@ def read_prompt_file(name: str) -> str:
     return path.read_text(encoding="utf-8").strip()
 
 
-def _managed_prompt(prompt_id: str) -> str:
-    response = aws_clients.bedrock_agent().get_prompt(promptIdentifier=prompt_id)
-    variants = response.get("variants") or []
-    text = ((variants[0].get("templateConfiguration") or {}).get("text") or {}).get("text") if variants else None
-    if not text or not text.strip():
-        raise ValueError(f"prompt {prompt_id} has no text variant")
-    return text.strip()
+# AWS-DISABLED: Bedrock Prompt Management lookup.
+# def _managed_prompt(prompt_id: str) -> str:
+#     response = aws_clients.bedrock_agent().get_prompt(promptIdentifier=prompt_id)
+#     variants = response.get("variants") or []
+#     text = ((variants[0].get("templateConfiguration") or {}).get("text") or {}).get("text") if variants else None
+#     if not text or not text.strip():
+#         raise ValueError(f"prompt {prompt_id} has no text variant")
+#     return text.strip()
 
 
 def resolve_prompt(name: str) -> str:
     """The system prompt for one call: managed text when configured, else the file."""
     settings = get_settings()
-    prompt_id = settings.bedrock_prompt_ids.get(name)
+    # AWS-DISABLED: managed prompts. Prompts always come from prompts/<name>.txt while AWS is off.
+    return read_prompt_file(name)
+    prompt_id = settings.bedrock_prompt_ids.get(name)  # unreachable until re-enabled
     if not prompt_id or settings.llm_mode != "bedrock":
         return read_prompt_file(name)
 

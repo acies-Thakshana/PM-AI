@@ -1,9 +1,0 @@
-# Copy to config/settings.local.yaml and set AIBI_SETTINGS_PATH=config/settings.local.yaml.
-# Only the keys you list here replace the values in config/settings.yaml.
-
-app:
-  default_domain: generic_cube
-  row_limit: 200
-
-llm:
-  mode: local
