@@ -10,6 +10,8 @@ import AuditReport from "../components/AuditReport";
 import type { Tab } from "../components/AuditReport";
 import AuditSummaryPanel from "../components/AuditSummaryPanel";
 import OutlierCorrectionStep from "../components/OutlierCorrectionStep";
+import Collapsible from "../components/Collapsible";
+import TripRawChart from "../components/TripRawChart";
 import { IconShieldSearch, IconDownload } from "../components/icons";
 import { downloadCleansedFile } from "../api/audit";
 import { useStoredState } from "../state/sessionStore";
@@ -139,7 +141,7 @@ export default function AuditPage({
         <PageHeader
           icon={<IconShieldSearch />}
           title="Data Audit"
-          subtitle="Automated data quality checks have been run on your tabular uploads below. Review each finding and confirm any outstanding decisions before continuing."
+          subtitle="Automated data quality checks have been run on the trips loaded from the SWP API below. Review each finding and confirm any outstanding decisions before continuing."
         />
 
         {auditedSlotsWithFiles.map((id) => {
@@ -169,6 +171,9 @@ export default function AuditPage({
 
               {id === WIZARD_SLOT ? (
                 <>
+                  <Collapsible label="trip raw data graph" defaultOpen>
+                    <TripRawChart sessionId={uploadedSessionIds[id]!} />
+                  </Collapsible>
                   <div className="audit-page__wizard-tabs" role="tablist">
                     <button
                       type="button"

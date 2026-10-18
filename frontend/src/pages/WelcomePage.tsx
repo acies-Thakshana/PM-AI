@@ -18,10 +18,10 @@ import "./WelcomePage.css";
 const STEPS = [
   {
     step: 1,
-    title: "Upload",
+    title: "Configure",
     icon: <IconUpload />,
     color: "blue",
-    description: "Provide your SensiWatch/ColdStream export, a client brief, and any KPI or analysis definition profiles.",
+    description: "Pick which trips to pull from the SWP API, add a client brief, and optionally KPI or analysis definition profiles.",
   },
   {
     step: 2,

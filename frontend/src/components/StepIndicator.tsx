@@ -8,7 +8,7 @@ interface StepIndicatorProps {
 }
 
 const STEPS = [
-  { step: 1, label: "Upload", path: "/upload" },
+  { step: 1, label: "Configure", path: "/upload" },
   { step: 2, label: "Planner", path: "/planner" },
   { step: 3, label: "Audit", path: "/audit" },
   { step: 4, label: "Features", path: "/features" },

@@ -19,6 +19,9 @@ async function send(path: string, init: RequestInit | undefined, forceRefresh: b
 // endpoint's own response (same status, headers and body), so callers cannot tell the difference.
 const LONG_STEPS: { method: string; path: RegExp }[] = [
   { method: "POST", path: /^\/api\/planner\/suggest$/ },
+  // Pulling trips from the SWP API is rate limited (a couple of seconds per call), so it can take a while.
+  { method: "GET", path: /^\/api\/swp\/trips$/ },
+  { method: "POST", path: /^\/api\/swp\/load$/ },
   { method: "POST", path: /^\/api\/audit\/[^/]+\/(run|features)$/ },
   { method: "POST", path: /^\/api\/(features|analysis)\/repository\/[^/]+\/(draft|suggest)$/ },
   {

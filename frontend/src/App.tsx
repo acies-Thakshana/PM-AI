@@ -24,6 +24,14 @@ export type AuditErrorsState = Partial<Record<UploadSlotId, string>>;
 export type ResolvingState = Partial<Record<UploadSlotId, string>>;
 export type { BriefState };
 
+/** What the Configure page asks the SWP API for: a status (empty = all), how many trips, or specific trips. */
+export interface SwpConfigState {
+  status: string;
+  nTrips: number;
+  tripIds: string[];
+}
+const EMPTY_SWP_CONFIG: SwpConfigState = { status: "", nTrips: 1, tripIds: [] };
+
 const EMPTY_FILES: FilesState = {
   sensiwatch: null,
   coldstream: null,
@@ -34,6 +42,7 @@ const EMPTY_FILES: FilesState = {
 function App() {
   const [files, setFiles] = useState<FilesState>(EMPTY_FILES);
   const [brief, setBrief] = useState<BriefState>(EMPTY_BRIEF);
+  const [swpConfig, setSwpConfig] = useState<SwpConfigState>(EMPTY_SWP_CONFIG);
   const [uploadedSessionIds, setUploadedSessionIds] = useState<UploadedSessionIdsState>({});
   const [plannerSessionId, setPlannerSessionId] = useState<string | null>(null);
   // The brief text the current sessions were created with: coming back to Upload with the same files
@@ -53,11 +62,18 @@ function App() {
   const sessionIdsRef = useRef<UploadedSessionIdsState>({});
   sessionIdsRef.current = uploadedSessionIds;
 
-  const handleUploadComplete = (sessionIds: UploadedSessionIdsState, briefSignature: string) => {
+  // The trips were loaded from the SWP API into one session. `label` is a stand-in "file" that only
+  // carries the source's name for the pages that show it.
+  const handleLoadComplete = (sessionId: string, label: File, signature: string) => {
     resetAllState();
-    setUploadedBriefSignature(briefSignature);
-    setUploadedSessionIds(sessionIds);
-    setPlannerSessionId(sessionIds.sensiwatch ?? null);
+    setFiles((prev) => ({ ...prev, sensiwatch: label }));
+    setUploadedBriefSignature(signature);
+    setUploadedSessionIds({ sensiwatch: sessionId });
+    setPlannerSessionId(sessionId);
+    setAuditReports({});
+    setAuditErrors({});
+    setAuditLoading({});
+    setResolvingIssueId({});
   };
 
   const handleRunAudit = async (id: UploadSlotId) => {
@@ -106,6 +122,7 @@ function App() {
     resetAllState();
     setFiles(EMPTY_FILES);
     setBrief(EMPTY_BRIEF);
+    setSwpConfig(EMPTY_SWP_CONFIG);
     setUploadedSessionIds({});
     setUploadedBriefSignature(null);
     setPlannerSessionId(null);
@@ -197,11 +214,13 @@ function App() {
             <UploadPage
               files={files}
               brief={brief}
+              config={swpConfig}
+              onConfigChange={setSwpConfig}
               onSelect={handleSelect}
               onRemove={handleRemove}
               onClearAll={handleClearAll}
               onBriefChange={setBrief}
-              onUploadComplete={handleUploadComplete}
+              onLoadComplete={handleLoadComplete}
               uploadedSessionIds={uploadedSessionIds}
               uploadedBriefSignature={uploadedBriefSignature}
             />

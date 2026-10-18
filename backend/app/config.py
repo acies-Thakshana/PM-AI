@@ -45,6 +45,29 @@ UPLOAD_MAX_BYTES = int(os.getenv("UPLOAD_MAX_BYTES", str(200 * 1024 * 1024)))
 
 
 # =====================================================================================
+# SWP (SensiWatch) EXTERNAL API
+#
+# The trip data comes from this API instead of an uploaded file. Every secret (the two APIM
+# subscription keys, the user name and password) lives only in the environment / backend/.env,
+# never in code or in the browser.
+# =====================================================================================
+SWP_BASE_URL = os.getenv("SWP_BASE_URL", "").rstrip("/")
+SWP_PROGRAM_ID = os.getenv("SWP_PROGRAM_ID", "")
+SWP_SECURITY_KEY = os.getenv("SWP_SECURITY_KEY", "")   # APIM key for the token endpoint
+SWP_TRIP_KEY = os.getenv("SWP_TRIP_KEY", "")           # APIM key for the trip endpoints
+SWP_USER = os.getenv("SWP_USER", "")
+SWP_PASS = os.getenv("SWP_PASS", "")
+SWP_CLIENT_ID = os.getenv("SWP_CLIENT_ID", "common_client_jwt")
+SWP_CLIENT_SECRET = os.getenv("SWP_CLIENT_SECRET", "secret")
+# The API allows 20 calls a minute: wait this long after every call.
+SWP_CALL_DELAY_SECONDS = float(os.getenv("SWP_CALL_DELAY_SECONDS", "2.5"))
+# How long the fetched list of all trips is reused before it is fetched again.
+SWP_TRIPS_CACHE_SECONDS = int(os.getenv("SWP_TRIPS_CACHE_SECONDS", "600"))
+# Most trips one "Load" may pull in detail (each trip costs two API calls).
+SWP_MAX_TRIPS = int(os.getenv("SWP_MAX_TRIPS", "50"))
+
+
+# =====================================================================================
 # MICROSOFT ENTRA ID
 #
 # Auth is enforced only when both ids are set. Unset (local dev) -> every request is the
