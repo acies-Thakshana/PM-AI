@@ -41,12 +41,13 @@ body { margin: 0; min-height: 100vh; color: var(--ink); background: var(--canvas
 }
 .view-btn.active { background: var(--carrier-navy); color: #fff; border-color: var(--carrier-navy); }
 .shell {
-  display: grid; grid-template-columns: 280px 1fr; min-height: calc(100vh - 3.5rem);
+  display: grid; grid-template-columns: 280px 1fr; height: calc(100vh - 3.5rem); overflow: hidden;
   background: radial-gradient(900px 420px at 100% 0%, rgba(0, 156, 255, 0.16), transparent 55%), linear-gradient(180deg, #f5f7fc 0%, var(--canvas) 45%, #e8eef8 100%);
 }
 .sidebar {
   background: linear-gradient(165deg, var(--carrier-navy-deep) 0%, var(--carrier-navy) 55%, #1a347f 100%);
   color: #eef4ff; padding: 22px 18px; display: flex; flex-direction: column; gap: 16px;
+  min-height: 0; overflow-y: auto;
 }
 .sidebar-brand { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 .product-name { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: 1.2rem; }
@@ -69,7 +70,7 @@ body { margin: 0; min-height: 100vh; color: var(--ink); background: var(--canvas
 .table-list span { color: rgba(238, 244, 255, 0.6); }
 .recent-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .recent-list button { width: 100%; text-align: left; border: 0; background: transparent; color: #e8eeff; padding: 8px 10px; border-radius: 10px; cursor: pointer; font: inherit; font-size: 13px; }
-.main { display: flex; flex-direction: column; min-width: 0; min-height: calc(100vh - 3.5rem); }
+.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
 #ask-view:not([hidden]) { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .dashboard { padding: 8px 28px 32px; display: flex; flex-direction: column; gap: 16px; flex: 1; overflow: auto; }
 .dash-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; padding-top: 18px; }
@@ -229,3 +230,7 @@ th { background: #f2f5fb; color: var(--carrier-navy); }
 .skip-line { margin: 0; color: var(--muted); font-size: 13px; }
 @media (max-width: 700px) { .file-row { grid-template-columns: 1fr; } }
 .view-btn:disabled, .side-view:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* keep every page inside the viewport: the sidebar and each page scroll on their own */
+.dashboard, .upload-view { min-height: 0; overflow-y: auto; }
+.sidebar-section { flex-shrink: 0; }
