@@ -1,0 +1,1 @@
+export const LOGO = "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 48'%3E%3Crect width='180' height='48' rx='24' fill='%23152c73'/%3E%3Ctext x='90' y='31' text-anchor='middle' fill='%23ffffff' font-family='Georgia, serif' font-size='22'%3ECarrier%3C/text%3E%3C/svg%3E";

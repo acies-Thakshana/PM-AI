@@ -25,7 +25,7 @@ npm run dev
 Open http://localhost:5173. Vite proxies `/api` to the backend (see `frontend/vite.config.js`).
 If the backend is elsewhere, set `VITE_BACKEND_URL` (dev proxy) or `VITE_API_BASE` (direct calls).
 
-* Everything is local: data under `backend/data/local/`, no login, no model. Answers come from the deterministic planner.
+* The frontend is React (Vite). Everything is local: data under `backend/data/local/`, no login, no model. Answers come from the deterministic planner.
 * **Upload data** in the UI sends files to `POST /api/domains/{domain}/datasets`; **Run onboarding** starts
   `POST /api/domains/{domain}/onboard` and polls `GET /api/jobs/{id}`.
 
