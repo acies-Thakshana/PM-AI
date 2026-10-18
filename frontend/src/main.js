@@ -5,8 +5,11 @@
  * The dashboard has no stored answers of its own: it runs the domain's starter questions and shows
  * the results, so the numbers always come from the connected tables.
  */
+import "./style.css";
+
 (function () {
-  var API = (window.AI4BI_API_BASE || "").replace(/\/+$/, "");
+  // Empty in dev: Vite proxies /api to the backend (see vite.config.js). Set VITE_API_BASE to point elsewhere.
+  var API = (import.meta.env.VITE_API_BASE || "").replace(/\/+$/, "");
   var DASHBOARD_QUESTIONS = 4;
   var STEPS = [
     "Understanding the question",
