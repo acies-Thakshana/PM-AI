@@ -13,6 +13,7 @@ export default function App() {
   const [view, setView] = useState("upload");
   const [domains, setDomains] = useState([]);
   const [domain, setDomain] = useState("");
+  const [uploaded, setUploaded] = useState(false); // dashboard and ask unlock after the first upload
   const [detail, setDetail] = useState(null);
   const [dashboard, setDashboard] = useState(EMPTY_DASHBOARD);
   const [error, setError] = useState("");
@@ -84,15 +85,19 @@ export default function App() {
     []
   );
 
+  // Check the backend and list existing domains (for the upload form). No domain is opened until the user uploads data.
   useEffect(() => {
     getInfo()
-      .then((info) => loadDomains(info.default_domain))
-      .then((id) => loadDomain(id))
+      .then(() => getDomains())
+      .then((list) => {
+        setDomains(list || []);
+        setStatus("Upload your data to begin.");
+      })
       .catch((e) => {
         setStatus(e.message || String(e));
         setError(e.message || String(e));
       });
-  }, [loadDomains, loadDomain]);
+  }, []);
 
   function changeDomain(id) {
     setChatKey((k) => k + 1);
@@ -110,19 +115,21 @@ export default function App() {
   }
 
   function askFromRecent(text) {
-    setView("ask");
+    goTo("ask");
     setPendingQuestion(text);
   }
 
   const suggestions = dashboardQuestions(detail);
+  const goTo = (next) => setView(uploaded || next === "upload" ? next : "upload");
 
   return (
     <div className="workspace-shell">
-      <TopBar view={view} setView={setView} domainLabel={domainLabel} />
+      <TopBar view={view} setView={goTo} unlocked={uploaded} domainLabel={domainLabel} />
       <div className="shell">
         <Sidebar
           view={view}
-          setView={setView}
+          setView={goTo}
+          unlocked={uploaded}
           domainLabel={domainLabel}
           domains={domains}
           domain={domain}
@@ -141,7 +148,7 @@ export default function App() {
             detail={detail}
             dashboard={dashboard}
             error={error}
-            onAsk={() => setView("ask")}
+            onAsk={() => goTo("ask")}
           />
           <Ask
             key={domain + ":" + chatKey}
@@ -157,15 +164,13 @@ export default function App() {
           <Upload
             hidden={view !== "upload"}
             domains={domains}
-            activeDomain={domain}
-            onFinished={(id, open) =>
-              loadDomains(id)
-                .then(() => (open || id !== domain ? loadDomain(id) : null))
-                .then(() => {
-                  if (open) setView("dashboard");
-                })
-            }
-            onSkip={() => setView("dashboard")}
+            onFinished={(id, open) => {
+              setUploaded(true);
+              if (open) setView("dashboard");
+              setChatKey((k) => k + 1);
+              setSessionId(newSession());
+              loadDomains(id).then((chosen) => loadDomain(chosen));
+            }}
           />
         </div>
       </div>

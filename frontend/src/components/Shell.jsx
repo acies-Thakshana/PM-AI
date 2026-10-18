@@ -2,7 +2,7 @@ import { LOGO } from "../logo.js";
 
 const TITLES = { dashboard: "Dashboard", ask: "Ask Questions", upload: "Upload Data" };
 
-export function TopBar({ view, setView, domainLabel }) {
+export function TopBar({ view, setView, unlocked, domainLabel }) {
   const subtitles = { dashboard: domainLabel, ask: "Business analyst copilot", upload: "Step 1 · Add your data" };
   return (
     <header className="workspace-topbar">
@@ -29,7 +29,14 @@ export function TopBar({ view, setView, domainLabel }) {
           ["dashboard", "Dashboard"],
           ["ask", "Ask"]
         ].map(([id, label]) => (
-          <button key={id} type="button" className={"view-btn" + (view === id ? " active" : "")} onClick={() => setView(id)}>
+          <button
+            key={id}
+            type="button"
+            className={"view-btn" + (view === id ? " active" : "")}
+            disabled={!unlocked && id !== "upload"}
+            title={!unlocked && id !== "upload" ? "Upload data first" : undefined}
+            onClick={() => setView(id)}
+          >
             {label}
           </button>
         ))}
@@ -38,7 +45,7 @@ export function TopBar({ view, setView, domainLabel }) {
   );
 }
 
-export function Sidebar({ view, setView, domainLabel, domains, domain, onDomain, detail, recent, onRecent, onNewChat, status }) {
+export function Sidebar({ view, setView, unlocked, domainLabel, domains, domain, onDomain, detail, recent, onRecent, onNewChat, status }) {
   const tables = (detail && detail.tables) || [];
   const columns = [];
   tables.forEach((table) =>
@@ -56,10 +63,10 @@ export function Sidebar({ view, setView, domainLabel, domains, domain, onDomain,
         </p>
       </div>
       <div className="side-views">
-        <button type="button" className={"side-view" + (view === "dashboard" ? " active" : "")} onClick={() => setView("dashboard")}>
+        <button type="button" className={"side-view" + (view === "dashboard" ? " active" : "")} disabled={!unlocked} onClick={() => setView("dashboard")}>
           Dashboard
         </button>
-        <button type="button" className={"side-view" + (view === "ask" ? " active" : "")} onClick={() => setView("ask")}>
+        <button type="button" className={"side-view" + (view === "ask" ? " active" : "")} disabled={!unlocked} onClick={() => setView("ask")}>
           Ask
         </button>
         <button
@@ -70,6 +77,8 @@ export function Sidebar({ view, setView, domainLabel, domains, domain, onDomain,
           Upload data
         </button>
       </div>
+      {unlocked && (
+      <>
       <div className="sidebar-section">
         <p className="sidebar-label">Domain</p>
         <select className="domain-select" aria-label="Domain" value={domain} onChange={(e) => onDomain(e.target.value)}>
@@ -122,6 +131,8 @@ export function Sidebar({ view, setView, domainLabel, domains, domain, onDomain,
           )}
         </ul>
       </div>
+      </>
+      )}
       <p className="sidebar-foot">{status}</p>
     </aside>
   );

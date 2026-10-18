@@ -22,10 +22,11 @@ function size(bytes) {
 
 /**
  * First page of the app. Pick one file or many, name the domain they belong to, upload them,
- * let the backend learn their semantics, then open the dashboard.
+ * let the backend learn their semantics, then open the dashboard automatically. Until then the
+ * dashboard and ask pages stay locked.
  * Phases: "select" -> "uploading" -> "onboarding" -> "done".
  */
-export function Upload({ hidden, domains, activeDomain, onFinished, onSkip }) {
+export function Upload({ hidden, domains, onFinished }) {
   const [items, setItems] = useState([]); // { id, file, state: "ready"|"uploading"|"done"|"failed", message }
   const [domain, setDomain] = useState("");
   const [domainTouched, setDomainTouched] = useState(false);
@@ -115,7 +116,7 @@ export function Upload({ hidden, domains, activeDomain, onFinished, onSkip }) {
         setResult(job.result);
         setStatus("");
         setPhase("done");
-        onFinished(domainId, false);
+        onFinished(domainId, true); // opens the dashboard
       } else {
         setStatus("Analysis failed: " + (job.error || "unknown error") + ". The files are uploaded; you can still open the dashboard.");
         setPhase("done");
@@ -287,14 +288,6 @@ export function Upload({ hidden, domains, activeDomain, onFinished, onSkip }) {
           )}
         </article>
 
-        {domains.length > 0 && phase === "select" && (
-          <p className="skip-line">
-            No new data?{" "}
-            <button type="button" className="link-btn" onClick={onSkip}>
-              Continue with {activeDomain || domains[0].id}
-            </button>
-          </p>
-        )}
       </div>
     </section>
   );
