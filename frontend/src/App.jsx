@@ -10,7 +10,7 @@ const newSession = () => "web-" + Math.random().toString(36).slice(2, 10);
 const EMPTY_DASHBOARD = { kpis: [], charts: [], answers: [], pending: false };
 
 export default function App() {
-  const [view, setView] = useState("dashboard");
+  const [view, setView] = useState("upload");
   const [domains, setDomains] = useState([]);
   const [domain, setDomain] = useState("");
   const [detail, setDetail] = useState(null);
@@ -32,7 +32,7 @@ export default function App() {
     setError("");
     setDashboard(EMPTY_DASHBOARD);
     if (!id) {
-      setStatus("No domains yet. Use Upload data.");
+      setStatus("No domains yet. Upload data to begin.");
       return Promise.resolve();
     }
     setStatus("Loading " + id + "…");
@@ -157,8 +157,15 @@ export default function App() {
           <Upload
             hidden={view !== "upload"}
             domains={domains}
-            onUploaded={(id) => loadDomains(id).then(() => loadDomain(id))}
-            onOnboarded={(id) => loadDomain(id)}
+            activeDomain={domain}
+            onFinished={(id, open) =>
+              loadDomains(id)
+                .then(() => (open || id !== domain ? loadDomain(id) : null))
+                .then(() => {
+                  if (open) setView("dashboard");
+                })
+            }
+            onSkip={() => setView("dashboard")}
           />
         </div>
       </div>

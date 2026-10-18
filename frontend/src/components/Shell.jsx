@@ -3,7 +3,7 @@ import { LOGO } from "../logo.js";
 const TITLES = { dashboard: "Dashboard", ask: "Ask Questions", upload: "Upload Data" };
 
 export function TopBar({ view, setView, domainLabel }) {
-  const subtitles = { dashboard: domainLabel, ask: "Business analyst copilot", upload: "Add datasets and onboard them" };
+  const subtitles = { dashboard: domainLabel, ask: "Business analyst copilot", upload: "Step 1 · Add your data" };
   return (
     <header className="workspace-topbar">
       <div className="workspace-topbar-left">
@@ -25,9 +25,9 @@ export function TopBar({ view, setView, domainLabel }) {
       </div>
       <nav className="view-nav" aria-label="Views">
         {[
+          ["upload", "Upload data"],
           ["dashboard", "Dashboard"],
-          ["ask", "Ask"],
-          ["upload", "Upload data"]
+          ["ask", "Ask"]
         ].map(([id, label]) => (
           <button key={id} type="button" className={"view-btn" + (view === id ? " active" : "")} onClick={() => setView(id)}>
             {label}
