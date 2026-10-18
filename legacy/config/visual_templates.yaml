@@ -1,0 +1,34 @@
+# Frozen visual templates. Projects bind metrics; they do not invent widgets.
+version: "1"
+templates:
+  - id: kpi_card
+    title: KPI card
+    purpose: orientation
+    chart_type: indicator
+    required_bindings: [metric_id]
+    optional_bindings: [comparison_metric_id]
+  - id: table
+    title: Detail table
+    purpose: consumption
+    chart_type: table
+    required_bindings: [metric_id, columns]
+  - id: trend
+    title: Trend
+    purpose: exploration
+    chart_type: line
+    required_bindings: [metric_id, time_dimension]
+  - id: comparison
+    title: Comparison
+    purpose: exploration
+    chart_type: bar
+    required_bindings: [metric_id, compare_dimension]
+  - id: root_cause
+    title: Root-cause view
+    purpose: investigation
+    chart_type: grouped_bar
+    required_bindings: [metric_id, breakdown_dimensions]
+  - id: distribution
+    title: Distribution
+    purpose: consumption
+    chart_type: histogram
+    required_bindings: [metric_id, bucket_dimension]

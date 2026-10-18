@@ -1,0 +1,41 @@
+domain: service_ops
+entities:
+  - logical_entity: account
+    business_definition: Customer account that owns one or more service cases.
+    hierarchy:
+      - region
+      - account
+  - logical_entity: service_case
+    business_definition: A support case opened by a customer.
+    hierarchy:
+      - region
+      - account
+      - service_case
+  - logical_entity: case_extension
+    business_definition: Salesforce custom object holding extra case attributes.
+    hierarchy: []
+kpis:
+  - family: frt
+    name: First Response Time
+    business_definition: >
+      Hours from case open to first agent response. Regional variants exist
+      because operating hours differ. Global, EMEA, and APAC are sibling
+      metrics in the catalog - not prompt forks.
+    formula_hint: AVG hours between opened_at and first_response_at
+    grain: one row per service_case
+    owner: Service metric owner
+    synonyms:
+      - FRT
+      - first response
+      - time to first response
+    scopes:
+      - global
+      - emea
+      - apac
+hierarchies:
+  - [region, account, service_case]
+synonyms:
+  - term: FRT
+    maps_to: frt
+  - term: TTFR
+    maps_to: frt

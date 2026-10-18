@@ -1,0 +1,19 @@
+rules:
+  - id: rule.generic.default_productivity
+    rule_type: definition
+    description: >
+      "Productivity" without a qualifier means Actual Productivity, the
+      non-probability-weighted figure.
+    applies_to: [Actual Productivity]
+    keywords: [productivity, non probability, non-probability]
+  - id: rule.generic.weighted_productivity
+    rule_type: definition
+    description: Probability-weighted productivity is Agg Productivity.
+    applies_to: [Agg Productivity]
+    keywords: [probability weighted, weighted]
+  - id: rule.generic.achievement
+    rule_type: calculation
+    description: Achievement against target is SUM(Actual Productivity) / SUM(Forecast Productivity Plan).
+    applies_to: [Actual Productivity, Forecast Productivity Plan]
+    keywords: [achievement, against target, against plan]
+    sql_hint: SUM("Actual Productivity") * 1.0 / NULLIF(SUM("Forecast Productivity Plan"), 0)

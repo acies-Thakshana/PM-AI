@@ -1,0 +1,248 @@
+{
+  "domain": "service_ops",
+  "extracted_at": "2026-10-15T12:33:46+00:00",
+  "source_system": "salesforce",
+  "datasets": [
+    {
+      "dataset": "accounts",
+      "logical_entity": "account",
+      "data_product_id": "dp.ops.accounts",
+      "grain": "one row per account_id",
+      "primary_keys": [
+        "account_id"
+      ],
+      "row_count": 3,
+      "columns": [
+        {
+          "name": "account_id",
+          "dtype": "str",
+          "role": "key",
+          "description": "Account primary key",
+          "null_fraction": 0.0,
+          "distinct_values": 3,
+          "has_data": true,
+          "restricted": false,
+          "sample_values": [
+            "A-10",
+            "A-20",
+            "A-30"
+          ]
+        },
+        {
+          "name": "account_name",
+          "dtype": "str",
+          "role": "attribute",
+          "description": "",
+          "null_fraction": 0.0,
+          "distinct_values": 3,
+          "has_data": true,
+          "restricted": false,
+          "sample_values": [
+            "Nordic Plants",
+            "Osaka Service",
+            "Texas HVAC"
+          ]
+        },
+        {
+          "name": "region",
+          "dtype": "str",
+          "role": "attribute",
+          "description": "EMEA, APAC, or AMER",
+          "null_fraction": 0.0,
+          "distinct_values": 3,
+          "has_data": true,
+          "restricted": false,
+          "sample_values": [
+            "AMER",
+            "APAC",
+            "EMEA"
+          ]
+        }
+      ]
+    },
+    {
+      "dataset": "cases",
+      "logical_entity": "service_case",
+      "data_product_id": "dp.ops.cases",
+      "grain": "one row per case_id",
+      "primary_keys": [
+        "case_id"
+      ],
+      "row_count": 6,
+      "columns": [
+        {
+          "name": "case_id",
+          "dtype": "str",
+          "role": "key",
+          "description": "",
+          "null_fraction": 0.0,
+          "distinct_values": 6,
+          "has_data": true,
+          "restricted": false,
+          "sample_values": [
+            "C-1001",
+            "C-1002",
+            "C-1003",
+            "C-1004",
+            "C-1005",
+            "C-1006"
+          ]
+        },
+        {
+          "name": "account_id",
+          "dtype": "str",
+          "role": "foreign_key",
+          "description": "",
+          "null_fraction": 0.0,
+          "distinct_values": 3,
+          "has_data": true,
+          "restricted": false,
+          "sample_values": [
+            "A-10",
+            "A-20",
+            "A-30"
+          ]
+        },
+        {
+          "name": "region",
+          "dtype": "str",
+          "role": "attribute",
+          "description": "",
+          "null_fraction": 0.0,
+          "distinct_values": 3,
+          "has_data": true,
+          "restricted": false,
+          "sample_values": [
+            "AMER",
+            "APAC",
+            "EMEA"
+          ]
+        },
+        {
+          "name": "opened_at",
+          "dtype": "str",
+          "role": "timestamp",
+          "description": "",
+          "null_fraction": 0.0,
+          "distinct_values": 6,
+          "has_data": true,
+          "restricted": false,
+          "sample_values": [
+            "2026-01-02 08:00:00",
+            "2026-01-03 09:00:00",
+            "2026-01-04 01:00:00",
+            "2026-01-05 02:00:00",
+            "2026-01-06 14:00:00",
+            "2026-01-07 14:00:00"
+          ]
+        },
+        {
+          "name": "first_response_at",
+          "dtype": "str",
+          "role": "timestamp",
+          "description": "",
+          "null_fraction": 0.0,
+          "distinct_values": 6,
+          "has_data": true,
+          "restricted": false,
+          "sample_values": [
+            "2026-01-02 10:00:00",
+            "2026-01-03 12:00:00",
+            "2026-01-04 07:00:00",
+            "2026-01-05 10:00:00",
+            "2026-01-06 15:00:00",
+            "2026-01-07 18:00:00"
+          ]
+        },
+        {
+          "name": "status",
+          "dtype": "str",
+          "role": "attribute",
+          "description": "",
+          "null_fraction": 0.0,
+          "distinct_values": 2,
+          "has_data": true,
+          "restricted": false,
+          "sample_values": [
+            "closed",
+            "open"
+          ]
+        },
+        {
+          "name": "contact_email",
+          "dtype": "str",
+          "role": "attribute",
+          "description": "Tagged restricted by the data team. Never sent to the LLM.",
+          "null_fraction": 0.0,
+          "distinct_values": 6,
+          "has_data": true,
+          "restricted": true,
+          "sample_values": []
+        }
+      ]
+    },
+    {
+      "dataset": "case_extension",
+      "logical_entity": "case_extension",
+      "data_product_id": "dp.ops.case_extension",
+      "grain": "one row per case_id",
+      "primary_keys": [
+        "case_id"
+      ],
+      "row_count": 6,
+      "columns": [
+        {
+          "name": "case_id",
+          "dtype": "str",
+          "role": "key",
+          "description": "",
+          "null_fraction": 0.0,
+          "distinct_values": 6,
+          "has_data": true,
+          "restricted": false,
+          "sample_values": [
+            "C-1001",
+            "C-1002",
+            "C-1003",
+            "C-1004",
+            "C-1005",
+            "C-1006"
+          ]
+        },
+        {
+          "name": "severity_c",
+          "dtype": "str",
+          "role": "attribute",
+          "description": "Custom severity field",
+          "null_fraction": 0.0,
+          "distinct_values": 3,
+          "has_data": true,
+          "restricted": false,
+          "sample_values": [
+            "high",
+            "low",
+            "medium"
+          ]
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "join.ops.case_to_account",
+      "left_entity": "service_case",
+      "right_entity": "account",
+      "condition": "service_case.account_id = account.account_id",
+      "join_type": "left",
+      "cardinality": "many_to_one"
+    },
+    {
+      "id": "join.ops.case_to_extension",
+      "left_entity": "service_case",
+      "right_entity": "case_extension",
+      "condition": "service_case.case_id = case_extension.case_id",
+      "join_type": "left",
+      "cardinality": "one_to_one"
+    }
+  ]
+}

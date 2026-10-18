@@ -1,0 +1,12 @@
+examples:
+  - question: What is the total productivity achieved so far?
+    intent: aggregation
+  - question: Which sites have the highest productivity?
+    intent: ranking
+    dimensions: [Site Name]
+  - question: What is productivity by BU?
+    intent: breakdown
+    dimensions: [BU]
+  - question: What is productivity by quarter?
+    intent: breakdown
+    dimensions: [Quarter]

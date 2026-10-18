@@ -1,0 +1,11 @@
+BU,Site Name,Pillar Type,Workstream,Quarter,Initiative ID,Initiative name,Actual Productivity,Agg Productivity,Forecast Productivity Plan
+Climate Solutions Americas,"ALC, Kennesaw, GA",Direct,Refrigerants,Q1,A1,Alpha,120.5,100.0,150.0
+Climate Solutions Americas,"ALC, Kennesaw, GA",Indirect,Packaging,Q1,A2,Beta,-45.2,-40.0,20.0
+Climate Solutions Americas,Franklin,Direct,Logistics,Q2,A3,Gamma,80.0,70.0,100.0
+Climate Solutions Americas,Franklin,Logistics,Freight,Q3,A4,Delta,60.0,55.0,50.0
+Europe,Poland Operations,Direct,Refrigerants,Q1,B1,Epsilon,200.0,180.0,180.0
+Europe,Poland Operations,Indirect,Packaging,Q2,B2,Zeta,35.0,30.0,60.0
+Europe,Sales Poland,Direct,Freight,Q3,B3,Eta,15.0,12.0,10.0
+Climate Solutions APAC,Shanghai Plant,Direct,Refrigerants,Q2,C1,Theta,90.0,85.0,120.0
+Climate Solutions APAC,Shanghai Plant,Logistics,Freight,Q3,C2,Iota,40.0,38.0,30.0
+Climate Solutions APAC,Pune Works,Indirect,Packaging,Q4,C3,Kappa,25.0,20.0,40.0

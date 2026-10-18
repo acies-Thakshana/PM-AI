@@ -1,0 +1,6 @@
+terms:
+  - term: csa
+    kind: acronym
+    maps_to_kind: filter_value
+    maps_to_id: dim.generic.BU
+    canonical_value: Climate Solutions Americas

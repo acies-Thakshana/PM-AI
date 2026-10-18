@@ -1,0 +1,7 @@
+queries:
+  - id: vsql.generic.total_productivity
+    question: What is the total productivity achieved so far?
+    sql: SELECT SUM("Actual Productivity") AS total_actual_productivity FROM KPI_data
+    datasets: [KPI_data]
+    validated_by: metric.owner
+    validated_at: "2026-10-01"

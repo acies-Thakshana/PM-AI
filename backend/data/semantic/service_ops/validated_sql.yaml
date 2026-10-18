@@ -1,0 +1,19 @@
+queries:
+  - id: vsql.ops.frt_emea
+    question: What is EMEA FRT?
+    sql: >-
+      SELECT AVG((julianday(first_response_at) - julianday(opened_at)) * 24.0) AS first_response_time_emea
+      FROM cases WHERE region = 'EMEA'
+    datasets: [cases]
+    validated_by: Service metric owner
+    validated_at: "2026-10-01"
+    expected_result: "2.5"
+  - id: vsql.ops.frt_by_region
+    question: What is FRT by region?
+    sql: >-
+      SELECT region, AVG((julianday(first_response_at) - julianday(opened_at)) * 24.0) AS first_response_time
+      FROM cases GROUP BY region ORDER BY first_response_time DESC
+    datasets: [cases]
+    validated_by: Service metric owner
+    validated_at: "2026-10-01"
+    expected_result: "APAC 7.0, EMEA 2.5, AMER 2.5"

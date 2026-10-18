@@ -1,0 +1,57 @@
+entities:
+  - logical_entity: generic_cube
+    source_system: other
+    source_object: KPI_data
+    physical_dataset: KPI_data
+    data_product_id: dp.generic.cube
+    grain: one row per initiative, site, and quarter
+    primary_keys:
+      - Initiative ID
+      - Site Name
+      - Quarter
+    entity_kind: transactional
+    is_custom_object: false
+    notes: >
+      Registered columns carry business descriptions. Columns that appear in a
+      new extract but not here are added at run time with an inferred role.
+    columns:
+      - name: BU
+        data_type: string
+        role: attribute
+        description: Business unit
+      - name: Site Name
+        data_type: string
+        role: attribute
+        description: Plant or office that owns the initiative
+      - name: Pillar Type
+        data_type: string
+        role: attribute
+        description: Direct, Indirect, or Logistics
+      - name: Workstream
+        data_type: string
+        role: attribute
+        description: Initiative workstream
+      - name: Quarter
+        data_type: string
+        role: attribute
+        description: Reporting quarter, Q1 to Q4
+      - name: Initiative ID
+        data_type: string
+        role: key
+        description: Initiative identifier
+      - name: Initiative name
+        data_type: string
+        role: attribute
+        description: Project or initiative label
+      - name: Actual Productivity
+        data_type: float
+        role: measure
+        description: Default productivity in USD. Non-probability-weighted.
+      - name: Agg Productivity
+        data_type: float
+        role: measure
+        description: Probability-weighted productivity in USD.
+      - name: Forecast Productivity Plan
+        data_type: float
+        role: measure
+        description: Productivity target plan in USD.

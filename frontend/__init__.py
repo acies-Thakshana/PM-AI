@@ -1,1 +1,0 @@
-"""Local frontend package."""

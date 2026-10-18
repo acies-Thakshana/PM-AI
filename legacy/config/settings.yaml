@@ -1,0 +1,79 @@
+# AI4BI application settings. Paths are relative to the project root.
+# Environment variables override: AIBI_DOMAIN, AIBI_LLM_MODE,
+# AIBI_LLM_CONNECTION, AIBI_LOG_LEVEL.
+
+app:
+  default_domain: service_ops
+  row_limit: 500
+  preview_rows: 20
+  max_repairs: 1
+  history_turns: 3
+
+paths:
+  semantic_root: storage/semantic/domains
+  metadata_root: storage/metadata
+  semantic_registry_root: storage/semantic_registry
+  knowledge_graph_root: storage/knowledge_graph
+  samples_root: storage/samples
+  history_root: storage/history
+  visual_templates: config/visual_templates.yaml
+  logging_config: config/logging.yaml
+
+llm:
+  mode: local
+  connection: ""
+  temperature: 0.0
+
+knowledge_graph:
+  slice_limit: 40
+  prior_sql_patterns: 8
+
+onboarding:
+  auto_onboard: true
+  include_drafts: false
+  sample_values_per_column: 10
+  join_min_overlap: 0.8
+  activation_confidence: 0.75
+
+guardrails:
+  min_question_length: 3
+  max_question_length: 1000
+  blocked_patterns:
+    - pattern: '\b(drop|truncate|delete|insert|update|alter|create|grant|revoke|merge)(\s+(all|the|every|any|these|those|some))*\s+(tables?|from|into|rows?|records?|database|schema|views?|index|users?)\b'
+      status: refuse_unsupported
+      reason: The assistant only reads data. Requests to change data or schema are not supported.
+    - pattern: '\bignore\s+(all\s+)?(previous|prior|above)\s+(instructions|rules)\b'
+      status: refuse_unsupported
+      reason: The question tries to override the assistant rules.
+    - pattern: '\b(system\s+prompt|developer\s+message)\b'
+      status: refuse_unsupported
+      reason: The assistant does not disclose or change its instructions.
+    - pattern: '\b(forecast|predict|prediction)\b'
+      status: clarification_needed
+      reason: Forecasts are not certified. Ask about actual or planned values that are stored in the data.
+
+sql:
+  dialect: sqlite
+  forbidden_keywords:
+    - insert
+    - update
+    - delete
+    - merge
+    - drop
+    - alter
+    - create
+    - truncate
+    - grant
+    - revoke
+    - attach
+    - detach
+    - pragma
+    - vacuum
+  max_execution_steps: 50000000
+
+followups:
+  max_suggestions: 3
+  templates:
+    - "What is {metric} by {dimension}?"
+    - "How does {metric} compare across {dimension}?"
+    - "Which {dimension} has the highest {metric}?"

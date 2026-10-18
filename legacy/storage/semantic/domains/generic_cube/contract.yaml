@@ -1,0 +1,17 @@
+domain: generic_cube
+source_system: other
+historical_from: "1900-01-01"
+historical_to: "2099-12-31"
+extracts:
+  - KPI_data
+master_entities:
+  - generic_cube
+transactional_entities:
+  - generic_cube
+owner:
+  role: Data engineering
+  team: AI4BI onboarding
+  contact: ""
+notes: >
+  Source-agnostic cube. Replace extracts and entity registration when a new
+  project connects data. The LLM engine does not change.

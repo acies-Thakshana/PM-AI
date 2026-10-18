@@ -1,0 +1,9 @@
+input_question,Expected_SQL_Query
+What is EMEA FRT?,"SELECT AVG((julianday(first_response_at) - julianday(opened_at)) * 24.0) FROM cases WHERE region = 'EMEA'"
+What is APAC FRT?,"SELECT AVG((julianday(first_response_at) - julianday(opened_at)) * 24.0) FROM cases WHERE region = 'APAC'"
+What is FRT by region?,"SELECT region, AVG((julianday(first_response_at) - julianday(opened_at)) * 24.0) FROM cases GROUP BY region"
+Which region has the highest FRT?,"SELECT region, AVG((julianday(first_response_at) - julianday(opened_at)) * 24.0) AS frt FROM cases GROUP BY region ORDER BY frt DESC LIMIT 1"
+How many open cases are there?,"SELECT COUNT(*) FROM cases WHERE status = 'open'"
+What is FRT by account name?,"SELECT a.account_name, AVG((julianday(c.first_response_at) - julianday(c.opened_at)) * 24.0) FROM cases c JOIN accounts a ON c.account_id = a.account_id GROUP BY a.account_name"
+What is APAC FRT for high severity cases?,"SELECT AVG((julianday(c.first_response_at) - julianday(c.opened_at)) * 24.0) FROM cases c JOIN case_extension e ON c.case_id = e.case_id WHERE c.region = 'APAC' AND e.severity_c = 'high'"
+Show contact email for EMEA cases,

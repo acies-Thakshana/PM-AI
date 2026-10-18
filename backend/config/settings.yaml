@@ -1,0 +1,64 @@
+# Non-secret tuning defaults. Environment variables override the ones listed in app/config.py.
+# Anything environment-specific (AWS resources, models, auth) lives in env vars, not here.
+
+app:
+  default_domain: service_ops
+  row_limit: 500
+  preview_rows: 20
+  max_repairs: 1
+  history_turns: 3
+  persist_episodes: true
+
+knowledge_graph:
+  slice_limit: 40
+  prior_sql_patterns: 8
+  max_episodes: 200
+
+onboarding:
+  include_drafts: false
+  sample_values_per_column: 10
+  join_min_overlap: 0.8
+  activation_confidence: 0.75
+
+guardrails:
+  min_question_length: 3
+  max_question_length: 1000
+  blocked_patterns:
+    - pattern: '\b(drop|truncate|delete|insert|update|alter|create|grant|revoke|merge)(\s+(all|the|every|any|these|those|some))*\s+(tables?|from|into|rows?|records?|database|schema|views?|index|users?)\b'
+      status: refuse_unsupported
+      reason: The assistant only reads data. Requests to change data or schema are not supported.
+    - pattern: '\bignore\s+(all\s+)?(previous|prior|above)\s+(instructions|rules)\b'
+      status: refuse_unsupported
+      reason: The question tries to override the assistant rules.
+    - pattern: '\b(system\s+prompt|developer\s+message)\b'
+      status: refuse_unsupported
+      reason: The assistant does not disclose or change its instructions.
+    - pattern: '\b(forecast|predict|prediction)\b'
+      status: clarification_needed
+      reason: Forecasts are not certified. Ask about actual or planned values that are stored in the data.
+
+sql:
+  dialect: sqlite
+  forbidden_keywords:
+    - insert
+    - update
+    - delete
+    - merge
+    - drop
+    - alter
+    - create
+    - truncate
+    - grant
+    - revoke
+    - attach
+    - detach
+    - pragma
+    - vacuum
+  max_execution_steps: 50000000
+
+followups:
+  max_suggestions: 3
+  templates:
+    - "What is {metric} by {dimension}?"
+    - "How does {metric} compare across {dimension}?"
+    - "Which {dimension} has the highest {metric}?"

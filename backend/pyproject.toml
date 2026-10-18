@@ -1,0 +1,27 @@
+[project]
+name = "ai4bi-backend"
+version = "2.0.0"
+description = "AI4BI backend: governed natural-language questions over uploaded datasets."
+requires-python = ">=3.10"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4"]
+ignore = [
+    "B008",  # FastAPI dependencies are declared as default arguments by design
+    "SIM108",  # keep explicit if/else when it reads better than a ternary
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Long lines here are instruction text sent to the model, which reads better unwrapped.
+"app/services/sql/grounding.py" = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

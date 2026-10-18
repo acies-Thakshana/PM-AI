@@ -1,0 +1,1077 @@
+{
+  "domain": "generic_cube",
+  "updated_at": "2026-10-17T12:58:15.883987+00:00",
+  "nodes": [
+    {
+      "id": "domain.generic_cube",
+      "kind": "domain",
+      "label": "generic_cube",
+      "props": {
+        "source_system": "other",
+        "historical_from": "1900-01-01",
+        "historical_to": "2099-12-31"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "entity.generic_cube",
+      "kind": "entity",
+      "label": "generic_cube",
+      "props": {
+        "source_system": "other",
+        "source_object": "KPI_data",
+        "physical_dataset": "KPI_data",
+        "grain": "one row per initiative, site, and quarter",
+        "is_custom_object": false,
+        "entity_kind": "transactional"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "column.generic_cube.BU",
+      "kind": "column",
+      "label": "BU",
+      "props": {
+        "data_type": "string",
+        "role": "attribute",
+        "description": "Business unit",
+        "entity": "generic_cube"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "column.generic_cube.Site Name",
+      "kind": "column",
+      "label": "Site Name",
+      "props": {
+        "data_type": "string",
+        "role": "attribute",
+        "description": "Plant or office that owns the initiative",
+        "entity": "generic_cube"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "column.generic_cube.Pillar Type",
+      "kind": "column",
+      "label": "Pillar Type",
+      "props": {
+        "data_type": "string",
+        "role": "attribute",
+        "description": "Direct, Indirect, or Logistics",
+        "entity": "generic_cube"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "column.generic_cube.Workstream",
+      "kind": "column",
+      "label": "Workstream",
+      "props": {
+        "data_type": "string",
+        "role": "attribute",
+        "description": "Initiative workstream",
+        "entity": "generic_cube"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "column.generic_cube.Quarter",
+      "kind": "column",
+      "label": "Quarter",
+      "props": {
+        "data_type": "string",
+        "role": "attribute",
+        "description": "Reporting quarter, Q1 to Q4",
+        "entity": "generic_cube"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "column.generic_cube.Initiative ID",
+      "kind": "column",
+      "label": "Initiative ID",
+      "props": {
+        "data_type": "string",
+        "role": "key",
+        "description": "Initiative identifier",
+        "entity": "generic_cube"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "column.generic_cube.Initiative name",
+      "kind": "column",
+      "label": "Initiative name",
+      "props": {
+        "data_type": "string",
+        "role": "attribute",
+        "description": "Project or initiative label",
+        "entity": "generic_cube"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "column.generic_cube.Actual Productivity",
+      "kind": "column",
+      "label": "Actual Productivity",
+      "props": {
+        "data_type": "float",
+        "role": "measure",
+        "description": "Default productivity in USD. Non-probability-weighted.",
+        "entity": "generic_cube"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "column.generic_cube.Agg Productivity",
+      "kind": "column",
+      "label": "Agg Productivity",
+      "props": {
+        "data_type": "float",
+        "role": "measure",
+        "description": "Probability-weighted productivity in USD.",
+        "entity": "generic_cube"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "column.generic_cube.Forecast Productivity Plan",
+      "kind": "column",
+      "label": "Forecast Productivity Plan",
+      "props": {
+        "data_type": "float",
+        "role": "measure",
+        "description": "Productivity target plan in USD.",
+        "entity": "generic_cube"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "metric.primary_measure",
+      "kind": "metric",
+      "label": "Primary measure",
+      "props": {
+        "family": "primary_measure",
+        "definition": "Hint only. The LLM chooses the actual measure, grain, and calculation from columns + the living knowledge graph. Edit this file to add domain KPI names; do not change the engine.\n",
+        "formula_hint": "SUM or AVG of the measure the user asked for",
+        "grain": "cube",
+        "scopes": [
+          "global"
+        ],
+        "source": "dictionary"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "term.kpi",
+      "kind": "glossary",
+      "label": "kpi",
+      "props": {
+        "maps_to": "primary_measure",
+        "term_kind": "synonym",
+        "source": "dictionary"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "term.metric",
+      "kind": "glossary",
+      "label": "metric",
+      "props": {
+        "maps_to": "primary_measure",
+        "term_kind": "synonym",
+        "source": "dictionary"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "term.productivity",
+      "kind": "glossary",
+      "label": "productivity",
+      "props": {
+        "maps_to": "primary_measure",
+        "term_kind": "synonym",
+        "source": "dictionary"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "term.csa",
+      "kind": "glossary",
+      "label": "csa",
+      "props": {
+        "term_kind": "acronym",
+        "maps_to": "dim.generic.BU",
+        "canonical_value": "Climate Solutions Americas",
+        "source": "glossary"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "rule.rule.generic.default_productivity",
+      "kind": "business_rule",
+      "label": "\"Productivity\" without a qualifier means Actual Productivity, the non-probability-weighted figure.\n",
+      "props": {
+        "rule_type": "definition",
+        "applies_to": [
+          "Actual Productivity"
+        ],
+        "source": "rules"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "rule.rule.generic.weighted_productivity",
+      "kind": "business_rule",
+      "label": "Probability-weighted productivity is Agg Productivity.",
+      "props": {
+        "rule_type": "definition",
+        "applies_to": [
+          "Agg Productivity"
+        ],
+        "source": "rules"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "rule.rule.generic.achievement",
+      "kind": "business_rule",
+      "label": "Achievement against target is SUM(Actual Productivity) / SUM(Forecast Productivity Plan).",
+      "props": {
+        "rule_type": "calculation",
+        "applies_to": [
+          "Actual Productivity",
+          "Forecast Productivity Plan"
+        ],
+        "sql_hint": "SUM(\"Actual Productivity\") * 1.0 / NULLIF(SUM(\"Forecast Productivity Plan\"), 0)",
+        "source": "rules"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "sql.validated.vsql_generic_total_productivity",
+      "kind": "sql_pattern",
+      "label": "What is the total productivity achieved so far?",
+      "props": {
+        "full_sql": "SELECT SUM(\"Actual Productivity\") AS total_actual_productivity FROM KPI_data",
+        "status": "validated",
+        "source": "validated_sql"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "metric.actual_productivity",
+      "kind": "metric",
+      "label": "Actual Productivity",
+      "props": {
+        "family": "actual_productivity",
+        "definition": "Automatically learned metric using SUM(\"Actual Productivity\").",
+        "formula_hint": "SUM(\"Actual Productivity\")",
+        "grain": "as stored",
+        "scopes": [
+          "global"
+        ],
+        "source": "dictionary",
+        "calculation": "SUM(Actual Productivity)",
+        "sql_expression": "SUM(\"Actual Productivity\")",
+        "last_question": "Which BU has the lowest productivity?"
+      },
+      "updated_at": "2026-10-17T12:58:15.858599+00:00"
+    },
+    {
+      "id": "term.actual_productivity",
+      "kind": "glossary",
+      "label": "Actual Productivity",
+      "props": {
+        "maps_to": "actual_productivity",
+        "term_kind": "domain_term",
+        "source": "glossary"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "metric.agg_productivity",
+      "kind": "metric",
+      "label": "Agg Productivity",
+      "props": {
+        "family": "agg_productivity",
+        "definition": "Automatically learned metric using SUM(\"Agg Productivity\").",
+        "formula_hint": "SUM(\"Agg Productivity\")",
+        "grain": "as stored",
+        "scopes": [
+          "global"
+        ],
+        "source": "dictionary",
+        "calculation": "SUM(Agg Productivity)",
+        "sql_expression": "SUM(\"Agg Productivity\")",
+        "last_question": "top 3 initiatives by probability weighted productivity"
+      },
+      "updated_at": "2026-10-17T12:58:15.848554+00:00"
+    },
+    {
+      "id": "term.agg_productivity",
+      "kind": "glossary",
+      "label": "Agg Productivity",
+      "props": {
+        "maps_to": "agg_productivity",
+        "term_kind": "domain_term",
+        "source": "glossary"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "metric.forecast_productivity_plan",
+      "kind": "metric",
+      "label": "Forecast Productivity Plan",
+      "props": {
+        "family": "forecast_productivity_plan",
+        "definition": "Automatically learned metric using SUM(\"Forecast Productivity Plan\").",
+        "formula_hint": "SUM(\"Forecast Productivity Plan\")",
+        "grain": "one row per initiative, site, and quarter",
+        "scopes": [
+          "global"
+        ],
+        "source": "dictionary"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "term.forecast_productivity_plan",
+      "kind": "glossary",
+      "label": "Forecast Productivity Plan",
+      "props": {
+        "maps_to": "forecast_productivity_plan",
+        "term_kind": "domain_term",
+        "source": "glossary"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "metric.generic_cube.actual_productivity",
+      "kind": "metric",
+      "label": "Actual Productivity",
+      "props": {
+        "family": "actual_productivity",
+        "scope": "global",
+        "version": "1",
+        "status": "certified",
+        "sql_expression": "SUM(\"Actual Productivity\")",
+        "grain": "one row per initiative, site, and quarter",
+        "source": "catalog"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "metric.generic_cube.agg_productivity",
+      "kind": "metric",
+      "label": "Agg Productivity",
+      "props": {
+        "family": "agg_productivity",
+        "scope": "global",
+        "version": "1",
+        "status": "certified",
+        "sql_expression": "SUM(\"Agg Productivity\")",
+        "grain": "one row per initiative, site, and quarter",
+        "source": "catalog"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "metric.generic_cube.forecast_productivity_plan",
+      "kind": "metric",
+      "label": "Forecast Productivity Plan",
+      "props": {
+        "family": "forecast_productivity_plan",
+        "scope": "global",
+        "version": "1",
+        "status": "certified",
+        "sql_expression": "SUM(\"Forecast Productivity Plan\")",
+        "grain": "one row per initiative, site, and quarter",
+        "source": "catalog"
+      },
+      "updated_at": "2026-10-17T12:57:05.027900+00:00"
+    },
+    {
+      "id": "q.17d4aaf9c63a",
+      "kind": "question",
+      "label": "What is total productivity?",
+      "props": {
+        "intent": "aggregation",
+        "sql": "SELECT SUM(\"Actual Productivity\") AS sum_actual_productivity FROM KPI_data",
+        "status": "success",
+        "answer_excerpt": "Actual Productivity is 620.30."
+      },
+      "updated_at": "2026-10-17T12:57:18.307797+00:00"
+    },
+    {
+      "id": "calc.sum_actual_productivity",
+      "kind": "calculation",
+      "label": "sum_actual_productivity",
+      "props": {
+        "formula": "SUM(\"Actual Productivity\")",
+        "rationale": "measure Actual Productivity matched the question",
+        "source": "llm"
+      },
+      "updated_at": "2026-10-17T12:58:15.858599+00:00"
+    },
+    {
+      "id": "sql.select_sum_actual_productivity_as_sum_actual_productivity_from_kpi_data",
+      "kind": "sql_pattern",
+      "label": "SELECT SUM(\"Actual Productivity\") AS sum_actual_productivity FROM KPI_data",
+      "props": {
+        "full_sql": "SELECT SUM(\"Actual Productivity\") AS sum_actual_productivity FROM KPI_data",
+        "status": "success"
+      },
+      "updated_at": "2026-10-17T12:58:15.798991+00:00"
+    },
+    {
+      "id": "q.b2318a1b733b",
+      "kind": "question",
+      "label": "Do not give me the total productivity?",
+      "props": {
+        "intent": "aggregation",
+        "sql": "SELECT SUM(\"Actual Productivity\") AS sum_actual_productivity FROM KPI_data",
+        "status": "success",
+        "answer_excerpt": "Actual Productivity is 620.30."
+      },
+      "updated_at": "2026-10-17T12:57:43.572501+00:00"
+    },
+    {
+      "id": "q.0075c8462fa1",
+      "kind": "question",
+      "label": "What is the total productivity achieved so far?",
+      "props": {
+        "intent": "aggregation",
+        "sql": "SELECT SUM(\"Actual Productivity\") AS sum_actual_productivity FROM KPI_data",
+        "status": "success",
+        "answer_excerpt": "Actual Productivity is 620.30."
+      },
+      "updated_at": "2026-10-17T12:58:15.798991+00:00"
+    },
+    {
+      "id": "q.6cec10ea0488",
+      "kind": "question",
+      "label": "What is productivity by BU for csa?",
+      "props": {
+        "intent": "breakdown",
+        "sql": "SELECT SUM(\"Actual Productivity\") AS sum_actual_productivity FROM KPI_data WHERE BU = 'Climate Solutions Americas'",
+        "status": "success",
+        "answer_excerpt": "Actual Productivity where BU is Climate Solutions Americas is 215.30."
+      },
+      "updated_at": "2026-10-17T12:58:15.816152+00:00"
+    },
+    {
+      "id": "sql.select_sum_actual_productivity_as_sum_actual_productivity_from_kpi_data_where",
+      "kind": "sql_pattern",
+      "label": "SELECT SUM(\"Actual Productivity\") AS sum_actual_productivity FROM KPI_data WHERE BU = 'Climate Solutions Americas'",
+      "props": {
+        "full_sql": "SELECT SUM(\"Actual Productivity\") AS sum_actual_productivity FROM KPI_data WHERE BU = 'Climate Solutions Americas'",
+        "status": "success"
+      },
+      "updated_at": "2026-10-17T12:58:15.816152+00:00"
+    },
+    {
+      "id": "q.9117d9e944f2",
+      "kind": "question",
+      "label": "Which sites have the highest productivity?",
+      "props": {
+        "intent": "ranking",
+        "sql": "SELECT \"Site Name\" AS \"Site Name\", SUM(\"Actual Productivity\") AS sum_actual_productivity FROM KPI_data WHERE \"Site Name\" IS NOT NULL AND TRIM(\"Site Name\") <> '' GROUP BY \"Site Name\" HAVING SUM(\"Actual Productivity\") IS NOT NULL ORDER BY sum_actual_productivity DESC LIMIT 5",
+        "status": "success",
+        "answer_excerpt": "Actual Productivity by Site Name: Poland Operations: 235; Franklin: 140; Shanghai Plant: 130; ALC, Kennesaw, GA: 75.30; Pune Works: 25."
+      },
+      "updated_at": "2026-10-17T12:58:15.826314+00:00"
+    },
+    {
+      "id": "sql.select_site_name_as_site_name_sum_actual_productivity_as_sum_actual_prod",
+      "kind": "sql_pattern",
+      "label": "SELECT \"Site Name\" AS \"Site Name\", SUM(\"Actual Productivity\") AS sum_actual_productivity FROM KPI_data WHERE \"Site Name\" IS NOT NULL AND TRIM(\"Site Name\") <> '' GROUP BY \"Site Name\" HAVING SUM(\"Actual Productivity\") IS NOT NULL ORDER BY sum",
+      "props": {
+        "full_sql": "SELECT \"Site Name\" AS \"Site Name\", SUM(\"Actual Productivity\") AS sum_actual_productivity FROM KPI_data WHERE \"Site Name\" IS NOT NULL AND TRIM(\"Site Name\") <> '' GROUP BY \"Site Name\" HAVING SUM(\"Actual Productivity\") IS NOT NULL ORDER BY sum_actual_productivity DESC LIMIT 5",
+        "status": "success"
+      },
+      "updated_at": "2026-10-17T12:58:15.826314+00:00"
+    },
+    {
+      "id": "q.1f5b89b33a07",
+      "kind": "question",
+      "label": "What is productivity by quarter?",
+      "props": {
+        "intent": "trend",
+        "sql": "SELECT Quarter AS period, SUM(\"Actual Productivity\") AS sum_actual_productivity FROM KPI_data WHERE \"Quarter\" IS NOT NULL AND TRIM(\"Quarter\") <> '' GROUP BY Quarter ORDER BY period ASC",
+        "status": "success",
+        "answer_excerpt": "Actual Productivity by period: Q1: 275.30; Q2: 205; Q3: 115; Q4: 25."
+      },
+      "updated_at": "2026-10-17T12:58:15.838149+00:00"
+    },
+    {
+      "id": "sql.select_quarter_as_period_sum_actual_productivity_as_sum_actual_productivity",
+      "kind": "sql_pattern",
+      "label": "SELECT Quarter AS period, SUM(\"Actual Productivity\") AS sum_actual_productivity FROM KPI_data WHERE \"Quarter\" IS NOT NULL AND TRIM(\"Quarter\") <> '' GROUP BY Quarter ORDER BY period ASC",
+      "props": {
+        "full_sql": "SELECT Quarter AS period, SUM(\"Actual Productivity\") AS sum_actual_productivity FROM KPI_data WHERE \"Quarter\" IS NOT NULL AND TRIM(\"Quarter\") <> '' GROUP BY Quarter ORDER BY period ASC",
+        "status": "success"
+      },
+      "updated_at": "2026-10-17T12:58:15.838149+00:00"
+    },
+    {
+      "id": "q.86e50b9782af",
+      "kind": "question",
+      "label": "top 3 initiatives by probability weighted productivity",
+      "props": {
+        "intent": "ranking",
+        "sql": "SELECT \"Initiative ID\" AS \"Initiative ID\", \"Initiative name\" AS \"Initiative name\", SUM(\"Agg Productivity\") AS sum_agg_productivity FROM KPI_data WHERE \"Initiative ID\" IS NOT NULL AND TRIM(\"Initiative ID\") <> '' AND \"Initiative name\" IS NOT NULL AND TRIM(\"Initiative name\") <> '' GROUP BY \"Initiative ID\", \"Initiative name\" HAVING SUM(\"Agg Productivity\") IS NOT NULL ORDER BY sum_agg_productivity DESC LIMIT 3",
+        "status": "success",
+        "answer_excerpt": "Agg Productivity by Initiative ID, Initiative name: B1, Epsilon: 180; A1, Alpha: 100; C1, Theta: 85."
+      },
+      "updated_at": "2026-10-17T12:58:15.848554+00:00"
+    },
+    {
+      "id": "calc.sum_agg_productivity",
+      "kind": "calculation",
+      "label": "sum_agg_productivity",
+      "props": {
+        "formula": "SUM(\"Agg Productivity\")",
+        "rationale": "measure Agg Productivity matched the question",
+        "source": "llm"
+      },
+      "updated_at": "2026-10-17T12:58:15.848554+00:00"
+    },
+    {
+      "id": "sql.select_initiative_id_as_initiative_id_initiative_name_as_initiative_name",
+      "kind": "sql_pattern",
+      "label": "SELECT \"Initiative ID\" AS \"Initiative ID\", \"Initiative name\" AS \"Initiative name\", SUM(\"Agg Productivity\") AS sum_agg_productivity FROM KPI_data WHERE \"Initiative ID\" IS NOT NULL AND TRIM(\"Initiative ID\") <> '' AND \"Initiative name\" IS NOT ",
+      "props": {
+        "full_sql": "SELECT \"Initiative ID\" AS \"Initiative ID\", \"Initiative name\" AS \"Initiative name\", SUM(\"Agg Productivity\") AS sum_agg_productivity FROM KPI_data WHERE \"Initiative ID\" IS NOT NULL AND TRIM(\"Initiative ID\") <> '' AND \"Initiative name\" IS NOT NULL AND TRIM(\"Initiative name\") <> '' GROUP BY \"Initiative ID\", \"Initiative name\" HAVING SUM(\"Agg Productivity\") IS NOT NULL ORDER BY sum_agg_productivity DESC LIMIT 3",
+        "status": "success"
+      },
+      "updated_at": "2026-10-17T12:58:15.848554+00:00"
+    },
+    {
+      "id": "q.117601c493e3",
+      "kind": "question",
+      "label": "Which BU has the lowest productivity?",
+      "props": {
+        "intent": "ranking",
+        "sql": "SELECT BU AS BU, SUM(\"Actual Productivity\") AS sum_actual_productivity FROM KPI_data WHERE \"BU\" IS NOT NULL AND TRIM(\"BU\") <> '' GROUP BY BU HAVING SUM(\"Actual Productivity\") IS NOT NULL ORDER BY sum_actual_productivity ASC LIMIT 1",
+        "status": "success",
+        "answer_excerpt": "Actual Productivity by BU: Climate Solutions APAC: 155."
+      },
+      "updated_at": "2026-10-17T12:58:15.858599+00:00"
+    },
+    {
+      "id": "sql.select_bu_as_bu_sum_actual_productivity_as_sum_actual_productivity_from_kpi",
+      "kind": "sql_pattern",
+      "label": "SELECT BU AS BU, SUM(\"Actual Productivity\") AS sum_actual_productivity FROM KPI_data WHERE \"BU\" IS NOT NULL AND TRIM(\"BU\") <> '' GROUP BY BU HAVING SUM(\"Actual Productivity\") IS NOT NULL ORDER BY sum_actual_productivity ASC LIMIT 1",
+      "props": {
+        "full_sql": "SELECT BU AS BU, SUM(\"Actual Productivity\") AS sum_actual_productivity FROM KPI_data WHERE \"BU\" IS NOT NULL AND TRIM(\"BU\") <> '' GROUP BY BU HAVING SUM(\"Actual Productivity\") IS NOT NULL ORDER BY sum_actual_productivity ASC LIMIT 1",
+        "status": "success"
+      },
+      "updated_at": "2026-10-17T12:58:15.858599+00:00"
+    }
+  ],
+  "edges": [
+    {
+      "src": "domain.generic_cube",
+      "rel": "has_entity",
+      "dst": "entity.generic_cube"
+    },
+    {
+      "src": "entity.generic_cube",
+      "rel": "has_column",
+      "dst": "column.generic_cube.BU"
+    },
+    {
+      "src": "entity.generic_cube",
+      "rel": "has_column",
+      "dst": "column.generic_cube.Site Name"
+    },
+    {
+      "src": "entity.generic_cube",
+      "rel": "has_column",
+      "dst": "column.generic_cube.Pillar Type"
+    },
+    {
+      "src": "entity.generic_cube",
+      "rel": "has_column",
+      "dst": "column.generic_cube.Workstream"
+    },
+    {
+      "src": "entity.generic_cube",
+      "rel": "has_column",
+      "dst": "column.generic_cube.Quarter"
+    },
+    {
+      "src": "entity.generic_cube",
+      "rel": "has_column",
+      "dst": "column.generic_cube.Initiative ID"
+    },
+    {
+      "src": "entity.generic_cube",
+      "rel": "has_column",
+      "dst": "column.generic_cube.Initiative name"
+    },
+    {
+      "src": "entity.generic_cube",
+      "rel": "has_column",
+      "dst": "column.generic_cube.Actual Productivity"
+    },
+    {
+      "src": "entity.generic_cube",
+      "rel": "has_column",
+      "dst": "column.generic_cube.Agg Productivity"
+    },
+    {
+      "src": "entity.generic_cube",
+      "rel": "has_column",
+      "dst": "column.generic_cube.Forecast Productivity Plan"
+    },
+    {
+      "src": "term.kpi",
+      "rel": "synonym_of",
+      "dst": "metric.primary_measure"
+    },
+    {
+      "src": "term.metric",
+      "rel": "synonym_of",
+      "dst": "metric.primary_measure"
+    },
+    {
+      "src": "term.productivity",
+      "rel": "synonym_of",
+      "dst": "metric.primary_measure"
+    },
+    {
+      "src": "term.actual_productivity",
+      "rel": "synonym_of",
+      "dst": "metric.actual_productivity"
+    },
+    {
+      "src": "term.agg_productivity",
+      "rel": "synonym_of",
+      "dst": "metric.agg_productivity"
+    },
+    {
+      "src": "term.forecast_productivity_plan",
+      "rel": "synonym_of",
+      "dst": "metric.forecast_productivity_plan"
+    },
+    {
+      "src": "metric.generic_cube.actual_productivity",
+      "rel": "variant_of",
+      "dst": "metric.actual_productivity"
+    },
+    {
+      "src": "metric.generic_cube.actual_productivity",
+      "rel": "computed_on",
+      "dst": "entity.generic_cube"
+    },
+    {
+      "src": "metric.generic_cube.agg_productivity",
+      "rel": "variant_of",
+      "dst": "metric.agg_productivity"
+    },
+    {
+      "src": "metric.generic_cube.agg_productivity",
+      "rel": "computed_on",
+      "dst": "entity.generic_cube"
+    },
+    {
+      "src": "metric.generic_cube.forecast_productivity_plan",
+      "rel": "variant_of",
+      "dst": "metric.forecast_productivity_plan"
+    },
+    {
+      "src": "metric.generic_cube.forecast_productivity_plan",
+      "rel": "computed_on",
+      "dst": "entity.generic_cube"
+    },
+    {
+      "src": "q.17d4aaf9c63a",
+      "rel": "uses_metric",
+      "dst": "metric.actual_productivity"
+    },
+    {
+      "src": "q.17d4aaf9c63a",
+      "rel": "uses_calculation",
+      "dst": "calc.sum_actual_productivity"
+    },
+    {
+      "src": "q.17d4aaf9c63a",
+      "rel": "produced_sql",
+      "dst": "sql.select_sum_actual_productivity_as_sum_actual_productivity_from_kpi_data"
+    },
+    {
+      "src": "q.17d4aaf9c63a",
+      "rel": "queried",
+      "dst": "entity.generic_cube"
+    },
+    {
+      "src": "q.b2318a1b733b",
+      "rel": "uses_metric",
+      "dst": "metric.actual_productivity"
+    },
+    {
+      "src": "q.b2318a1b733b",
+      "rel": "uses_calculation",
+      "dst": "calc.sum_actual_productivity"
+    },
+    {
+      "src": "q.b2318a1b733b",
+      "rel": "produced_sql",
+      "dst": "sql.select_sum_actual_productivity_as_sum_actual_productivity_from_kpi_data"
+    },
+    {
+      "src": "q.b2318a1b733b",
+      "rel": "queried",
+      "dst": "entity.generic_cube"
+    },
+    {
+      "src": "q.0075c8462fa1",
+      "rel": "uses_metric",
+      "dst": "metric.actual_productivity"
+    },
+    {
+      "src": "q.0075c8462fa1",
+      "rel": "uses_calculation",
+      "dst": "calc.sum_actual_productivity"
+    },
+    {
+      "src": "q.0075c8462fa1",
+      "rel": "produced_sql",
+      "dst": "sql.select_sum_actual_productivity_as_sum_actual_productivity_from_kpi_data"
+    },
+    {
+      "src": "q.0075c8462fa1",
+      "rel": "queried",
+      "dst": "entity.generic_cube"
+    },
+    {
+      "src": "q.6cec10ea0488",
+      "rel": "uses_metric",
+      "dst": "metric.actual_productivity"
+    },
+    {
+      "src": "q.6cec10ea0488",
+      "rel": "uses_calculation",
+      "dst": "calc.sum_actual_productivity"
+    },
+    {
+      "src": "q.6cec10ea0488",
+      "rel": "produced_sql",
+      "dst": "sql.select_sum_actual_productivity_as_sum_actual_productivity_from_kpi_data_where"
+    },
+    {
+      "src": "q.6cec10ea0488",
+      "rel": "queried",
+      "dst": "entity.generic_cube"
+    },
+    {
+      "src": "q.9117d9e944f2",
+      "rel": "uses_metric",
+      "dst": "metric.actual_productivity"
+    },
+    {
+      "src": "q.9117d9e944f2",
+      "rel": "uses_calculation",
+      "dst": "calc.sum_actual_productivity"
+    },
+    {
+      "src": "q.9117d9e944f2",
+      "rel": "produced_sql",
+      "dst": "sql.select_site_name_as_site_name_sum_actual_productivity_as_sum_actual_prod"
+    },
+    {
+      "src": "q.9117d9e944f2",
+      "rel": "queried",
+      "dst": "entity.generic_cube"
+    },
+    {
+      "src": "q.1f5b89b33a07",
+      "rel": "uses_metric",
+      "dst": "metric.actual_productivity"
+    },
+    {
+      "src": "q.1f5b89b33a07",
+      "rel": "uses_calculation",
+      "dst": "calc.sum_actual_productivity"
+    },
+    {
+      "src": "q.1f5b89b33a07",
+      "rel": "produced_sql",
+      "dst": "sql.select_quarter_as_period_sum_actual_productivity_as_sum_actual_productivity"
+    },
+    {
+      "src": "q.1f5b89b33a07",
+      "rel": "queried",
+      "dst": "entity.generic_cube"
+    },
+    {
+      "src": "q.86e50b9782af",
+      "rel": "uses_metric",
+      "dst": "metric.agg_productivity"
+    },
+    {
+      "src": "q.86e50b9782af",
+      "rel": "uses_calculation",
+      "dst": "calc.sum_agg_productivity"
+    },
+    {
+      "src": "q.86e50b9782af",
+      "rel": "produced_sql",
+      "dst": "sql.select_initiative_id_as_initiative_id_initiative_name_as_initiative_name"
+    },
+    {
+      "src": "q.86e50b9782af",
+      "rel": "queried",
+      "dst": "entity.generic_cube"
+    },
+    {
+      "src": "q.117601c493e3",
+      "rel": "uses_metric",
+      "dst": "metric.actual_productivity"
+    },
+    {
+      "src": "q.117601c493e3",
+      "rel": "uses_calculation",
+      "dst": "calc.sum_actual_productivity"
+    },
+    {
+      "src": "q.117601c493e3",
+      "rel": "produced_sql",
+      "dst": "sql.select_bu_as_bu_sum_actual_productivity_as_sum_actual_productivity_from_kpi"
+    },
+    {
+      "src": "q.117601c493e3",
+      "rel": "queried",
+      "dst": "entity.generic_cube"
+    }
+  ],
+  "episodes": [
+    {
+      "question_id": "q.17d4aaf9c63a",
+      "question": "What is total productivity?",
+      "intent": "aggregation",
+      "interpreted_question": "Actual Productivity",
+      "metrics": [
+        {
+          "name": "Actual Productivity",
+          "calculation": "SUM(Actual Productivity)",
+          "sql_expression": "SUM(\"Actual Productivity\")",
+          "grain": "as stored"
+        }
+      ],
+      "calculations": [
+        {
+          "name": "sum_actual_productivity",
+          "formula": "SUM(\"Actual Productivity\")",
+          "rationale": "measure Actual Productivity matched the question"
+        }
+      ],
+      "new_terms": [],
+      "sql": "SELECT SUM(\"Actual Productivity\") AS sum_actual_productivity FROM KPI_data",
+      "datasets": [
+        "KPI_data"
+      ],
+      "status": "success",
+      "answer_excerpt": "Actual Productivity is 620.30."
+    },
+    {
+      "question_id": "q.b2318a1b733b",
+      "question": "Do not give me the total productivity?",
+      "intent": "aggregation",
+      "interpreted_question": "Actual Productivity",
+      "metrics": [
+        {
+          "name": "Actual Productivity",
+          "calculation": "SUM(Actual Productivity)",
+          "sql_expression": "SUM(\"Actual Productivity\")",
+          "grain": "as stored"
+        }
+      ],
+      "calculations": [
+        {
+          "name": "sum_actual_productivity",
+          "formula": "SUM(\"Actual Productivity\")",
+          "rationale": "measure Actual Productivity matched the question"
+        }
+      ],
+      "new_terms": [],
+      "sql": "SELECT SUM(\"Actual Productivity\") AS sum_actual_productivity FROM KPI_data",
+      "datasets": [
+        "KPI_data"
+      ],
+      "status": "success",
+      "answer_excerpt": "Actual Productivity is 620.30."
+    },
+    {
+      "question_id": "q.0075c8462fa1",
+      "question": "What is the total productivity achieved so far?",
+      "intent": "aggregation",
+      "interpreted_question": "Actual Productivity",
+      "metrics": [
+        {
+          "name": "Actual Productivity",
+          "calculation": "SUM(Actual Productivity)",
+          "sql_expression": "SUM(\"Actual Productivity\")",
+          "grain": "as stored"
+        }
+      ],
+      "calculations": [
+        {
+          "name": "sum_actual_productivity",
+          "formula": "SUM(\"Actual Productivity\")",
+          "rationale": "measure Actual Productivity matched the question"
+        }
+      ],
+      "new_terms": [],
+      "sql": "SELECT SUM(\"Actual Productivity\") AS sum_actual_productivity FROM KPI_data",
+      "datasets": [
+        "KPI_data"
+      ],
+      "status": "success",
+      "answer_excerpt": "Actual Productivity is 620.30."
+    },
+    {
+      "question_id": "q.6cec10ea0488",
+      "question": "What is productivity by BU for csa?",
+      "intent": "breakdown",
+      "interpreted_question": "Actual Productivity where BU in Climate Solutions Americas",
+      "metrics": [
+        {
+          "name": "Actual Productivity",
+          "calculation": "SUM(Actual Productivity)",
+          "sql_expression": "SUM(\"Actual Productivity\")",
+          "grain": "as stored"
+        }
+      ],
+      "calculations": [
+        {
+          "name": "sum_actual_productivity",
+          "formula": "SUM(\"Actual Productivity\")",
+          "rationale": "measure Actual Productivity matched the question"
+        }
+      ],
+      "new_terms": [],
+      "sql": "SELECT SUM(\"Actual Productivity\") AS sum_actual_productivity FROM KPI_data WHERE BU = 'Climate Solutions Americas'",
+      "datasets": [
+        "KPI_data"
+      ],
+      "status": "success",
+      "answer_excerpt": "Actual Productivity where BU is Climate Solutions Americas is 215.30."
+    },
+    {
+      "question_id": "q.9117d9e944f2",
+      "question": "Which sites have the highest productivity?",
+      "intent": "ranking",
+      "interpreted_question": "Actual Productivity by Site Name",
+      "metrics": [
+        {
+          "name": "Actual Productivity",
+          "calculation": "SUM(Actual Productivity)",
+          "sql_expression": "SUM(\"Actual Productivity\")",
+          "grain": "as stored"
+        }
+      ],
+      "calculations": [
+        {
+          "name": "sum_actual_productivity",
+          "formula": "SUM(\"Actual Productivity\")",
+          "rationale": "measure Actual Productivity matched the question"
+        }
+      ],
+      "new_terms": [],
+      "sql": "SELECT \"Site Name\" AS \"Site Name\", SUM(\"Actual Productivity\") AS sum_actual_productivity FROM KPI_data WHERE \"Site Name\" IS NOT NULL AND TRIM(\"Site Name\") <> '' GROUP BY \"Site Name\" HAVING SUM(\"Actual Productivity\") IS NOT NULL ORDER BY sum_actual_productivity DESC LIMIT 5",
+      "datasets": [
+        "KPI_data"
+      ],
+      "status": "success",
+      "answer_excerpt": "Actual Productivity by Site Name: Poland Operations: 235; Franklin: 140; Shanghai Plant: 130; ALC, Kennesaw, GA: 75.30; Pune Works: 25."
+    },
+    {
+      "question_id": "q.1f5b89b33a07",
+      "question": "What is productivity by quarter?",
+      "intent": "trend",
+      "interpreted_question": "Actual Productivity by period",
+      "metrics": [
+        {
+          "name": "Actual Productivity",
+          "calculation": "SUM(Actual Productivity)",
+          "sql_expression": "SUM(\"Actual Productivity\")",
+          "grain": "as stored"
+        }
+      ],
+      "calculations": [
+        {
+          "name": "sum_actual_productivity",
+          "formula": "SUM(\"Actual Productivity\")",
+          "rationale": "measure Actual Productivity matched the question"
+        }
+      ],
+      "new_terms": [],
+      "sql": "SELECT Quarter AS period, SUM(\"Actual Productivity\") AS sum_actual_productivity FROM KPI_data WHERE \"Quarter\" IS NOT NULL AND TRIM(\"Quarter\") <> '' GROUP BY Quarter ORDER BY period ASC",
+      "datasets": [
+        "KPI_data"
+      ],
+      "status": "success",
+      "answer_excerpt": "Actual Productivity by period: Q1: 275.30; Q2: 205; Q3: 115; Q4: 25."
+    },
+    {
+      "question_id": "q.86e50b9782af",
+      "question": "top 3 initiatives by probability weighted productivity",
+      "intent": "ranking",
+      "interpreted_question": "Agg Productivity by Initiative ID, Initiative name",
+      "metrics": [
+        {
+          "name": "Agg Productivity",
+          "calculation": "SUM(Agg Productivity)",
+          "sql_expression": "SUM(\"Agg Productivity\")",
+          "grain": "as stored"
+        }
+      ],
+      "calculations": [
+        {
+          "name": "sum_agg_productivity",
+          "formula": "SUM(\"Agg Productivity\")",
+          "rationale": "measure Agg Productivity matched the question"
+        }
+      ],
+      "new_terms": [],
+      "sql": "SELECT \"Initiative ID\" AS \"Initiative ID\", \"Initiative name\" AS \"Initiative name\", SUM(\"Agg Productivity\") AS sum_agg_productivity FROM KPI_data WHERE \"Initiative ID\" IS NOT NULL AND TRIM(\"Initiative ID\") <> '' AND \"Initiative name\" IS NOT NULL AND TRIM(\"Initiative name\") <> '' GROUP BY \"Initiative ID\", \"Initiative name\" HAVING SUM(\"Agg Productivity\") IS NOT NULL ORDER BY sum_agg_productivity DESC LIMIT 3",
+      "datasets": [
+        "KPI_data"
+      ],
+      "status": "success",
+      "answer_excerpt": "Agg Productivity by Initiative ID, Initiative name: B1, Epsilon: 180; A1, Alpha: 100; C1, Theta: 85."
+    },
+    {
+      "question_id": "q.117601c493e3",
+      "question": "Which BU has the lowest productivity?",
+      "intent": "ranking",
+      "interpreted_question": "Actual Productivity by BU",
+      "metrics": [
+        {
+          "name": "Actual Productivity",
+          "calculation": "SUM(Actual Productivity)",
+          "sql_expression": "SUM(\"Actual Productivity\")",
+          "grain": "as stored"
+        }
+      ],
+      "calculations": [
+        {
+          "name": "sum_actual_productivity",
+          "formula": "SUM(\"Actual Productivity\")",
+          "rationale": "measure Actual Productivity matched the question"
+        }
+      ],
+      "new_terms": [],
+      "sql": "SELECT BU AS BU, SUM(\"Actual Productivity\") AS sum_actual_productivity FROM KPI_data WHERE \"BU\" IS NOT NULL AND TRIM(\"BU\") <> '' GROUP BY BU HAVING SUM(\"Actual Productivity\") IS NOT NULL ORDER BY sum_actual_productivity ASC LIMIT 1",
+      "datasets": [
+        "KPI_data"
+      ],
+      "status": "success",
+      "answer_excerpt": "Actual Productivity by BU: Climate Solutions APAC: 155."
+    }
+  ]
+}

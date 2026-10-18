@@ -1,0 +1,7 @@
+tags:
+  - entity: service_case
+    column: contact_email
+    classification: pii
+    action: deny
+    tagged_by: data.engineering
+    notes: Inherited by the AI path. Not enforced in prompts.
