@@ -227,6 +227,7 @@ export default function AuditPage({
                       sessionId={uploadedSessionIds[id]!}
                       onFileCorrected={handleCorrectedFile}
                       onProceed={() => advanceSensiwatchToStandard()}
+                      apiData={apiSource}
                       uploading={reuploadingSensiwatch}
                       uploadError={reuploadError}
                     />

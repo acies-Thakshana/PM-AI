@@ -3,6 +3,7 @@ an audit session, and the per-trip numbers, raw sensor readings and GPS route th
 Nothing is written back to SWP (see the commented-out update_trip in services/swp/client.py)."""
 import io
 import uuid
+from datetime import datetime, timezone
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException
@@ -12,7 +13,7 @@ from app import config
 from app.routers.job_route import JobRoute
 from app.services.audit.audit_store import get_or_404, store
 from app.services.common import audit_log, column_meta, file_store, request_context
-from app.services.swp import client, progress
+from app.services.swp import cache, client, progress
 from app.services.swp.transform import build_tables
 
 router = APIRouter(route_class=JobRoute, prefix="/api/swp", tags=["swp"])
@@ -59,16 +60,19 @@ class TripsResponse(BaseModel):
     trips: list[TripSummary]
     # The field names of a list record, so a missing departure date can be traced to the API's naming.
     sample_fields: list[str]
+    # When the list was fetched from SWP, and whether this answer reused that earlier fetch.
+    fetched_at: str
+    from_cache: bool
 
 
 @router.get("/trips", response_model=TripsResponse)
 def list_all_trips(program_id: str = "", refresh: bool = False, progress_id: str = "") -> TripsResponse:
-    """Step 1: every trip of the program (reused for a few minutes unless `refresh`). The program id
-    defaults to SWP_PROGRAM_ID."""
+    """Step 1: every trip of the program. The list fetched earlier is reused (it is kept on disk) unless
+    `refresh`. The program id defaults to SWP_PROGRAM_ID."""
     program = program_id.strip() or config.SWP_PROGRAM_ID
     _guard(program)
     progress.start(progress_id, label="Fetching the trip list")
-    records = _swp_call(client.all_trips, program, refresh)
+    records, fetched_at, from_cache = _swp_call(client.all_trips_info, program, refresh)
     progress.finish()
     trips = [
         TripSummary(
@@ -85,6 +89,7 @@ def list_all_trips(program_id: str = "", refresh: bool = False, progress_id: str
     return TripsResponse(
         program_id=program, total=len(trips), status_counts=counts, max_trips=config.SWP_MAX_TRIPS,
         trips=trips, sample_fields=client.record_fields(records[0]) if records else [],
+        fetched_at=datetime.fromtimestamp(fetched_at, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), from_cache=from_cache,
     )
 
 
@@ -145,19 +150,37 @@ def load_trips(body: LoadRequest) -> LoadResponse:
             detail=f"At most {config.SWP_MAX_TRIPS} trips can be loaded at once (each takes an API call or two).",
         )
 
-    # Calls to come: a token (unless one is still valid), then the trip detail, plus the single-trip call
-    # for any trip whose list record lacks its basics.
-    expected = (0 if client.has_token() else 1) + sum(1 if "serialNumbers" in by_lower[t.lower()] else 2 for t in ids)
+    # An arrived trip no longer changes, so one fetched before is read from the cache instead of the API.
+    saved: dict[str, dict] = {}
+    for tid in ids:
+        if client.status_name(by_lower[tid.lower()]) == "Arrived":
+            hit = cache.load_trip(program, tid)
+            if hit and hit.get("detail"):
+                saved[tid] = hit
+
+    # Calls to come: the trip detail of every trip not cached (plus the single-trip call when the list record
+    # lacks its basics), the product table, and a token if any call is needed at all.
+    calls = sum(0 if t in saved else (1 if "serialNumbers" in by_lower[t.lower()] else 2) for t in ids)
+    need_products = bool(config.SWP_ADMIN_KEY) and cache.load_products(program) is None
+    expected = calls + (1 if need_products else 0)
+    expected += 1 if expected and not client.has_token() else 0
     progress.start(body.progress_id, total=expected, label="Loading trip data")
-    token = _swp_call(client.get_token)
+    token = _swp_call(client.get_token) if expected else ""
     trips_data = []
     for tid in ids:
+        if tid in saved:
+            trips_data.append({"tripID": tid, "basic": saved[tid]["basic"], "detail": saved[tid]["detail"]})
+            continue
         # The list record already carries the basic fields (serial numbers), which saves one
         # rate-limited API call per trip; only fall back to the single-trip call without them.
         basic = by_lower[tid.lower()]
         if "serialNumbers" not in basic:
             basic = _swp_call(client.get_trip, token, tid, program)
-        trips_data.append({"tripID": tid, "basic": basic, "detail": _swp_call(client.get_trip_detail, token, tid, program)})
+        detail = _swp_call(client.get_trip_detail, token, tid, program)
+        if client.status_name(by_lower[tid.lower()]) == "Arrived":
+            cache.save_trip(program, tid, basic, detail)
+        trips_data.append({"tripID": tid, "basic": basic, "detail": detail})
+    products = _swp_call(client.get_products, token, program) if config.SWP_ADMIN_KEY or cache.load_products(program) else {}
 
     edits = {}
     for tid, edit in body.edits.items():
@@ -168,7 +191,7 @@ def load_trips(body: LoadRequest) -> LoadResponse:
         tid: {"departure": client.departure_of(by_lower[tid.lower()]), "arrival": client.arrival_of(by_lower[tid.lower()])}
         for tid in ids
     }
-    agg, sensors, route = build_tables(trips_data, body.sensors or None, edits, listed)
+    agg, sensors, route = build_tables(trips_data, body.sensors or None, edits, listed, products)
     if agg.empty:
         raise HTTPException(status_code=404, detail="The API returned no usable trip data.")
 
@@ -256,8 +279,8 @@ def session_trips(session_id: str) -> list[SessionTrip]:
         g = by_trip.get(tid)
         out.append(SessionTrip(
             trip_id=tid, status=text(row, "tripStatus"), departure=text(row, "actualDeparture (UTC)"),
-            arrival=text(row, "actualArrival (UTC)"), mean_temp=_num(row.get("Temperature mean")),
-            segment_days=_num(row.get("Segment Days")),
+            arrival=text(row, "actualArrival (UTC)"), mean_temp=_num(row.get("Mean Value_Temperature")),
+            segment_days=_num(row.get("Segment Length (Days)")),
             sensors=sorted(g["sensor"].unique().tolist()) if g is not None else [],
             readings=0 if g is None else len(g), gps_points=int(points.get(tid, 0)),
             edited=bool(text(row, "editedInApp")),

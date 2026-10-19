@@ -22,6 +22,9 @@ export interface SwpTripsResponse {
   trips: SwpTrip[];
   /** Field names of one trip-list record (helps when a departure date is missing). */
   sample_fields: string[];
+  /** When the list was fetched from SWP (ISO), and whether this answer reused that earlier fetch. */
+  fetched_at: string;
+  from_cache: boolean;
 }
 
 /** A change made in the app only (nothing is written back to SWP): status label, departure / arrival (ISO UTC). */

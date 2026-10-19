@@ -295,14 +295,15 @@ export default function TemperatureOutlierTab({ data, sessionId, onUpdated }: Pr
   const [openProduct, setOpenProduct] = useState<string | null>(null);
   const [productQuery, setProductQuery] = useState("");
 
-  const missingCols = Object.entries(data.columns_found)
-    .filter(([, found]) => !found)
-    .map(([key]) => ({ mean: "Mean Value_Temperature", limit_low: "Limit Low_Temperature", limit_high: "Limit High_Temperature" }[key] ?? key));
+  // The mean temperature is required. The limits are optional: without them (data from the SWP API has them
+  // only when the product table could be read) trips can only be "too warm" against their product's own average.
+  const missingCols = data.columns_found.mean ? [] : ["Mean Value_Temperature"];
+  const limitsMissing = !data.columns_found.limit_low || !data.columns_found.limit_high;
 
   if (missingCols.length > 0) {
     return (
       <div className="outlier-tab__missing">
-        <p>Temperature outlier analysis requires: Mean Value_Temperature, Limit Low_Temperature, Limit High_Temperature.</p>
+        <p>Temperature outlier analysis requires: Mean Value_Temperature.</p>
         <p>Not found in this dataset: {missingCols.join(", ")}.</p>
       </div>
     );
@@ -318,6 +319,7 @@ export default function TemperatureOutlierTab({ data, sessionId, onUpdated }: Pr
       <div className="outlier-tab__toolbar-row">
         <p className="outlier-tab__hint">
           One card per product. Open one to see its mean-temperature chart and flagged trips. Too warm = far above the product's average (more than 2 standard deviations); too cold = below the Low limit.
+          {limitsMissing && " No temperature limits are available for these products, so only too warm is checked."}
         </p>
         {data.by_product.length > 0 && (
           <div className="outlier-tab__search">

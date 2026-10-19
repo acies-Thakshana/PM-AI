@@ -89,7 +89,7 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
               onChange={(e) => update({ programId: e.target.value, idsText: "" })}
               disabled={disabled || fetching}
             />
-            <button type="button" className="btn btn--secondary" onClick={() => fetchTrips(true)} disabled={disabled || fetching || !programId}>
+            <button type="button" className="btn btn--secondary" onClick={() => fetchTrips(false)} disabled={disabled || fetching || !programId}>
               {fetching ? <><Spinner />Fetching…</> : "Fetch trips"}
             </button>
           </span>
@@ -152,6 +152,11 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
             <strong>{shownTrips.total}</strong> trips in program {shownTrips.program_id}
             {shownTrips.total > 0 && <> — {withDeparture} with a departure date</>}.
             {dateFilterOn && <> <strong>{matches.length}</strong> depart in the chosen dates.</>}
+            {" "}
+            {shownTrips.from_cache ? "Reused from the earlier fetch" : "Fetched from SWP"} ({formatDateTime(shownTrips.fetched_at)}).{" "}
+            <button type="button" className="swp-link" onClick={() => fetchTrips(true)} disabled={disabled || fetching}>
+              Refresh from SWP
+            </button>
           </p>
           {shownTrips.total > 0 && withDeparture === 0 && (
             <div className="upload-page__error">

@@ -14,6 +14,17 @@ const UNITS: Record<string, string> = {
   TemperatureProbe: "°C",
   Humidity: "%",
 };
+// Sensors measured in the same unit share an axis; each other kind gets its own axis on the right.
+const AXIS_GROUP: Record<string, string> = {
+  Temperature: "Temperature (°C)",
+  SimulatedTemperature: "Temperature (°C)",
+  TemperatureProbe: "Temperature (°C)",
+  Humidity: "Humidity (%)",
+};
+const DASHES = ["solid", "dash", "dot", "dashdot"] as const;
+const axisGroup = (sensor: string) => AXIS_GROUP[sensor] ?? sensor;
+const AXIS_STEP = 0.09; // width of the plot kept free for each axis beyond the second
+
 const PLOTLY_CONFIG: Partial<Plotly.Config> = { displayModeBar: "hover", displaylogo: false, responsive: true };
 const START_COLOR = "#2E7D32";
 const END_COLOR = "#C62828";
@@ -85,6 +96,58 @@ export default function TripInspectView({ sessionId, tripId }: TripInspectViewPr
 
   const sensors = useMemo(() => [...new Set((raw?.series ?? []).map((s) => s.sensor))], [raw]);
 
+  // One chart for every sensor of the trip: a line per sensor and logger, one y axis per kind of unit.
+  const { chartData, chartLayout } = useMemo(() => {
+    const series = raw?.series ?? [];
+    const groups = [...new Set(series.map((s) => axisGroup(s.sensor)))].sort((a, b) =>
+      a.startsWith("Temperature") ? -1 : b.startsWith("Temperature") ? 1 : 0
+    );
+    const axisOf = (sensor: string) => groups.indexOf(axisGroup(sensor)) + 1; // 1 = y, 2 = y2, ...
+    const multiLogger = new Set(series.map((s) => s.serial_number)).size > 1;
+    const loggers = [...new Set(series.map((s) => s.serial_number))];
+    const data = series.map((s) => {
+      const axis = axisOf(s.sensor);
+      const name = multiLogger && s.serial_number ? `${s.sensor} (${s.serial_number})` : s.sensor;
+      return {
+        type: "scatter" as const,
+        mode: "lines" as const,
+        name,
+        x: s.x,
+        y: s.y,
+        yaxis: axis === 1 ? "y" : `y${axis}`,
+        // A line takes its axis's colour; several loggers on one axis are told apart by their dash.
+        line: { width: 1.5, color: CHART_PALETTE[(axis - 1) % CHART_PALETTE.length], dash: DASHES[loggers.indexOf(s.serial_number) % DASHES.length] },
+        hovertemplate: `%{x|%d %b %Y %H:%M}<br>%{y} ${UNITS[s.sensor] ?? ""}<extra>${name}</extra>`,
+      };
+    });
+    const extraAxes = Math.max(groups.length - 2, 0);
+    const layout: Record<string, unknown> = {
+      height: 260,
+      margin: { l: 56, r: 24, t: 20, b: 40 },
+      font: { family: "inherit", size: 10.5, color: CHART_COLORS.text },
+      paper_bgcolor: "transparent",
+      plot_bgcolor: "transparent",
+      hovermode: "x unified",
+      showlegend: true,
+      legend: { orientation: "h", x: 0, xanchor: "left", y: 1.12 },
+      xaxis: { gridcolor: CHART_COLORS.grid, title: { text: "Time (UTC)" }, domain: [0, 1 - AXIS_STEP * extraAxes] },
+    };
+    groups.forEach((group, k) => {
+      const key = k === 0 ? "yaxis" : `yaxis${k + 1}`;
+      layout[key] = {
+        title: { text: group, font: { size: 11, color: CHART_PALETTE[k % CHART_PALETTE.length] } },
+        tickfont: { color: CHART_PALETTE[k % CHART_PALETTE.length] },
+        automargin: true,
+        gridcolor: CHART_COLORS.grid,
+        showgrid: k === 0,
+        ...(k === 0 ? {} : k === 1
+          ? { overlaying: "y", side: "right" }
+          : { overlaying: "y", side: "right", anchor: "free", position: 1 - AXIS_STEP * (groups.length - 1 - k) }),
+      };
+    });
+    return { chartData: data as Plotly.Data[], chartLayout: layout as Partial<Plotly.Layout> };
+  }, [raw]);
+
   if (error) return <p className="trip-inspect__error">{error}</p>;
   if (!raw) return <p className="trip-inspect__note">Loading…</p>;
 
@@ -105,41 +168,11 @@ export default function TripInspectView({ sessionId, tripId }: TripInspectViewPr
       <section>
         <h4 className="trip-inspect__heading">Raw sensor data</h4>
         {sensors.length === 0 && <p className="trip-inspect__note">No sensor readings were loaded for this trip.</p>}
-        {sensors.map((sensor) => {
-          const series = raw.series.filter((s) => s.sensor === sensor);
-          const unit = UNITS[sensor];
-          return (
-            <div key={sensor} className="trip-inspect__box trip-inspect__box--chart">
-              <Plot
-                data={series.map((s, i) => ({
-                  type: "scatter" as const,
-                  mode: "lines" as const,
-                  name: s.serial_number ?? sensor,
-                  x: s.x,
-                  y: s.y,
-                  line: { width: 1.5, color: CHART_PALETTE[i % CHART_PALETTE.length] },
-                  hovertemplate: `%{x|%d %b %Y %H:%M}<br>%{y}${unit ? ` ${unit}` : ""}<extra>${s.serial_number ?? sensor}</extra>`,
-                }))}
-                layout={{
-                  height: 260,
-                  margin: { l: 56, r: 24, t: 36, b: 40 },
-                  title: { text: unit ? `${sensor} (${unit})` : sensor, font: { size: 13, color: CHART_COLORS.text }, x: 0.01 },
-                  font: { family: "inherit", size: 10.5, color: CHART_COLORS.text },
-                  paper_bgcolor: "transparent",
-                  plot_bgcolor: "transparent",
-                  hovermode: "x unified",
-                  showlegend: series.length > 1,
-                  legend: { orientation: "h", x: 1, xanchor: "right", y: 1.12 },
-                  xaxis: { gridcolor: CHART_COLORS.grid, title: { text: "Time (UTC)" } },
-                  yaxis: { gridcolor: CHART_COLORS.grid, automargin: true },
-                }}
-                config={PLOTLY_CONFIG}
-                useResizeHandler
-                style={{ width: "100%" }}
-              />
-            </div>
-          );
-        })}
+        {sensors.length > 0 && (
+          <div className="trip-inspect__box trip-inspect__box--chart">
+            <Plot data={chartData} layout={chartLayout} config={PLOTLY_CONFIG} useResizeHandler style={{ width: "100%" }} />
+          </div>
+        )}
       </section>
     </div>
   );

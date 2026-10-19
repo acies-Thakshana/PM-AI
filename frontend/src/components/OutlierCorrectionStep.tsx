@@ -16,6 +16,9 @@ interface OutlierCorrectionStepProps {
   onProceed: () => void;
   uploading: boolean;
   uploadError: string | null;
+  /** Data from the SWP API: the review (segment days by lane, mean temp by product) is always shown, even with
+   * nothing flagged, and there is no corrected-file loop since nothing is written back. */
+  apiData?: boolean;
 }
 
 const REUPLOAD_SLOT_CONFIG = {
@@ -35,6 +38,7 @@ export default function OutlierCorrectionStep({
   onProceed,
   uploading,
   uploadError,
+  apiData = false,
 }: OutlierCorrectionStepProps) {
   const [data, setData] = useState<OutliersResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -66,7 +70,7 @@ export default function OutlierCorrectionStep({
     : null;
 
   useEffect(() => {
-    if (flaggedCount === 0 && !proceededRef.current) {
+    if (flaggedCount === 0 && !apiData && !proceededRef.current) {
       proceededRef.current = true;
       onProceed();
     }
@@ -84,7 +88,7 @@ export default function OutlierCorrectionStep({
       </div>
     );
   }
-  if (!data || flaggedCount === 0) {
+  if (!data || (flaggedCount === 0 && !apiData)) {
     // Zero flagged: onProceed() above is already advancing past this step.
     return <p className="outlier-tab__loading">No outliers flagged. Continuing…</p>;
   }
@@ -104,9 +108,18 @@ export default function OutlierCorrectionStep({
       </div>
 
       <p className="outlier-step__intro">
-        <strong>{flaggedCount}</strong> trip(s) were flagged for unusual duration or temperature.
-        Download them, correct the underlying readings in SensiWatch, and re-upload the export,
-        or continue without correcting them.
+        {apiData ? (
+          <>
+            <strong>{flaggedCount}</strong> trip(s) were flagged for unusual duration or temperature. Segment days are
+            compared by lane (origin to destination) and mean temperature by product; nothing is changed or sent to SWP.
+          </>
+        ) : (
+          <>
+            <strong>{flaggedCount}</strong> trip(s) were flagged for unusual duration or temperature.
+            Download them, correct the underlying readings in SensiWatch, and re-upload the export,
+            or continue without correcting them.
+          </>
+        )}
       </p>
 
       <div className="outlier-step__subtabs" role="tablist">
@@ -152,6 +165,7 @@ export default function OutlierCorrectionStep({
       </div>
 
       <div className="outlier-step__resolve">
+        {!apiData && (
         <div className="outlier-step__resolve-card">
           <div className="outlier-step__resolve-header">
             <div className="outlier-step__resolve-header-text">
@@ -187,13 +201,14 @@ export default function OutlierCorrectionStep({
             compact
           />
         </div>
+        )}
 
         <div className="outlier-step__skip-row">
           <span className="outlier-step__skip-hint">
-            Skipping keeps flagged trips unedited. You can still correct and re-upload later.
+            {apiData ? "Flagged trips stay as they are." : "Skipping keeps flagged trips unedited. You can still correct and re-upload later."}
           </span>
           <button type="button" className="outlier-step__skip-link" onClick={onProceed}>
-            Skip correction, continue to Standard Checks →
+            {apiData ? "Continue to Standard Checks →" : "Skip correction, continue to Standard Checks →"}
           </button>
         </div>
       </div>

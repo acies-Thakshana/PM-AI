@@ -234,7 +234,10 @@ def detect_temperature_outliers(df: pd.DataFrame) -> dict:
         "limit_high": HIGH if HIGH in analysis_df.columns else None,
     }
 
-    if not all(cols_found.values()):
+    # The mean temperature is all the "too warm" check needs (it compares a trip with its product's other trips).
+    # Limits are only needed for "too cold": data from the SWP API has them only when the product table was
+    # available, so a missing limit column just means nothing can be flagged too cold.
+    if not cols_found["mean"]:
         return {
             "columns_found": cols_found,
             "col_names_found": col_names_found,
@@ -244,7 +247,14 @@ def detect_temperature_outliers(df: pd.DataFrame) -> dict:
             "by_product": [],
         }
 
-    flags = anomaly_detection.compute_flags(analysis_df)
+    try:
+        flags = anomaly_detection.compute_flags(analysis_df)
+    except KeyError:
+        # A frame without every statistics column (e.g. from the SWP API): too cold is just mean < limit low.
+        low = pd.to_numeric(analysis_df[LOW], errors="coerce") if LOW in analysis_df.columns else pd.Series(np.nan, index=analysis_df.index)
+        mean = pd.to_numeric(analysis_df[MEAN], errors="coerce")
+        cold = (mean < low).fillna(False)
+        flags = pd.DataFrame({"flag_2_too_cold_avg": cold, "flag_count": cold.astype(int)}, index=analysis_df.index)
     # Reindexed defensively onto analysis_df's own index: compute_flags is
     # expected to already align 1:1 with it, but a widened long-sensor-format
     # frame (see widen_by_sensor_type's outer merge) is exactly the kind of
@@ -255,8 +265,9 @@ def detect_temperature_outliers(df: pd.DataFrame) -> dict:
     flag_count = flags["flag_count"].reindex(analysis_df.index, fill_value=0)
 
     mean_temp = pd.to_numeric(analysis_df[MEAN], errors="coerce")
-    limit_low = pd.to_numeric(analysis_df[LOW], errors="coerce")
-    limit_high = pd.to_numeric(analysis_df[HIGH], errors="coerce")
+    nan = pd.Series(np.nan, index=analysis_df.index)
+    limit_low = pd.to_numeric(analysis_df[LOW], errors="coerce") if LOW in analysis_df.columns else nan
+    limit_high = pd.to_numeric(analysis_df[HIGH], errors="coerce") if HIGH in analysis_df.columns else nan
     limit_ideal = (
         pd.to_numeric(analysis_df[IDEAL], errors="coerce")
         if IDEAL in analysis_df.columns

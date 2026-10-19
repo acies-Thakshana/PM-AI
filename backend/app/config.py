@@ -55,6 +55,12 @@ SWP_BASE_URL = os.getenv("SWP_BASE_URL", "").rstrip("/")
 SWP_PROGRAM_ID = os.getenv("SWP_PROGRAM_ID", "")
 SWP_SECURITY_KEY = os.getenv("SWP_SECURITY_KEY", "")   # APIM key for the token endpoint
 SWP_TRIP_KEY = os.getenv("SWP_TRIP_KEY", "")           # APIM key for the trip endpoints
+# Optional: the Admin API key. With it, products (names and temperature limits) are looked up so the
+# outlier check can compare mean temperature by product; without it every trip's product is "Unknown".
+SWP_ADMIN_KEY = os.getenv("SWP_ADMIN_KEY", "")
+# Keep what the API returned on disk (data/swp_cache): the trip list per program until it is refreshed, and the
+# detail of ARRIVED trips for good. SWP_CACHE=0 always asks the API.
+SWP_CACHE = os.getenv("SWP_CACHE", "1") != "0"
 SWP_USER = os.getenv("SWP_USER", "")
 SWP_PASS = os.getenv("SWP_PASS", "")
 SWP_CLIENT_ID = os.getenv("SWP_CLIENT_ID", "common_client_jwt")

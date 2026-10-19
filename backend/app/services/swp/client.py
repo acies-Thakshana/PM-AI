@@ -8,7 +8,7 @@ import time
 import requests
 
 from app import config
-from app.services.swp import progress
+from app.services.swp import cache, progress
 
 log = logging.getLogger(__name__)
 
@@ -139,19 +139,31 @@ def status_name(record: dict) -> str:
 
 def all_trips(program_id: str | None = None, refresh: bool = False) -> list[dict]:
     """Every trip in the program (de-duplicated across the per-status searches)."""
+    return all_trips_info(program_id, refresh)[0]
+
+
+def all_trips_info(program_id: str | None = None, refresh: bool = False) -> tuple[list[dict], float, bool]:
+    """(trips, when they were fetched as epoch seconds, whether that was an earlier fetch). The list is kept on
+    disk and reused until `refresh`; this process also remembers it for SWP_TRIPS_CACHE_SECONDS."""
     program = _program(program_id)
     with _trips_lock:
         cached = _trips_cache.get(program)
         if cached and not refresh and time.time() - cached["at"] < config.SWP_TRIPS_CACHE_SECONDS:
-            return cached["trips"]
+            return cached["trips"], cached["at"], True
+        stored = None if refresh else cache.load_trips(program)
+        if stored and stored.get("trips"):
+            _trips_cache[program] = {"at": stored["at"], "trips": stored["trips"]}
+            return stored["trips"], stored["at"], True
         progress.add_total(len(ALL_STATUS_KEYWORDS) + (0 if has_token() else 1))  # one page per status to start with
         token = get_token()
         by_id: dict[str, dict] = {}
         for keyword in ALL_STATUS_KEYWORDS:
             for t in search_trips(token, keyword, program):
                 by_id[t["tripID"]] = t
-        _trips_cache[program] = {"at": time.time(), "trips": list(by_id.values())}
-        return _trips_cache[program]["trips"]
+        trips = list(by_id.values())
+        at = cache.save_trips(program, trips)
+        _trips_cache[program] = {"at": at, "trips": trips}
+        return trips, at, False
 
 
 def _flat(obj, prefix: str = "") -> dict:
@@ -187,6 +199,30 @@ def arrival_of(record: dict) -> str | None:
 
 def record_fields(record: dict) -> list[str]:
     return sorted(_flat(record))
+
+
+def get_products(token: str, program_id: str | None = None) -> dict[str, dict]:
+    """The program's products by id: {"name", "low", "high", "ideal"} (temperature limits). Needs SWP_ADMIN_KEY;
+    {} without it or when the call fails -- the product columns are then just "Unknown" / empty."""
+    program = _program(program_id)
+    stored = cache.load_products(program)
+    if stored is not None:
+        return stored
+    if not config.SWP_ADMIN_KEY:
+        return {}
+    try:
+        data = _call("GET", f"/api/admin/external/external/products/programId/{program}?Take=500", config.SWP_ADMIN_KEY, token)
+    except SwpError as exc:
+        log.warning("could not fetch the products (the Admin API path or key may differ): %s", exc)
+        return {}
+    items = data if isinstance(data, list) else (data.get("items") or data.get("records") or [])
+    products = {
+        str(p.get("id")): {"name": p.get("name"), "low": p.get("minTemperature"), "high": p.get("maxTemperature"),
+                           "ideal": p.get("idealTemperature")}
+        for p in items if isinstance(p, dict) and p.get("id") is not None
+    }
+    cache.save_products(program, products)
+    return products
 
 
 # ---- write-back (NOT ENABLED) ------------------------------------------------------------------

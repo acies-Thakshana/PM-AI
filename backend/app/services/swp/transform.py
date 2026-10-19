@@ -59,27 +59,66 @@ def route_frame(detail: dict) -> pd.DataFrame:
     return df.dropna(subset=["lat", "long"]).sort_values("createdOn")[ROUTE_COLUMNS[1:]].reset_index(drop=True)
 
 
+def _flatten(obj, prefix: str = "") -> dict:
+    out: dict = {}
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            out.update(_flatten(v, f"{prefix}{k}."))
+    elif isinstance(obj, list):
+        if obj:
+            out.update(_flatten(obj[0], prefix))
+    else:
+        out[prefix.rstrip(".")] = obj
+    return out
+
+
+def product_of(detail: dict) -> tuple[str | None, str | None]:
+    """(product name, product id) of a trip, found by field name because the detail's layout for products is not
+    documented: a text field with "product" and "name" in its path, and a field ending in "productId"."""
+    name = pid = None
+    for key, value in _flatten(detail).items():
+        low = key.lower()
+        if name is None and "product" in low and "name" in low and isinstance(value, str) and value.strip():
+            name = value.strip()
+        if pid is None and low.endswith("productid") and value not in (None, "", -1, 0):
+            pid = str(value)
+    return name, pid
+
+
 def _status(detail: dict) -> str | None:
     key = GUID_NAMES.get(str(detail.get("tripStatusGuid", "")).upper())
     return STATUS_LABELS.get(key, key) if key else detail.get("tripStatusGuid")
 
 
 def aggregate_row(
-    basic: dict, detail: dict, sens: pd.DataFrame, edit: dict | None = None, listed: dict | None = None
+    basic: dict,
+    detail: dict,
+    sens: pd.DataFrame,
+    edit: dict | None = None,
+    listed: dict | None = None,
+    products: dict[str, dict] | None = None,
 ) -> dict:
     """`edit` holds the changes made in the app for this trip (status, departure, arrival): they replace
     what the API returned, because nothing is written back to SWP."""
     edit = edit or {}
     listed = listed or {}   # departure / arrival as the trip list showed them, for when the detail has none
+    # Column names the outlier checks look for: Origin, Destination, Product, Segment Length (Days), the
+    # *_Temperature statistics and Limit Low / High / Ideal_Temperature.
+    product_name, product_id = product_of(detail)
+    product = (products or {}).get(product_id or "", {})
     row = {
         "tripID": detail.get("tripID"),
         "tripStatus": edit.get("status") or _status(detail),
         "createDate (UTC)": detail.get("createDate"),
         "lastUpdatedDate (UTC)": detail.get("lastUpdatedDate"),
         "alarmed": detail.get("alarmed"),
-        "origin": pick(detail, "tripOrigin", "locations", "locationName"),
-        "destination": pick(detail, "destinations", "locationName"),
-        "carrier": pick(detail, "tripOrigin", "carrier", "name"),
+        "Origin": pick(detail, "tripOrigin", "locations", "locationName"),
+        "Destination": pick(detail, "destinations", "locationName"),
+        "Carrier": pick(detail, "tripOrigin", "carrier", "name"),
+        "Product": product_name or product.get("name"),
+        "Limit Low_Temperature": product.get("low"),
+        "Limit High_Temperature": product.get("high"),
+        "Limit Ideal_Temperature": product.get("ideal"),
         "modeOfTransportation": pick(detail, "destinations", "modeOfTransportation"),
         "orderNumber": pick(detail, "destinations", "orderNumber"),
         "trailerID": detail.get("trailerID"),
@@ -95,7 +134,7 @@ def aggregate_row(
     start = pd.to_datetime(row["actualDeparture (UTC)"], utc=True, errors="coerce")
     end = pd.to_datetime(row["actualArrival (UTC)"], utc=True, errors="coerce")
     if pd.notna(start) and pd.notna(end):
-        row["Segment Days"] = round((end - start).total_seconds() / 86400, 2)
+        row["Segment Length (Days)"] = round((end - start).total_seconds() / 86400, 2)
     if not sens.empty:
         first, last = sens["dateTime"].min(), sens["dateTime"].max()
         row["firstReading (UTC)"] = first
@@ -103,11 +142,19 @@ def aggregate_row(
         row["durationHours"] = round((last - first).total_seconds() / 3600, 2)
         for name, g in sens.groupby("sensor"):
             v = g["value"].astype(float)
-            row[f"{name} count"] = len(v)
-            row[f"{name} min"] = round(v.min(), 2)
-            row[f"{name} max"] = round(v.max(), 2)
-            row[f"{name} mean"] = round(v.mean(), 2)
-            row[f"{name} stdev"] = round(v.std(), 2) if len(v) > 1 else None
+            stats = {
+                "count": len(v), "min": round(v.min(), 2), "max": round(v.max(), 2), "mean": round(v.mean(), 2),
+                "stdev": round(v.std(), 2) if len(v) > 1 else None,
+            }
+            row[f"{name} count"] = stats["count"]
+            if name == "Temperature":
+                row["Min Value_Temperature"] = stats["min"]
+                row["Max Value_Temperature"] = stats["max"]
+                row["Mean Value_Temperature"] = stats["mean"]
+                row["Standard Deviation_Temperature"] = stats["stdev"]
+            else:
+                row[f"{name} min"], row[f"{name} max"] = stats["min"], stats["max"]
+                row[f"{name} mean"], row[f"{name} stdev"] = stats["mean"], stats["stdev"]
     return row
 
 
@@ -116,6 +163,7 @@ def build_tables(
     sensors: list[str] | None = None,
     edits: dict[str, dict] | None = None,
     listed: dict[str, dict] | None = None,
+    products: dict[str, dict] | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """(aggregate, sensor readings, GPS route) for a list of {tripID, basic, detail}. `sensors` limits
     which sensors are kept (None = all); `edits` are the per-trip changes made in the app."""
@@ -125,7 +173,7 @@ def build_tables(
         sens = sensor_frame(t["detail"])
         if keep is not None:
             sens = sens[sens["sensor"].str.lower().isin(keep)]
-        agg_rows.append(aggregate_row(t["basic"], t["detail"], sens, (edits or {}).get(t["tripID"]), (listed or {}).get(t["tripID"])))
+        agg_rows.append(aggregate_row(t["basic"], t["detail"], sens, (edits or {}).get(t["tripID"]), (listed or {}).get(t["tripID"]), products))
         if not sens.empty:
             readings.append(sens.assign(tripID=t["tripID"]))
         route = route_frame(t["detail"])
