@@ -54,7 +54,9 @@ export interface SwpLoadResponse {
 }
 
 export interface SwpSessionTrip {
+  /** The SWP trip GUID (Inspect is keyed by it); `trip_number` is the numeric Trip ID of the export. */
   trip_id: string;
+  trip_number: string | null;
   status: string | null;
   departure: string | null;
   arrival: string | null;

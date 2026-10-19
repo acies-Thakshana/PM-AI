@@ -86,7 +86,8 @@ export default function UploadPage({
   const tripsForProgram = trips && trips.program_id === config.programId.trim() ? trips : null;
   const chosen = selectedTrips(tripsForProgram, config);
   const apiReady =
-    !!tripsForProgram && chosen.length > 0 && chosen.length <= tripsForProgram.max_trips && config.sensors.length > 0;
+    !!tripsForProgram && chosen.length > 0 && chosen.length <= tripsForProgram.max_trips &&
+    config.sensors.some((s) => s === "Temperature" || s === "Light");
 
   const handleSelect = (id: UploadSlotId, file: File) => {
     onSelect(id, file);

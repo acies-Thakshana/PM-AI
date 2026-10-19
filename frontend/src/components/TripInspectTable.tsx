@@ -51,7 +51,7 @@ export default function TripInspectTable({ sessionId }: TripInspectTableProps) {
           <tbody>
             {trips.map((t) => (
               <tr key={t.trip_id}>
-                <td className="trip-table__id">{t.trip_id}</td>
+                <td className="trip-table__id" title={t.trip_id}>{t.trip_number ?? t.trip_id}</td>
                 <td>
                   {t.status ?? "–"}
                   {t.edited && <span className="trip-table__edited"> edited</span>}

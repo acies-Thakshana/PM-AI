@@ -159,10 +159,8 @@ def load_trips(body: LoadRequest) -> LoadResponse:
                 saved[tid] = hit
 
     # Calls to come: the trip detail of every trip not cached (plus the single-trip call when the list record
-    # lacks its basics), the product table, and a token if any call is needed at all.
-    calls = sum(0 if t in saved else (1 if "serialNumbers" in by_lower[t.lower()] else 2) for t in ids)
-    need_products = bool(config.SWP_ADMIN_KEY) and cache.load_products(program) is None
-    expected = calls + (1 if need_products else 0)
+    # lacks its basics), and a token if any call is needed at all.
+    expected = sum(0 if t in saved else (1 if "serialNumbers" in by_lower[t.lower()] else 2) for t in ids)
     expected += 1 if expected and not client.has_token() else 0
     progress.start(body.progress_id, total=expected, label="Loading trip data")
     token = _swp_call(client.get_token) if expected else ""
@@ -180,18 +178,14 @@ def load_trips(body: LoadRequest) -> LoadResponse:
         if client.status_name(by_lower[tid.lower()]) == "Arrived":
             cache.save_trip(program, tid, basic, detail)
         trips_data.append({"tripID": tid, "basic": basic, "detail": detail})
-    products = _swp_call(client.get_products, token, program) if config.SWP_ADMIN_KEY or cache.load_products(program) else {}
 
     edits = {}
     for tid, edit in body.edits.items():
         match = by_lower.get(tid.lower())
         if match:
             edits[match["tripID"]] = {k: v for k, v in edit.model_dump().items() if v}
-    listed = {
-        tid: {"departure": client.departure_of(by_lower[tid.lower()]), "arrival": client.arrival_of(by_lower[tid.lower()])}
-        for tid in ids
-    }
-    agg, sensors, route = build_tables(trips_data, body.sensors or None, edits, listed, products)
+    records = {tid: by_lower[tid.lower()] for tid in ids}
+    agg, sensors, route = build_tables(trips_data, body.sensors or None, edits, records)
     if agg.empty:
         raise HTTPException(status_code=404, detail="The API returned no usable trip data.")
 
@@ -243,7 +237,8 @@ def _num(value) -> float | None:
 
 
 class SessionTrip(BaseModel):
-    trip_id: str
+    trip_id: str          # the SWP trip GUID (what Inspect is keyed by)
+    trip_number: str | None   # the numeric Trip ID of the export
     status: str | None
     departure: str | None
     arrival: str | None
@@ -258,11 +253,11 @@ class SessionTrip(BaseModel):
 @router.get("/{session_id}/trips", response_model=list[SessionTrip])
 def session_trips(session_id: str) -> list[SessionTrip]:
     """One row per trip of this session for the Data Audit table: mean temperature, segment days and
-    what raw data is available to inspect. Numbers come from the audited table, so rows the audit
+    what raw data is available to inspect. Numbers come from the audited table, so trips the audit
     removed are gone from here too."""
     session = get_or_404(session_id)
     df = session.df
-    if "tripID" not in df.columns:
+    if "SWP Trip Key" not in df.columns:
         raise HTTPException(status_code=404, detail="This session has no SWP trips.")
     sensors = _frame(session_id, SENSORS_FILE)
     route = _frame(session_id, ROUTE_FILE)
@@ -274,16 +269,19 @@ def session_trips(session_id: str) -> list[SessionTrip]:
         return None if value is None or pd.isna(value) else str(value)
 
     out = []
-    for _, row in df.iterrows():
-        tid = str(row["tripID"])
+    for key, rows in df.groupby("SWP Trip Key", sort=False):
+        tid = str(key)
+        first = rows.iloc[0]
+        temperature = rows[rows["Sensor Type"] == "Temperature"] if "Sensor Type" in rows.columns else rows
         g = by_trip.get(tid)
         out.append(SessionTrip(
-            trip_id=tid, status=text(row, "tripStatus"), departure=text(row, "actualDeparture (UTC)"),
-            arrival=text(row, "actualArrival (UTC)"), mean_temp=_num(row.get("Mean Value_Temperature")),
-            segment_days=_num(row.get("Segment Length (Days)")),
+            trip_id=tid, trip_number=text(first, "Trip ID"), status=text(first, "Trip Status"),
+            departure=text(first, "Actual Departure Time CET"), arrival=text(first, "Actual Arrival Time CET"),
+            mean_temp=_num(temperature["Mean Value"].iloc[0]) if len(temperature) else None,
+            segment_days=_num(first.get("Segment Length (Days)")),
             sensors=sorted(g["sensor"].unique().tolist()) if g is not None else [],
             readings=0 if g is None else len(g), gps_points=int(points.get(tid, 0)),
-            edited=bool(text(row, "editedInApp")),
+            edited=bool(text(first, "editedInApp")),
         ))
     return out
 

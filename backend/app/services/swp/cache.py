@@ -3,7 +3,6 @@
   * the list of all trips of a program (one file per program), reused until someone asks to refresh it;
   * the basic + detail JSON of an ARRIVED trip (one file per trip) -- an arrived trip no longer changes, so it
     is never fetched twice. Trips in any other status always come from the API;
-  * the program's product table (names and temperature limits).
 
 Edits made in the app are never stored here: they are laid over the raw API data on every load.
 Files live under data/swp_cache/ (gitignored) as JSON; a file that cannot be read is treated as missing.
@@ -72,12 +71,3 @@ def load_trip(program_id: str, trip_id: str) -> dict | None:
 def save_trip(program_id: str, trip_id: str, basic: dict, detail: dict) -> None:
     if enabled():
         _write(_path(program_id, "trips", f"{trip_id}.json"), {"basic": basic, "detail": detail})
-
-
-def load_products(program_id: str) -> dict | None:
-    return _read(_path(program_id, "products.json")) if enabled() else None
-
-
-def save_products(program_id: str, products: dict) -> None:
-    if enabled():
-        _write(_path(program_id, "products.json"), products)

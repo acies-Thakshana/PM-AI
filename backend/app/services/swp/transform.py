@@ -1,9 +1,20 @@
-"""Turns SWP trip JSON into the tables the app uses: one aggregate row per trip (what the audit,
-features and analyses run on), plus the raw sensor readings kept for the graphs."""
+"""Turns SWP trip JSON into the tables the app uses.
+
+  * the audit table: the same columns, in the same order, as a SensiWatch tabular-shipment export (Serial
+    Number, Trip ID, Product, Origin, Segment Length (Days), Sensor Type, Limit Low, Mean Value, ...), one row
+    per trip and sensor (Temperature, Light) -- the "long sensor format" the audit, outlier checks, features
+    and analyses already understand;
+  * the raw sensor readings and the GPS route, kept for the Inspect graph and map.
+
+Where each column comes from is listed next to it below. Times are converted from UTC to CET; temperatures
+from Fahrenheit (what the API returns) to Celsius.
+"""
 from __future__ import annotations
 
 import pandas as pd
 
+from app import config
+from app.services.swp import client
 from app.services.swp.client import GUID_NAMES, STATUS_LABELS
 
 SENSOR_LISTS = {
@@ -11,12 +22,48 @@ SENSOR_LISTS = {
     "lightData": "Light", "humidityData": "Humidity", "co2Data": "CO2",
     "temperatureProbeData": "TemperatureProbe",
 }
+TEMPERATURE_SENSORS = {"Temperature", "SimulatedTemperature", "TemperatureProbe"}
+# The audit table has a row per trip for each of these (the export format knows only these two).
+TABLE_SENSORS = ("Temperature", "Light")
 SENSOR_COLUMNS = ["tripID", "serialNumber", "sensor", "dateTime", "value"]
 ROUTE_COLUMNS = ["tripID", "lat", "long", "createdOn"]
+TIMEZONE = "Europe/Berlin"  # "CET" in the column names
+
+EXPORT_COLUMNS = [
+    "Serial Number", "Trip ID", "Trip Detail", "Trip Create Date CET", "Trip Status", "Segment Name",
+    "Quality Status", "Quality Comment", "Product", "Origin", "Destination", "Managing Carrier", "Carrier",
+    "Parent Supplier", "Order Number", "PO Number", "Internal Trip ID", "Trailer ID", "Mode Of Transportation",
+    "Driver Name", "Driver Cell", "Planned Departure Time CET", "Actual Departure Time CET",
+    "Planned Arrival Time CET", "Actual Arrival Time CET", "Segment Length (Days)", "Container Name", "Zone Name",
+    "Segment Type", "Segment Number", "Segment Start Date Time", "Segment End Date Time", "Sensor Type",
+    "Degree Unit", "Limit Low", "Limit Ideal", "Limit High", "Mean Value", "Standard Deviation", "Min Value",
+    "Max Value", "MKT Statistics Value", "Time Below Low Hours", "Time Below Ideal Hours",
+    "Time Above Ideal Hours", "Time Above High Hours", "Value Minutes Below Low", "Value Minutes Below Ideal",
+    "Value Minutes Above Ideal", "Value Minutes Above High", "Specs Last Updated Date/Time",
+    "Shipment Created Date/Time", "Shipment Created By", "Trip Note", "Latest Reprocess Date",
+    "Latest Reprocess User", "Reprocess Type", "Is Alarmed", "Trip Review",
+    # Not in the export: the trip's GUID (what the SWP API and the Inspect view are keyed by) and whether the
+    # app changed its status or times. Neither name contains "trip" and "id" together, so the outlier checks
+    # still find "Trip ID" as the trip column.
+    "SWP Trip Key", "editedInApp",
+]
 
 
 def to_naive_utc(series: pd.Series) -> pd.Series:
     return pd.to_datetime(series, utc=True, errors="coerce").dt.tz_localize(None)
+
+
+def to_cet(value) -> pd.Timestamp | None:
+    """An ISO UTC time as a CET wall-clock time (no time zone attached), or None."""
+    ts = pd.to_datetime(value, utc=True, errors="coerce") if value else pd.NaT
+    return None if pd.isna(ts) else ts.tz_convert(TIMEZONE).tz_localize(None)
+
+
+def f_to_c(value):
+    """Fahrenheit -> Celsius (SWP_TEMPERATURE_FAHRENHEIT=0 leaves values as they are)."""
+    if value is None or pd.isna(value):
+        return None
+    return (float(value) - 32.0) * 5.0 / 9.0 if config.SWP_TEMPERATURE_FAHRENHEIT else float(value)
 
 
 def pick(d, *path):
@@ -28,35 +75,6 @@ def pick(d, *path):
             return None
         d = d.get(p)
     return d
-
-
-def sensor_frame(detail: dict) -> pd.DataFrame:
-    """Long table of every sensor reading of one trip: serialNumber, sensor, dateTime (UTC), value."""
-    rows = []
-    for dev in detail.get("sensorData") or []:
-        for key, name in SENSOR_LISTS.items():
-            for p in dev.get(key) or []:
-                rows.append({"serialNumber": dev.get("serialNumber"), "sensor": name,
-                             "dateTime": p.get("dateTime"), "value": p.get("value")})
-    df = pd.DataFrame(rows, columns=["serialNumber", "sensor", "dateTime", "value"])
-    if not df.empty:
-        df["dateTime"] = to_naive_utc(df["dateTime"])
-        df["value"] = pd.to_numeric(df["value"], errors="coerce")
-        df = df.dropna(subset=["dateTime", "value"]).sort_values(["serialNumber", "dateTime", "sensor"])
-        df = df.reset_index(drop=True)
-    return df
-
-
-def route_frame(detail: dict) -> pd.DataFrame:
-    """The GPS points of one trip in time order: lat, long, createdOn (UTC)."""
-    coords = (detail.get("tripRoute") or {}).get("tripCoordinates") or []
-    df = pd.DataFrame(coords)
-    if df.empty or not {"lat", "long"} <= set(df.columns):
-        return pd.DataFrame(columns=ROUTE_COLUMNS[1:])
-    df["lat"] = pd.to_numeric(df["lat"], errors="coerce")
-    df["long"] = pd.to_numeric(df["long"], errors="coerce")
-    df["createdOn"] = to_naive_utc(df["createdOn"]) if "createdOn" in df.columns else pd.NaT
-    return df.dropna(subset=["lat", "long"]).sort_values("createdOn")[ROUTE_COLUMNS[1:]].reset_index(drop=True)
 
 
 def _flatten(obj, prefix: str = "") -> dict:
@@ -72,114 +90,206 @@ def _flatten(obj, prefix: str = "") -> dict:
     return out
 
 
-def product_of(detail: dict) -> tuple[str | None, str | None]:
-    """(product name, product id) of a trip, found by field name because the detail's layout for products is not
-    documented: a text field with "product" and "name" in its path, and a field ending in "productId"."""
-    name = pid = None
-    for key, value in _flatten(detail).items():
-        low = key.lower()
-        if name is None and "product" in low and "name" in low and isinstance(value, str) and value.strip():
-            name = value.strip()
-        if pid is None and low.endswith("productid") and value not in (None, "", -1, 0):
-            pid = str(value)
-    return name, pid
+def _first(flat: dict, suffix: str):
+    """The first non-empty value whose field path ends with `suffix` (case-insensitive)."""
+    suffix = suffix.lower()
+    for key, value in flat.items():
+        if key.lower().endswith(suffix) and value not in (None, ""):
+            return value
+    return None
 
 
-def _status(detail: dict) -> str | None:
+def sensor_frame(detail: dict) -> pd.DataFrame:
+    """Long table of every sensor reading of one trip: serialNumber, sensor, dateTime (UTC), value. Temperatures
+    are converted to Celsius."""
+    rows = []
+    for dev in detail.get("sensorData") or []:
+        for key, name in SENSOR_LISTS.items():
+            for p in dev.get(key) or []:
+                rows.append({"serialNumber": dev.get("serialNumber"), "sensor": name,
+                             "dateTime": p.get("dateTime"), "value": p.get("value")})
+    df = pd.DataFrame(rows, columns=["serialNumber", "sensor", "dateTime", "value"])
+    if not df.empty:
+        df["dateTime"] = to_naive_utc(df["dateTime"])
+        df["value"] = pd.to_numeric(df["value"], errors="coerce")
+        df = df.dropna(subset=["dateTime", "value"]).sort_values(["serialNumber", "dateTime", "sensor"])
+        df = df.reset_index(drop=True)
+        is_temp = df["sensor"].isin(TEMPERATURE_SENSORS)
+        if config.SWP_TEMPERATURE_FAHRENHEIT and is_temp.any():
+            df.loc[is_temp, "value"] = (df.loc[is_temp, "value"] - 32.0) * 5.0 / 9.0
+    return df
+
+
+def route_frame(detail: dict) -> pd.DataFrame:
+    """The GPS points of one trip in time order: lat, long, createdOn (UTC)."""
+    coords = (detail.get("tripRoute") or {}).get("tripCoordinates") or []
+    df = pd.DataFrame(coords)
+    if df.empty or not {"lat", "long"} <= set(df.columns):
+        return pd.DataFrame(columns=ROUTE_COLUMNS[1:])
+    df["lat"] = pd.to_numeric(df["lat"], errors="coerce")
+    df["long"] = pd.to_numeric(df["long"], errors="coerce")
+    df["createdOn"] = to_naive_utc(df["createdOn"]) if "createdOn" in df.columns else pd.NaT
+    return df.dropna(subset=["lat", "long"]).sort_values("createdOn")[ROUTE_COLUMNS[1:]].reset_index(drop=True)
+
+
+def _status(detail: dict, record: dict) -> str | None:
     key = GUID_NAMES.get(str(detail.get("tripStatusGuid", "")).upper())
-    return STATUS_LABELS.get(key, key) if key else detail.get("tripStatusGuid")
+    if key:
+        return STATUS_LABELS.get(key, key)
+    return client.status_name(record) if record else detail.get("tripStatusGuid")
 
 
-def aggregate_row(
-    basic: dict,
-    detail: dict,
-    sens: pd.DataFrame,
-    edit: dict | None = None,
-    listed: dict | None = None,
-    products: dict[str, dict] | None = None,
-) -> dict:
-    """`edit` holds the changes made in the app for this trip (status, departure, arrival): they replace
-    what the API returned, because nothing is written back to SWP."""
+def _round(value, digits: int = 2):
+    return None if value is None or pd.isna(value) else round(float(value), digits)
+
+
+def _reading_stats(values: pd.DataFrame, low, ideal, high) -> dict:
+    """Mean, SD, min, max of one sensor's readings and -- for temperature, when the limits are known -- how long
+    and by how many degree-minutes it was beyond each limit. Each reading counts for the time until the next one
+    (the last one for the typical step)."""
+    v = values.sort_values("dateTime")
+    out = {
+        "Mean Value": _round(v["value"].mean()), "Min Value": _round(v["value"].min()),
+        "Max Value": _round(v["value"].max()),
+        "Standard Deviation": _round(v["value"].std()) if len(v) > 1 else None,
+    }
+    minutes = v["dateTime"].diff().shift(-1).dt.total_seconds().div(60)
+    minutes = minutes.fillna(minutes.median() if minutes.notna().any() else 15.0)
+    temp = v["value"]
+
+    def beyond(limit, above: bool):
+        if limit is None:
+            return None, None
+        gap = (temp - limit) if above else (limit - temp)
+        hit = gap > 0
+        return _round(minutes[hit].sum() / 60), _round((gap[hit] * minutes[hit]).sum())
+
+    out["Time Below Low Hours"], out["Value Minutes Below Low"] = beyond(low, above=False)
+    out["Time Below Ideal Hours"], out["Value Minutes Below Ideal"] = beyond(ideal, above=False)
+    out["Time Above Ideal Hours"], out["Value Minutes Above Ideal"] = beyond(ideal, above=True)
+    out["Time Above High Hours"], out["Value Minutes Above High"] = beyond(high, above=True)
+    return out
+
+
+def trip_rows(basic: dict, detail: dict, sens: pd.DataFrame, edit: dict | None = None, record: dict | None = None) -> list[dict]:
+    """The audit-table rows of one trip: one per sensor in TABLE_SENSORS that has readings (always at least one
+    row, so a trip with no readings is not lost). `edit` holds the changes made in the app (status, departure,
+    arrival), which replace what the API returned because nothing is written back to SWP; `record` is the trip's
+    entry in the trip list (search result)."""
     edit = edit or {}
-    listed = listed or {}   # departure / arrival as the trip list showed them, for when the detail has none
-    # Column names the outlier checks look for: Origin, Destination, Product, Segment Length (Days), the
-    # *_Temperature statistics and Limit Low / High / Ideal_Temperature.
-    product_name, product_id = product_of(detail)
-    product = (products or {}).get(product_id or "", {})
-    row = {
-        "tripID": detail.get("tripID"),
-        "tripStatus": edit.get("status") or _status(detail),
-        "createDate (UTC)": detail.get("createDate"),
-        "lastUpdatedDate (UTC)": detail.get("lastUpdatedDate"),
-        "alarmed": detail.get("alarmed"),
+    record = record or {}
+    origin = detail.get("tripOrigin") or {}
+    flat = _flatten(detail)
+
+    departure = edit.get("departure") or origin.get("actualDepartureTime") or client.departure_of(record)
+    arrival = (
+        edit.get("arrival") or detail.get("tripActualArrivalTime") or pick(detail, "destinations", "actualArrivalTime")
+        or client.arrival_of(record)
+    )
+    segments = detail.get("segments") or []
+    seg_start = departure if edit.get("departure") or not segments else (segments[0].get("startTime") or departure)
+    seg_end = arrival if edit.get("arrival") or not segments else (segments[-1].get("endTime") or arrival)
+    start = pd.to_datetime(departure, utc=True, errors="coerce") if departure else pd.NaT
+    end = pd.to_datetime(arrival, utc=True, errors="coerce") if arrival else pd.NaT
+    length_days = _round((end - start).total_seconds() / 86400) if pd.notna(start) and pd.notna(end) else None
+
+    # Limits: the trip's own product limits, else the specification in the trip list's statistics.
+    spec = pick(record, "tripStatistics", "tempSpec") or {}
+    limits = {
+        "low": f_to_c(_first(flat, "zoneProducts.minTemperature") if _first(flat, "zoneProducts.minTemperature") is not None else spec.get("low")),
+        "ideal": f_to_c(_first(flat, "zoneProducts.idealTemperature")),
+        "high": f_to_c(_first(flat, "zoneProducts.maxTemperature") if _first(flat, "zoneProducts.maxTemperature") is not None else spec.get("high")),
+    }
+    limits = {k: _round(v) for k, v in limits.items()}
+    stats = record.get("tripStatistics") or {}
+
+    common = {
+        "Trip ID": detail.get("id") or detail.get("tripID"),
+        "Trip Create Date CET": to_cet(detail.get("createDate")),
+        "Trip Status": edit.get("status") or _status(detail, record),
+        "Segment Name": "Full Trip",
+        "Quality Status": basic.get("quality"),
+        "Quality Comment": basic.get("qualityComment"),
+        "Product": _first(flat, "products.productName"),
         "Origin": pick(detail, "tripOrigin", "locations", "locationName"),
         "Destination": pick(detail, "destinations", "locationName"),
+        "Managing Carrier": pick(detail, "tripOrigin", "managingCarrier", "name"),
         "Carrier": pick(detail, "tripOrigin", "carrier", "name"),
-        "Product": product_name or product.get("name"),
-        "Limit Low_Temperature": product.get("low"),
-        "Limit High_Temperature": product.get("high"),
-        "Limit Ideal_Temperature": product.get("ideal"),
-        "modeOfTransportation": pick(detail, "destinations", "modeOfTransportation"),
-        "orderNumber": pick(detail, "destinations", "orderNumber"),
-        "trailerID": detail.get("trailerID"),
-        "serialNumbers": ", ".join(basic.get("serialNumbers") or []),
-        "actualDeparture (UTC)": edit.get("departure") or pick(detail, "tripOrigin", "actualDepartureTime") or listed.get("departure"),
-        "actualArrival (UTC)": edit.get("arrival") or detail.get("tripActualArrivalTime") or listed.get("arrival"),
-        "gpsPoints": len((detail.get("tripRoute") or {}).get("tripCoordinates") or []),
-        "lastKnownAddress": pick(detail, "tripRecentData", "address"),
-        "lastReadingTime": pick(detail, "tripRecentData", "time"),
+        "Parent Supplier": basic.get("parentSupplierId"),
+        "Order Number": pick(detail, "destinations", "orderNumber"),
+        "PO Number": pick(detail, "destinations", "poNumber"),
+        "Internal Trip ID": basic.get("internalTripId") or origin.get("internalTripID"),
+        "Trailer ID": detail.get("trailerID"),
+        "Mode Of Transportation": pick(detail, "destinations", "modeOfTransportation"),
+        "Driver Name": origin.get("driverName"),
+        "Driver Cell": origin.get("driverCell"),
+        "Planned Departure Time CET": to_cet(origin.get("plannedDepartureTime")),
+        "Actual Departure Time CET": to_cet(departure),
+        "Planned Arrival Time CET": to_cet(pick(detail, "destinations", "plannedArrivalTime")),
+        "Actual Arrival Time CET": to_cet(arrival),
+        "Segment Length (Days)": length_days,
+        "Segment Start Date Time": to_cet(seg_start),
+        "Segment End Date Time": to_cet(seg_end),
+        "Shipment Created Date/Time": to_cet(detail.get("createDate")),
+        "Shipment Created By": record.get("createdBy"),
+        "Trip Note": basic.get("notes") or detail.get("notes"),
+        "Is Alarmed": None if detail.get("alarmed") is None else ("Yes" if detail.get("alarmed") else "No"),
+        "SWP Trip Key": detail.get("tripID"),
+        "editedInApp": ", ".join(k for k in ("status", "departure", "arrival") if edit.get(k)) or None,
     }
-    if edit:
-        row["editedInApp"] = ", ".join(k for k in ("status", "departure", "arrival") if edit.get(k))
-    start = pd.to_datetime(row["actualDeparture (UTC)"], utc=True, errors="coerce")
-    end = pd.to_datetime(row["actualArrival (UTC)"], utc=True, errors="coerce")
-    if pd.notna(start) and pd.notna(end):
-        row["Segment Length (Days)"] = round((end - start).total_seconds() / 86400, 2)
-    if not sens.empty:
-        first, last = sens["dateTime"].min(), sens["dateTime"].max()
-        row["firstReading (UTC)"] = first
-        row["lastReading (UTC)"] = last
-        row["durationHours"] = round((last - first).total_seconds() / 3600, 2)
-        for name, g in sens.groupby("sensor"):
-            v = g["value"].astype(float)
-            stats = {
-                "count": len(v), "min": round(v.min(), 2), "max": round(v.max(), 2), "mean": round(v.mean(), 2),
-                "stdev": round(v.std(), 2) if len(v) > 1 else None,
-            }
-            row[f"{name} count"] = stats["count"]
-            if name == "Temperature":
-                row["Min Value_Temperature"] = stats["min"]
-                row["Max Value_Temperature"] = stats["max"]
-                row["Mean Value_Temperature"] = stats["mean"]
-                row["Standard Deviation_Temperature"] = stats["stdev"]
-            else:
-                row[f"{name} min"], row[f"{name} max"] = stats["min"], stats["max"]
-                row[f"{name} mean"], row[f"{name} stdev"] = stats["mean"], stats["stdev"]
-    return row
+    default_serial = (basic.get("serialNumbers") or [None])[0]
+
+    rows = []
+    for sensor in TABLE_SENSORS:
+        values = sens[sens["sensor"] == sensor] if not sens.empty else sens
+        if values.empty:
+            continue
+        row = {**common, "Sensor Type": sensor, "Serial Number": values["serialNumber"].dropna().iloc[0] if values["serialNumber"].notna().any() else default_serial}
+        if sensor == "Temperature":
+            row["Degree Unit"] = "C"
+            row["Limit Low"], row["Limit Ideal"], row["Limit High"] = limits["low"], limits["ideal"], limits["high"]
+            row.update(_reading_stats(values, limits["low"], limits["ideal"], limits["high"]))
+            row["MKT Statistics Value"] = _round(f_to_c(stats.get("mkt")))
+        else:
+            row["Degree Unit"] = "%"
+            row.update({k: v for k, v in _reading_stats(values, None, None, None).items() if k in ("Mean Value", "Min Value", "Max Value", "Standard Deviation")})
+        rows.append(row)
+    if not rows:
+        # No temperature or light readings: keep the trip with its search statistics (Fahrenheit) if there are any.
+        var, reading = stats.get("tempVariance") or {}, stats.get("tempReading") or {}
+        rows.append({
+            **common, "Sensor Type": "Temperature", "Serial Number": default_serial, "Degree Unit": "C",
+            "Limit Low": limits["low"], "Limit Ideal": limits["ideal"], "Limit High": limits["high"],
+            "Mean Value": _round(f_to_c(var.get("mean"))),
+            "Standard Deviation": _round(var.get("sd") * 5.0 / 9.0) if var.get("sd") is not None and config.SWP_TEMPERATURE_FAHRENHEIT else _round(var.get("sd")),
+            "Min Value": _round(f_to_c(reading.get("min"))), "Max Value": _round(f_to_c(reading.get("max"))),
+            "MKT Statistics Value": _round(f_to_c(stats.get("mkt"))),
+        })
+    return rows
 
 
 def build_tables(
     trips_data: list[dict],
     sensors: list[str] | None = None,
     edits: dict[str, dict] | None = None,
-    listed: dict[str, dict] | None = None,
-    products: dict[str, dict] | None = None,
+    records: dict[str, dict] | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """(aggregate, sensor readings, GPS route) for a list of {tripID, basic, detail}. `sensors` limits
-    which sensors are kept (None = all); `edits` are the per-trip changes made in the app."""
+    """(audit table, sensor readings, GPS route) for a list of {tripID, basic, detail}. `sensors` limits which
+    sensors are kept (None = all); `edits` are the per-trip changes made in the app; `records` are the trips'
+    entries in the trip list."""
     keep = {s.lower() for s in sensors} if sensors else None
-    agg_rows, readings, routes = [], [], []
+    table_rows, readings, routes = [], [], []
     for t in trips_data:
         sens = sensor_frame(t["detail"])
-        if keep is not None:
+        if keep is not None and not sens.empty:
             sens = sens[sens["sensor"].str.lower().isin(keep)]
-        agg_rows.append(aggregate_row(t["basic"], t["detail"], sens, (edits or {}).get(t["tripID"]), (listed or {}).get(t["tripID"]), products))
+        table_rows += trip_rows(t["basic"], t["detail"], sens, (edits or {}).get(t["tripID"]), (records or {}).get(t["tripID"]))
         if not sens.empty:
             readings.append(sens.assign(tripID=t["tripID"]))
         route = route_frame(t["detail"])
         if not route.empty:
             routes.append(route.assign(tripID=t["tripID"]))
-    agg = pd.DataFrame(agg_rows).dropna(axis=1, how="all")
+    table = pd.DataFrame(table_rows).reindex(columns=EXPORT_COLUMNS)
     sensor_df = pd.concat(readings, ignore_index=True)[SENSOR_COLUMNS] if readings else pd.DataFrame(columns=SENSOR_COLUMNS)
     route_df = pd.concat(routes, ignore_index=True)[ROUTE_COLUMNS] if routes else pd.DataFrame(columns=ROUTE_COLUMNS)
-    return agg, sensor_df, route_df
+    return table, sensor_df, route_df

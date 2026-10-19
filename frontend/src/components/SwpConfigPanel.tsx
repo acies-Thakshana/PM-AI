@@ -136,7 +136,9 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
               </label>
             ))}
           </span>
-          {config.sensors.length === 0 && <span className="swp-field__hint swp-field__hint--error">Pick at least one sensor.</span>}
+          <span className={`swp-field__hint${config.sensors.some((s) => s === "Temperature" || s === "Light") ? "" : " swp-field__hint--error"}`}>
+            Temperature and Light go into the audit table; Humidity is only drawn in the Inspect graph. Pick Temperature or Light.
+          </span>
         </div>
       </div>
 

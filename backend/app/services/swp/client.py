@@ -201,30 +201,6 @@ def record_fields(record: dict) -> list[str]:
     return sorted(_flat(record))
 
 
-def get_products(token: str, program_id: str | None = None) -> dict[str, dict]:
-    """The program's products by id: {"name", "low", "high", "ideal"} (temperature limits). Needs SWP_ADMIN_KEY;
-    {} without it or when the call fails -- the product columns are then just "Unknown" / empty."""
-    program = _program(program_id)
-    stored = cache.load_products(program)
-    if stored is not None:
-        return stored
-    if not config.SWP_ADMIN_KEY:
-        return {}
-    try:
-        data = _call("GET", f"/api/admin/external/external/products/programId/{program}?Take=500", config.SWP_ADMIN_KEY, token)
-    except SwpError as exc:
-        log.warning("could not fetch the products (the Admin API path or key may differ): %s", exc)
-        return {}
-    items = data if isinstance(data, list) else (data.get("items") or data.get("records") or [])
-    products = {
-        str(p.get("id")): {"name": p.get("name"), "low": p.get("minTemperature"), "high": p.get("maxTemperature"),
-                           "ideal": p.get("idealTemperature")}
-        for p in items if isinstance(p, dict) and p.get("id") is not None
-    }
-    cache.save_products(program, products)
-    return products
-
-
 # ---- write-back (NOT ENABLED) ------------------------------------------------------------------
 # Changing a trip's status or its departure / arrival time is done in the UI only for now. When it is
 # time to send it to SWP, the guide ("Create / Update Trip", Trip Manage API for External) says: search
