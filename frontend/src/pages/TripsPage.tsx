@@ -7,6 +7,7 @@ import PageHeader from "../components/PageHeader";
 import PageNav from "../components/PageNav";
 import { IconLayers } from "../components/icons";
 import { finalizeBrief } from "../api/brief";
+import ApiProgress from "../components/ApiProgress";
 import { loadTrips } from "../api/swp";
 import type { SwpTripsResponse, TripEdit, TripEdits } from "../api/swp";
 import { hasBrief } from "../context/plannerSkipped";
@@ -49,6 +50,7 @@ export default function TripsPage({
   const [draft, setDraft] = useState<{ departure: string; arrival: string }>({ departure: "", arrival: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [progressId, setProgressId] = useState<string | null>(null);
 
   // The trips chosen on the Configure page, with the changes made here laid over what SWP returned.
   const rows = useMemo(() => selectedTrips(trips, config).map((t) => withEdit(t, edits)), [trips, config, edits]);
@@ -109,9 +111,12 @@ export default function TripsPage({
     }
     setLoading(true);
     setError(null);
+    const progress = crypto.randomUUID();
+    setProgressId(progress);
     try {
       const loaded = await loadTrips({
         program_id: config.programId.trim() || null,
+        progress_id: progress,
         trip_ids: ids,
         sensors: config.sensors,
         edits: Object.fromEntries(ids.filter((id) => edits[id]).map((id) => [id, edits[id]])),
@@ -125,6 +130,7 @@ export default function TripsPage({
       setError(err instanceof Error ? err.message : "Could not load the trips. Is the backend running?");
     } finally {
       setLoading(false);
+      setProgressId(null);
     }
   };
 
@@ -181,6 +187,7 @@ export default function TripsPage({
         />
 
         {error && <div className="trips-page__error">{error}</div>}
+        {loading && <ApiProgress progressId={progressId} fallback="Loading trip data from the SWP API…" />}
 
         <div className="trips-tiles">
           {tile("Selected trips", rows.length)}

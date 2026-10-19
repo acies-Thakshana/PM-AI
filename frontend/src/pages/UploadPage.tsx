@@ -82,8 +82,11 @@ export default function UploadPage({
   const cardRefs: Partial<Record<UploadSlotId, HTMLDivElement | null>> = {};
 
   const apiMode = dataSource === "api";
-  const chosen = selectedTrips(trips, config);
-  const apiReady = !!trips && chosen.length > 0 && chosen.length <= trips.max_trips && config.sensors.length > 0;
+  // Only trips fetched for the program id now typed count.
+  const tripsForProgram = trips && trips.program_id === config.programId.trim() ? trips : null;
+  const chosen = selectedTrips(tripsForProgram, config);
+  const apiReady =
+    !!tripsForProgram && chosen.length > 0 && chosen.length <= tripsForProgram.max_trips && config.sensors.length > 0;
 
   const handleSelect = (id: UploadSlotId, file: File) => {
     onSelect(id, file);

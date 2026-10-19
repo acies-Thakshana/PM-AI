@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import ApiProgress from "./ApiProgress";
 import { Spinner } from "./ThinkingLoader";
 import { fetchAllTrips } from "../api/swp";
 import type { SwpTripsResponse } from "../api/swp";
@@ -16,10 +17,11 @@ interface SwpConfigPanelProps {
   disabled?: boolean;
 }
 
-/** The SWP side of the Configure page: which program, which departure dates, which sensors, then the
- * matching trips (id and departure date) to tick. All trips of the program are fetched first. */
+/** The SWP side of the Configure page: the program id, which departure dates and sensors, then (once the
+ * program's trips have been fetched) the matching trips, with their ids and departure dates, to tick. */
 export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsChange, disabled }: SwpConfigPanelProps) {
   const [fetching, setFetching] = useState(false);
+  const [progressId, setProgressId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
@@ -27,30 +29,30 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
     async (refresh: boolean) => {
       setFetching(true);
       setError(null);
+      const id = crypto.randomUUID();
+      setProgressId(id);
       try {
-        onTripsChange(await fetchAllTrips(config.programId, refresh));
+        onTripsChange(await fetchAllTrips(config.programId, refresh, id));
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not fetch the trips. Is the backend running?");
       } finally {
         setFetching(false);
+        setProgressId(null);
       }
     },
     [config.programId, onTripsChange]
   );
 
-  // Step 1 happens as soon as the page opens, with the default program, so the options below are real.
-  useEffect(() => {
-    if (!trips) void fetchTrips(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const update = (patch: Partial<SwpConfigState>) => onConfigChange({ ...config, ...patch });
 
-  const matches = useMemo(() => matchingTrips(trips, config), [trips, config]);
-  const chosen = useMemo(() => selectedTrips(trips, config), [trips, config]);
+  // Trips fetched for another program id are not shown: the list belongs to the id that was fetched.
+  const programId = config.programId.trim();
+  const shownTrips = trips && trips.program_id === programId ? trips : null;
+  const matches = useMemo(() => matchingTrips(shownTrips, config), [shownTrips, config]);
+  const chosen = useMemo(() => selectedTrips(shownTrips, config), [shownTrips, config]);
   const chosenIds = useMemo(() => new Set(chosen.map((t) => t.trip_id)), [chosen]);
-  const max = trips?.max_trips ?? 1;
-  const withDeparture = (trips?.trips ?? []).filter((t) => t.departure).length;
+  const max = shownTrips?.max_trips ?? 1;
+  const withDeparture = (shownTrips?.trips ?? []).filter((t) => t.departure).length;
   const dateFilterOn = Boolean(config.dateFrom || config.dateTo);
 
   const listed = useMemo(() => {
@@ -82,16 +84,16 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
               className="swp-field__input"
               type="text"
               inputMode="numeric"
-              placeholder={trips ? `Default: ${trips.program_id}` : "Default from the backend settings"}
+              placeholder="Enter the program ID"
               value={config.programId}
               onChange={(e) => update({ programId: e.target.value, selectedIds: null })}
               disabled={disabled || fetching}
             />
-            <button type="button" className="btn btn--secondary" onClick={() => fetchTrips(true)} disabled={disabled || fetching}>
+            <button type="button" className="btn btn--secondary" onClick={() => fetchTrips(true)} disabled={disabled || fetching || !programId}>
               {fetching ? <><Spinner />Fetching…</> : "Fetch trips"}
             </button>
           </span>
-          <span className="swp-field__hint">Leave empty for the program set in the backend settings.</span>
+          <span className="swp-field__hint">Enter the program ID, then fetch: its trip ids and departure dates are listed below.</span>
         </label>
 
         <div className="swp-field">
@@ -138,22 +140,23 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
         </div>
       </div>
 
-      {fetching && !trips && (
-        <p className="swp-card__note">Fetching all trips from the SWP API. This can take a minute (the API is rate limited)…</p>
-      )}
+      {fetching && <ApiProgress progressId={progressId} fallback="Fetching all trips from the SWP API (it is rate limited, so this can take a minute)…" />}
       {error && <div className="upload-page__error">{error}</div>}
+      {!shownTrips && !fetching && !error && (
+        <p className="swp-card__note">{programId ? "Click Fetch trips to list this program's trips." : "Enter a program ID to see its trips."}</p>
+      )}
 
-      {trips && (
+      {shownTrips && (
         <>
           <p className="swp-card__note">
-            <strong>{trips.total}</strong> trips in program {trips.program_id}
-            {trips.total > 0 && <> — {withDeparture} with a departure date</>}.
+            <strong>{shownTrips.total}</strong> trips in program {shownTrips.program_id}
+            {shownTrips.total > 0 && <> — {withDeparture} with a departure date</>}.
             {dateFilterOn && <> <strong>{matches.length}</strong> depart in the chosen dates.</>}
           </p>
-          {trips.total > 0 && withDeparture === 0 && (
+          {shownTrips.total > 0 && withDeparture === 0 && (
             <div className="upload-page__error">
               The trip list has no departure date, so the date filter cannot place any trip. Fields in the list:{" "}
-              {trips.sample_fields.join(", ")}.
+              {shownTrips.sample_fields.join(", ")}.
             </div>
           )}
 

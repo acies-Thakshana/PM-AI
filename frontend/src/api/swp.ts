@@ -34,6 +34,8 @@ export type TripEdits = Record<string, TripEdit>;
 
 export interface SwpLoadRequest {
   program_id: string | null;
+  /** Made up by the page so it can follow this load's API calls with fetchProgress. */
+  progress_id?: string;
   trip_ids: string[];
   sensors: string[];
   edits: TripEdits;
@@ -93,13 +95,28 @@ async function failure(response: Response, fallback: string): Promise<SwpApiErro
 }
 
 /** Step 1: every trip of the program (empty program id = the backend's default). `refresh` skips its short-lived cache. */
-export async function fetchAllTrips(programId: string, refresh = false): Promise<SwpTripsResponse> {
+export async function fetchAllTrips(programId: string, refresh = false, progressId?: string): Promise<SwpTripsResponse> {
   const query = new URLSearchParams();
+  if (progressId) query.set("progress_id", progressId);
   if (programId.trim()) query.set("program_id", programId.trim());
   if (refresh) query.set("refresh", "true");
   const qs = query.toString();
   const response = await apiFetch(`${API_BASE_URL}/api/swp/trips${qs ? `?${qs}` : ""}`);
   if (!response.ok) throw await failure(response, "Could not fetch the trips from the SWP API");
+  return response.json();
+}
+
+export interface SwpProgress {
+  done: number;
+  total: number;
+  label: string;
+  finished: boolean;
+}
+
+/** SWP API calls made so far / expected for the operation that was started with this progress id. */
+export async function fetchProgress(progressId: string): Promise<SwpProgress> {
+  const response = await apiFetch(`${API_BASE_URL}/api/swp/progress/${encodeURIComponent(progressId)}`);
+  if (!response.ok) throw await failure(response, "Could not read the progress");
   return response.json();
 }
 

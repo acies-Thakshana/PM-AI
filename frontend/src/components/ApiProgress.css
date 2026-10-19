@@ -1,0 +1,22 @@
+.api-progress {
+  margin: 12px 0;
+}
+
+.api-progress__text {
+  font-size: 13.5px;
+  color: var(--color-text);
+  margin-bottom: 6px;
+}
+
+.api-progress__bar {
+  height: 8px;
+  border-radius: 999px;
+  background: #e6eaf2;
+  overflow: hidden;
+}
+
+.api-progress__fill {
+  height: 100%;
+  background: var(--carrier-blue);
+  transition: width 0.6s ease;
+}

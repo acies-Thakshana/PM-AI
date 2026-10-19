@@ -8,6 +8,7 @@ import time
 import requests
 
 from app import config
+from app.services.swp import progress
 
 log = logging.getLogger(__name__)
 
@@ -63,10 +64,15 @@ def _call(method: str, path: str, key: str, token: str | None = None, **kwargs) 
         except requests.RequestException as exc:
             raise SwpError(f"Could not reach the SWP API: {exc}") from exc
         log.info("SWP %s %s -> %s", method, path.split("?")[0], r.status_code)
+        progress.tick()
         time.sleep(config.SWP_CALL_DELAY_SECONDS)
     if r.status_code != 200:
         raise SwpError(f"SWP API {method} {path.split('?')[0]} failed ({r.status_code}): {r.text[:300]}")
     return r.json()
+
+
+def has_token() -> bool:
+    return bool(_token["value"]) and time.time() < _token["expires"]
 
 
 def get_token() -> str:
@@ -95,6 +101,9 @@ def search_trips(token: str, keyword: str, program_id: str | None = None) -> lis
         )
         records = data.get("records") or []
         trips += records
+        if page == 0 and records:
+            # Now the number of pages is known (50 records a page): the calls still to come count toward the total.
+            progress.add_total(max(-(-int(data.get("overallTotal") or 0) // 50) - 1, 0))
         if not records or len(trips) >= data.get("overallTotal", 0):
             return trips
         page += 1
@@ -135,6 +144,7 @@ def all_trips(program_id: str | None = None, refresh: bool = False) -> list[dict
         cached = _trips_cache.get(program)
         if cached and not refresh and time.time() - cached["at"] < config.SWP_TRIPS_CACHE_SECONDS:
             return cached["trips"]
+        progress.add_total(len(ALL_STATUS_KEYWORDS) + (0 if has_token() else 1))  # one page per status to start with
         token = get_token()
         by_id: dict[str, dict] = {}
         for keyword in ALL_STATUS_KEYWORDS:

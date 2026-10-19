@@ -12,7 +12,7 @@ from app import config
 from app.routers.job_route import JobRoute
 from app.services.audit.audit_store import get_or_404, store
 from app.services.common import audit_log, column_meta, file_store, request_context
-from app.services.swp import client
+from app.services.swp import client, progress
 from app.services.swp.transform import build_tables
 
 router = APIRouter(route_class=JobRoute, prefix="/api/swp", tags=["swp"])
@@ -62,12 +62,14 @@ class TripsResponse(BaseModel):
 
 
 @router.get("/trips", response_model=TripsResponse)
-def list_all_trips(program_id: str = "", refresh: bool = False) -> TripsResponse:
+def list_all_trips(program_id: str = "", refresh: bool = False, progress_id: str = "") -> TripsResponse:
     """Step 1: every trip of the program (reused for a few minutes unless `refresh`). The program id
     defaults to SWP_PROGRAM_ID."""
     program = program_id.strip() or config.SWP_PROGRAM_ID
     _guard(program)
+    progress.start(progress_id, label="Fetching the trip list")
     records = _swp_call(client.all_trips, program, refresh)
+    progress.finish()
     trips = [
         TripSummary(
             trip_id=r["tripID"], status=client.status_name(r), departure=client.departure_of(r),
@@ -95,6 +97,7 @@ class TripEdit(BaseModel):
 
 class LoadRequest(BaseModel):
     program_id: str | None = None
+    progress_id: str | None = None                             # to follow the load's API calls (GET /progress/<id>)
     trip_ids: list[str] = Field(min_length=1)
     sensors: list[str] = Field(default_factory=list)          # e.g. ["Temperature", "Light"]; empty = all
     edits: dict[str, TripEdit] = Field(default_factory=dict)  # by trip id
@@ -142,6 +145,10 @@ def load_trips(body: LoadRequest) -> LoadResponse:
             detail=f"At most {config.SWP_MAX_TRIPS} trips can be loaded at once (each takes an API call or two).",
         )
 
+    # Calls to come: a token (unless one is still valid), then the trip detail, plus the single-trip call
+    # for any trip whose list record lacks its basics.
+    expected = (0 if client.has_token() else 1) + sum(1 if "serialNumbers" in by_lower[t.lower()] else 2 for t in ids)
+    progress.start(body.progress_id, total=expected, label="Loading trip data")
     token = _swp_call(client.get_token)
     trips_data = []
     for tid in ids:
@@ -177,10 +184,27 @@ def load_trips(body: LoadRequest) -> LoadResponse:
         {"program": program, "trips": len(ids), "rows": len(agg), "sensor_readings": len(sensors),
          "edited_trips": len(edits)},
     )
+    progress.finish()
     return LoadResponse(
         session_id=session.session_id, filename=SOURCE_NAME, row_count=len(agg),
         column_count=len(agg.columns), columns=[str(c) for c in agg.columns], trip_ids=ids,
     )
+
+
+class ProgressResponse(BaseModel):
+    done: int
+    total: int
+    label: str
+    finished: bool
+
+
+@router.get("/progress/{progress_id}", response_model=ProgressResponse)
+def get_progress(progress_id: str) -> ProgressResponse:
+    """API calls made so far / expected for the operation that was given this id (zeros until it starts)."""
+    p = progress.get(progress_id)
+    if p is None:
+        return ProgressResponse(done=0, total=0, label="", finished=False)
+    return ProgressResponse(done=p.done, total=p.total, label=p.label, finished=p.finished)
 
 
 def _frame(session_id: str, name: str) -> pd.DataFrame:
