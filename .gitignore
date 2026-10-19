@@ -1,0 +1,13 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Runtime state written in local mode: registry, knowledge graph, history, uploads, audit log.
+data/local/
+
+venv/
+.venv/
+node_modules/
