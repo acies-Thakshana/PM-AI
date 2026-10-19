@@ -1,6 +1,6 @@
 import ThinkingLoader from "../components/ThinkingLoader";
 import { LOADING } from "../utils/loadingMessages";
-import { useEffect, useRef } from "react";
+import { useContext, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import StepIndicator from "../components/StepIndicator";
@@ -11,7 +11,8 @@ import type { Tab } from "../components/AuditReport";
 import AuditSummaryPanel from "../components/AuditSummaryPanel";
 import OutlierCorrectionStep from "../components/OutlierCorrectionStep";
 import Collapsible from "../components/Collapsible";
-import TripRawChart from "../components/TripRawChart";
+import TripInspectTable from "../components/TripInspectTable";
+import { DataSourceContext } from "../context/plannerSkipped";
 import { IconShieldSearch, IconDownload } from "../components/icons";
 import { downloadCleansedFile } from "../api/audit";
 import { useStoredState } from "../state/sessionStore";
@@ -55,6 +56,7 @@ export default function AuditPage({
   reuploadError,
 }: AuditPageProps) {
   const navigate = useNavigate();
+  const apiSource = useContext(DataSourceContext) === "api";
   // Held in the shared store (not local state) so leaving this page and coming
   // back keeps the PM where they were instead of replaying the outlier step.
   const [activeTabs, setActiveTabs] = useStoredState<Partial<Record<UploadSlotId, Tab>>>("audit.activeTabs", {});
@@ -114,7 +116,7 @@ export default function AuditPage({
       <div className="audit-page">
         <Header subtitle="Data Audit" />
         <main className="audit-page__main">
-          <StepIndicator current={3} />
+          <StepIndicator current={4} />
           <div className="audit-page__empty">
             <p>No files have been uploaded yet.</p>
             <button type="button" className="btn btn--primary" onClick={() => navigate("/upload")}>
@@ -130,7 +132,7 @@ export default function AuditPage({
     <div className="audit-page">
       <Header subtitle="Data Audit" />
       <main className="audit-page__main">
-        <StepIndicator current={3} />
+        <StepIndicator current={4} />
 
         <PageNav position="top" onBack={() => navigate("/planner")}>
           <button type="button" className="btn btn--primary" disabled={!canContinue} onClick={() => navigate("/features")}>
@@ -141,7 +143,7 @@ export default function AuditPage({
         <PageHeader
           icon={<IconShieldSearch />}
           title="Data Audit"
-          subtitle="Automated data quality checks have been run on the trips loaded from the SWP API below. Review each finding and confirm any outstanding decisions before continuing."
+          subtitle="Automated data quality checks have been run on your data below. Review each finding and confirm any outstanding decisions before continuing."
         />
 
         {auditedSlotsWithFiles.map((id) => {
@@ -152,7 +154,7 @@ export default function AuditPage({
             <section className="audit-page__card" key={id} ref={(el) => { cardRefs.current[id] = el; }}>
               <div className="audit-page__card-head">
                 <div className="audit-page__card-head-left">
-                  <h2 className="audit-page__slot-title">{slot.title}</h2>
+                  <h2 className="audit-page__slot-title">{id === WIZARD_SLOT && apiSource ? "SensiWatch Trips (API)" : slot.title}</h2>
                   <span className="audit-page__pill">DATA AUDIT SUMMARY</span>
                   {report && (
                     <span
@@ -171,9 +173,11 @@ export default function AuditPage({
 
               {id === WIZARD_SLOT ? (
                 <>
-                  <Collapsible label="trip raw data graph" defaultOpen>
-                    <TripRawChart sessionId={uploadedSessionIds[id]!} />
-                  </Collapsible>
+                  {apiSource && (
+                    <Collapsible label="trips (mean temperature, segment days, inspect)" defaultOpen>
+                      <TripInspectTable sessionId={uploadedSessionIds[id]!} />
+                    </Collapsible>
+                  )}
                   <div className="audit-page__wizard-tabs" role="tablist">
                     <button
                       type="button"

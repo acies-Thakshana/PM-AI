@@ -1,6 +1,6 @@
-"""Trip data from the SWP (SensiWatch) API: the list of all trips, loading a chosen set of them
-into an audit session, and the raw sensor readings of one trip for the Data Audit graph.
-No data is written back to SWP."""
+"""Trip data from the SWP (SensiWatch) API: the list of all trips of a program, loading chosen trips into
+an audit session, and the per-trip numbers, raw sensor readings and GPS route the Data Audit shows.
+Nothing is written back to SWP (see the commented-out update_trip in services/swp/client.py)."""
 import io
 import uuid
 
@@ -18,12 +18,14 @@ from app.services.swp.transform import build_tables
 router = APIRouter(route_class=JobRoute, prefix="/api/swp", tags=["swp"])
 
 SENSORS_FILE = "swp_sensors.parquet"
+ROUTE_FILE = "swp_route.parquet"
 # The session's "file name": the Audit page shows it where an upload's file name used to be.
 SOURCE_NAME = "SWP API trips"
+MAX_MAP_POINTS = 600
 
 
-def _guard() -> None:
-    missing = client.missing_settings()
+def _guard(program_id: str | None = None) -> None:
+    missing = client.missing_settings(program_id)
     if missing:
         raise HTTPException(
             status_code=503, detail="The SWP API is not configured. Set in backend/.env: " + ", ".join(missing)
@@ -40,6 +42,8 @@ def _swp_call(fn, *args):
 class TripSummary(BaseModel):
     trip_id: str
     status: str
+    departure: str | None = None
+    arrival: str | None = None
     created: str | None = None
     updated: str | None = None
     alarmed: bool | None = None
@@ -48,22 +52,27 @@ class TripSummary(BaseModel):
 
 
 class TripsResponse(BaseModel):
+    program_id: str
     total: int
     status_counts: dict[str, int]
     max_trips: int
     trips: list[TripSummary]
+    # The field names of a list record, so a missing departure date can be traced to the API's naming.
+    sample_fields: list[str]
 
 
 @router.get("/trips", response_model=TripsResponse)
-def list_all_trips(refresh: bool = False) -> TripsResponse:
-    """Step 1: every trip in the program (reused for a few minutes unless `refresh`)."""
-    _guard()
-    records = _swp_call(client.all_trips, refresh)
+def list_all_trips(program_id: str = "", refresh: bool = False) -> TripsResponse:
+    """Step 1: every trip of the program (reused for a few minutes unless `refresh`). The program id
+    defaults to SWP_PROGRAM_ID."""
+    program = program_id.strip() or config.SWP_PROGRAM_ID
+    _guard(program)
+    records = _swp_call(client.all_trips, program, refresh)
     trips = [
         TripSummary(
-            trip_id=r["tripID"], status=client.status_name(r), created=r.get("createDate"),
-            updated=r.get("lastUpdatedDate"), alarmed=r.get("alarmed"),
-            template=r.get("templateName"), trailer_id=r.get("trailerID"),
+            trip_id=r["tripID"], status=client.status_name(r), departure=client.departure_of(r),
+            arrival=client.arrival_of(r), created=r.get("createDate"), updated=r.get("lastUpdatedDate"),
+            alarmed=r.get("alarmed"), template=r.get("templateName"), trailer_id=r.get("trailerID"),
         )
         for r in records
     ]
@@ -71,13 +80,24 @@ def list_all_trips(refresh: bool = False) -> TripsResponse:
     counts: dict[str, int] = {}
     for t in trips:
         counts[t.status] = counts.get(t.status, 0) + 1
-    return TripsResponse(total=len(trips), status_counts=counts, max_trips=config.SWP_MAX_TRIPS, trips=trips)
+    return TripsResponse(
+        program_id=program, total=len(trips), status_counts=counts, max_trips=config.SWP_MAX_TRIPS,
+        trips=trips, sample_fields=client.record_fields(records[0]) if records else [],
+    )
+
+
+class TripEdit(BaseModel):
+    """A change made in the app (not in SWP): status label, and / or departure / arrival time (ISO)."""
+    status: str | None = None
+    departure: str | None = None
+    arrival: str | None = None
 
 
 class LoadRequest(BaseModel):
-    status: str | None = None                          # e.g. "InTransit"; None = every status
-    n_trips: int = Field(default=1, ge=1)
-    trip_ids: list[str] = Field(default_factory=list)  # specific trips; override status / n_trips
+    program_id: str | None = None
+    trip_ids: list[str] = Field(min_length=1)
+    sensors: list[str] = Field(default_factory=list)          # e.g. ["Temperature", "Light"]; empty = all
+    edits: dict[str, TripEdit] = Field(default_factory=dict)  # by trip id
 
 
 class LoadResponse(BaseModel):
@@ -96,45 +116,52 @@ def _valid_trip_id(value: str) -> str:
         raise HTTPException(status_code=422, detail=f"'{value}' is not a valid trip id (expected a GUID).") from exc
 
 
+def _save_frame(session_id: str, name: str, df: pd.DataFrame) -> None:
+    buf = io.BytesIO()
+    df.to_parquet(buf, index=False)
+    file_store.put(session_id, name, buf.getvalue())
+
+
 @router.post("/load", response_model=LoadResponse)
 def load_trips(body: LoadRequest) -> LoadResponse:
-    """Step 2: fetch the detail of the chosen trips, build the aggregate table and open an audit
-    session on it. The raw sensor readings are kept alongside for the Data Audit graph."""
-    _guard()
-    all_records = _swp_call(client.all_trips, False)
-    status = (body.status or "").strip()
-    if status.lower() in ("", "none", "all"):
-        status = ""
+    """Step 2: fetch the detail of the chosen trips, apply the edits made in the app, build the aggregate
+    table and open an audit session on it. The raw sensor readings and GPS route are kept alongside."""
+    program = (body.program_id or "").strip() or config.SWP_PROGRAM_ID
+    _guard(program)
+    all_records = _swp_call(client.all_trips, program, False)
+    by_lower = {r["tripID"].lower(): r for r in all_records}
 
-    if body.trip_ids:
-        ids = list(dict.fromkeys(_valid_trip_id(t) for t in body.trip_ids))
-        by_lower = {r["tripID"].lower(): r["tripID"] for r in all_records}
-        unknown = [t for t in ids if t.lower() not in by_lower]
-        if unknown:
-            raise HTTPException(status_code=404, detail=f"Trip(s) not found in the program: {', '.join(unknown[:5])}")
-        ids = [by_lower[t.lower()] for t in ids]
-    else:
-        want = status.replace(" ", "").lower()
-        candidates = [r for r in all_records if not want or client.status_name(r).lower() == want]
-        candidates.sort(key=lambda r: r.get("lastUpdatedDate") or "", reverse=True)
-        ids = [r["tripID"] for r in candidates[: body.n_trips]]
-    if not ids:
-        raise HTTPException(status_code=404, detail=f"No trips found with status '{status or 'any'}'.")
+    ids = list(dict.fromkeys(_valid_trip_id(t) for t in body.trip_ids))
+    unknown = [t for t in ids if t.lower() not in by_lower]
+    if unknown:
+        raise HTTPException(status_code=404, detail=f"Trip(s) not found in the program: {', '.join(unknown[:5])}")
+    ids = [by_lower[t.lower()]["tripID"] for t in ids]
     if len(ids) > config.SWP_MAX_TRIPS:
         raise HTTPException(
             status_code=422,
-            detail=f"At most {config.SWP_MAX_TRIPS} trips can be loaded at once (each takes two API calls).",
+            detail=f"At most {config.SWP_MAX_TRIPS} trips can be loaded at once (each takes an API call or two).",
         )
 
     token = _swp_call(client.get_token)
     trips_data = []
     for tid in ids:
-        trips_data.append({
-            "tripID": tid,
-            "basic": _swp_call(client.get_trip, token, tid),
-            "detail": _swp_call(client.get_trip_detail, token, tid),
-        })
-    agg, sensors = build_tables(trips_data)
+        # The list record already carries the basic fields (serial numbers), which saves one
+        # rate-limited API call per trip; only fall back to the single-trip call without them.
+        basic = by_lower[tid.lower()]
+        if "serialNumbers" not in basic:
+            basic = _swp_call(client.get_trip, token, tid, program)
+        trips_data.append({"tripID": tid, "basic": basic, "detail": _swp_call(client.get_trip_detail, token, tid, program)})
+
+    edits = {}
+    for tid, edit in body.edits.items():
+        match = by_lower.get(tid.lower())
+        if match:
+            edits[match["tripID"]] = {k: v for k, v in edit.model_dump().items() if v}
+    listed = {
+        tid: {"departure": client.departure_of(by_lower[tid.lower()]), "arrival": client.arrival_of(by_lower[tid.lower()])}
+        for tid in ids
+    }
+    agg, sensors, route = build_tables(trips_data, body.sensors or None, edits, listed)
     if agg.empty:
         raise HTTPException(status_code=404, detail="The API returned no usable trip data.")
 
@@ -143,12 +170,12 @@ def load_trips(body: LoadRequest) -> LoadResponse:
         column_meta.save(session.session_id, session.df)
     except Exception:  # noqa: BLE001 - best effort, like an upload
         pass
-    buf = io.BytesIO()
-    sensors.to_parquet(buf, index=False)
-    file_store.put(session.session_id, SENSORS_FILE, buf.getvalue())
+    _save_frame(session.session_id, SENSORS_FILE, sensors)
+    _save_frame(session.session_id, ROUTE_FILE, route)
     audit_log.log_event(
         session.session_id, session.user_id, "swp_load",
-        {"status": status or None, "trips": len(ids), "rows": len(agg), "sensor_readings": len(sensors)},
+        {"program": program, "trips": len(ids), "rows": len(agg), "sensor_readings": len(sensors),
+         "edited_trips": len(edits)},
     )
     return LoadResponse(
         session_id=session.session_id, filename=SOURCE_NAME, row_count=len(agg),
@@ -156,28 +183,62 @@ def load_trips(body: LoadRequest) -> LoadResponse:
     )
 
 
-def _sensors(session_id: str) -> pd.DataFrame:
+def _frame(session_id: str, name: str) -> pd.DataFrame:
     get_or_404(session_id)
-    raw = file_store.get(session_id, SENSORS_FILE)
+    raw = file_store.get(session_id, name)
     if raw is None:
-        raise HTTPException(status_code=404, detail="No raw sensor data is stored for this session.")
+        raise HTTPException(status_code=404, detail="No raw trip data is stored for this session.")
     return pd.read_parquet(io.BytesIO(raw))
 
 
-class TripSensors(BaseModel):
+def _num(value) -> float | None:
+    return None if value is None or pd.isna(value) else round(float(value), 2)
+
+
+class SessionTrip(BaseModel):
     trip_id: str
+    status: str | None
+    departure: str | None
+    arrival: str | None
+    mean_temp: float | None
+    segment_days: float | None
     sensors: list[str]
     readings: int
+    gps_points: int
+    edited: bool
 
 
-@router.get("/{session_id}/trips", response_model=list[TripSensors])
-def session_trips(session_id: str) -> list[TripSensors]:
-    """The trips of this session that have raw sensor readings, and which sensors they have."""
-    df = _sensors(session_id)
-    return [
-        TripSensors(trip_id=str(tid), sensors=sorted(g["sensor"].unique().tolist()), readings=len(g))
-        for tid, g in df.groupby("tripID", sort=False)
-    ]
+@router.get("/{session_id}/trips", response_model=list[SessionTrip])
+def session_trips(session_id: str) -> list[SessionTrip]:
+    """One row per trip of this session for the Data Audit table: mean temperature, segment days and
+    what raw data is available to inspect. Numbers come from the audited table, so rows the audit
+    removed are gone from here too."""
+    session = get_or_404(session_id)
+    df = session.df
+    if "tripID" not in df.columns:
+        raise HTTPException(status_code=404, detail="This session has no SWP trips.")
+    sensors = _frame(session_id, SENSORS_FILE)
+    route = _frame(session_id, ROUTE_FILE)
+    by_trip = {str(t): g for t, g in sensors.groupby("tripID")}
+    points = route.groupby("tripID").size().to_dict()
+
+    def text(row, col):
+        value = row.get(col)
+        return None if value is None or pd.isna(value) else str(value)
+
+    out = []
+    for _, row in df.iterrows():
+        tid = str(row["tripID"])
+        g = by_trip.get(tid)
+        out.append(SessionTrip(
+            trip_id=tid, status=text(row, "tripStatus"), departure=text(row, "actualDeparture (UTC)"),
+            arrival=text(row, "actualArrival (UTC)"), mean_temp=_num(row.get("Temperature mean")),
+            segment_days=_num(row.get("Segment Days")),
+            sensors=sorted(g["sensor"].unique().tolist()) if g is not None else [],
+            readings=0 if g is None else len(g), gps_points=int(points.get(tid, 0)),
+            edited=bool(text(row, "editedInApp")),
+        ))
+    return out
 
 
 class SensorSeries(BaseModel):
@@ -187,18 +248,39 @@ class SensorSeries(BaseModel):
     y: list[float]
 
 
+class MapPoint(BaseModel):
+    lat: float
+    lng: float
+    time: str | None = None
+
+
 class TripRaw(BaseModel):
     trip_id: str
     series: list[SensorSeries]
+    # The GPS route, thinned to at most MAX_MAP_POINTS points; start and end are always the real first
+    # and last points.
+    route: list[MapPoint]
+    start: MapPoint | None
+    end: MapPoint | None
+
+
+def _point(row) -> MapPoint:
+    return MapPoint(
+        lat=float(row["lat"]), lng=float(row["long"]),
+        time=None if pd.isna(row["createdOn"]) else row["createdOn"].strftime("%Y-%m-%dT%H:%M:%SZ"),
+    )
 
 
 @router.get("/{session_id}/trips/{trip_id}/raw", response_model=TripRaw)
 def trip_raw(session_id: str, trip_id: str) -> TripRaw:
-    """Every raw sensor reading of one trip, one series per sensor and logger."""
-    df = _sensors(session_id)
-    trip = df[df["tripID"].astype(str).str.lower() == trip_id.lower()]
-    if trip.empty:
-        raise HTTPException(status_code=404, detail="No sensor readings for this trip.")
+    """The raw sensor readings (one series per sensor and logger) and the GPS route of one trip."""
+    sensors = _frame(session_id, SENSORS_FILE)
+    route = _frame(session_id, ROUTE_FILE)
+    wanted = trip_id.lower()
+    trip = sensors[sensors["tripID"].astype(str).str.lower() == wanted]
+    path = route[route["tripID"].astype(str).str.lower() == wanted].reset_index(drop=True)
+    if trip.empty and path.empty:
+        raise HTTPException(status_code=404, detail="No sensor readings or GPS points for this trip.")
     series = []
     for (sensor, serial), g in trip.groupby(["sensor", "serialNumber"], sort=True, dropna=False):
         g = g.sort_values("dateTime")
@@ -206,4 +288,11 @@ def trip_raw(session_id: str, trip_id: str) -> TripRaw:
             sensor=str(sensor), serial_number=None if pd.isna(serial) else str(serial),
             x=g["dateTime"].dt.strftime("%Y-%m-%dT%H:%M:%SZ").tolist(), y=g["value"].astype(float).tolist(),
         ))
-    return TripRaw(trip_id=str(trip["tripID"].iloc[0]), series=series)
+    thinned = path
+    if len(path) > MAX_MAP_POINTS:
+        keep = sorted({int(i * (len(path) - 1) / (MAX_MAP_POINTS - 1)) for i in range(MAX_MAP_POINTS)})
+        thinned = path.iloc[keep]
+    return TripRaw(
+        trip_id=trip_id, series=series, route=[_point(r) for _, r in thinned.iterrows()],
+        start=_point(path.iloc[0]) if len(path) else None, end=_point(path.iloc[-1]) if len(path) else None,
+    )

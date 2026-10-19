@@ -12,6 +12,7 @@ SENSOR_LISTS = {
     "temperatureProbeData": "TemperatureProbe",
 }
 SENSOR_COLUMNS = ["tripID", "serialNumber", "sensor", "dateTime", "value"]
+ROUTE_COLUMNS = ["tripID", "lat", "long", "createdOn"]
 
 
 def to_naive_utc(series: pd.Series) -> pd.Series:
@@ -46,15 +47,33 @@ def sensor_frame(detail: dict) -> pd.DataFrame:
     return df
 
 
+def route_frame(detail: dict) -> pd.DataFrame:
+    """The GPS points of one trip in time order: lat, long, createdOn (UTC)."""
+    coords = (detail.get("tripRoute") or {}).get("tripCoordinates") or []
+    df = pd.DataFrame(coords)
+    if df.empty or not {"lat", "long"} <= set(df.columns):
+        return pd.DataFrame(columns=ROUTE_COLUMNS[1:])
+    df["lat"] = pd.to_numeric(df["lat"], errors="coerce")
+    df["long"] = pd.to_numeric(df["long"], errors="coerce")
+    df["createdOn"] = to_naive_utc(df["createdOn"]) if "createdOn" in df.columns else pd.NaT
+    return df.dropna(subset=["lat", "long"]).sort_values("createdOn")[ROUTE_COLUMNS[1:]].reset_index(drop=True)
+
+
 def _status(detail: dict) -> str | None:
     key = GUID_NAMES.get(str(detail.get("tripStatusGuid", "")).upper())
     return STATUS_LABELS.get(key, key) if key else detail.get("tripStatusGuid")
 
 
-def aggregate_row(basic: dict, detail: dict, sens: pd.DataFrame) -> dict:
+def aggregate_row(
+    basic: dict, detail: dict, sens: pd.DataFrame, edit: dict | None = None, listed: dict | None = None
+) -> dict:
+    """`edit` holds the changes made in the app for this trip (status, departure, arrival): they replace
+    what the API returned, because nothing is written back to SWP."""
+    edit = edit or {}
+    listed = listed or {}   # departure / arrival as the trip list showed them, for when the detail has none
     row = {
         "tripID": detail.get("tripID"),
-        "tripStatus": _status(detail),
+        "tripStatus": edit.get("status") or _status(detail),
         "createDate (UTC)": detail.get("createDate"),
         "lastUpdatedDate (UTC)": detail.get("lastUpdatedDate"),
         "alarmed": detail.get("alarmed"),
@@ -65,12 +84,18 @@ def aggregate_row(basic: dict, detail: dict, sens: pd.DataFrame) -> dict:
         "orderNumber": pick(detail, "destinations", "orderNumber"),
         "trailerID": detail.get("trailerID"),
         "serialNumbers": ", ".join(basic.get("serialNumbers") or []),
-        "actualDeparture (UTC)": pick(detail, "tripOrigin", "actualDepartureTime"),
-        "actualArrival (UTC)": detail.get("tripActualArrivalTime"),
+        "actualDeparture (UTC)": edit.get("departure") or pick(detail, "tripOrigin", "actualDepartureTime") or listed.get("departure"),
+        "actualArrival (UTC)": edit.get("arrival") or detail.get("tripActualArrivalTime") or listed.get("arrival"),
         "gpsPoints": len((detail.get("tripRoute") or {}).get("tripCoordinates") or []),
         "lastKnownAddress": pick(detail, "tripRecentData", "address"),
         "lastReadingTime": pick(detail, "tripRecentData", "time"),
     }
+    if edit:
+        row["editedInApp"] = ", ".join(k for k in ("status", "departure", "arrival") if edit.get(k))
+    start = pd.to_datetime(row["actualDeparture (UTC)"], utc=True, errors="coerce")
+    end = pd.to_datetime(row["actualArrival (UTC)"], utc=True, errors="coerce")
+    if pd.notna(start) and pd.notna(end):
+        row["Segment Days"] = round((end - start).total_seconds() / 86400, 2)
     if not sens.empty:
         first, last = sens["dateTime"].min(), sens["dateTime"].max()
         row["firstReading (UTC)"] = first
@@ -86,14 +111,27 @@ def aggregate_row(basic: dict, detail: dict, sens: pd.DataFrame) -> dict:
     return row
 
 
-def build_tables(trips_data: list[dict]) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """(aggregate, sensors) for a list of {tripID, basic, detail}."""
-    agg_rows, sensors = [], []
+def build_tables(
+    trips_data: list[dict],
+    sensors: list[str] | None = None,
+    edits: dict[str, dict] | None = None,
+    listed: dict[str, dict] | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """(aggregate, sensor readings, GPS route) for a list of {tripID, basic, detail}. `sensors` limits
+    which sensors are kept (None = all); `edits` are the per-trip changes made in the app."""
+    keep = {s.lower() for s in sensors} if sensors else None
+    agg_rows, readings, routes = [], [], []
     for t in trips_data:
         sens = sensor_frame(t["detail"])
-        agg_rows.append(aggregate_row(t["basic"], t["detail"], sens))
+        if keep is not None:
+            sens = sens[sens["sensor"].str.lower().isin(keep)]
+        agg_rows.append(aggregate_row(t["basic"], t["detail"], sens, (edits or {}).get(t["tripID"]), (listed or {}).get(t["tripID"])))
         if not sens.empty:
-            sensors.append(sens.assign(tripID=t["tripID"]))
+            readings.append(sens.assign(tripID=t["tripID"]))
+        route = route_frame(t["detail"])
+        if not route.empty:
+            routes.append(route.assign(tripID=t["tripID"]))
     agg = pd.DataFrame(agg_rows).dropna(axis=1, how="all")
-    sensor_df = pd.concat(sensors, ignore_index=True)[SENSOR_COLUMNS] if sensors else pd.DataFrame(columns=SENSOR_COLUMNS)
-    return agg, sensor_df
+    sensor_df = pd.concat(readings, ignore_index=True)[SENSOR_COLUMNS] if readings else pd.DataFrame(columns=SENSOR_COLUMNS)
+    route_df = pd.concat(routes, ignore_index=True)[ROUTE_COLUMNS] if routes else pd.DataFrame(columns=ROUTE_COLUMNS)
+    return agg, sensor_df, route_df

@@ -3,8 +3,8 @@ import type { UploadSlotConfig, UploadSlotId } from "../types/upload";
 export const UPLOAD_SLOTS: UploadSlotConfig[] = [
   {
     id: "sensiwatch",
-    title: "SensiWatch Trips (API)",
-    description: "Trip data loaded from the SWP API.",
+    title: "SensiWatch Export",
+    description: "Real-time shipment monitoring data exported from the SensiWatch platform.",
     required: true,
     accept: ".xlsx,.xls,.csv",
     acceptLabel: "Excel or CSV (.xlsx, .xls, .csv)",

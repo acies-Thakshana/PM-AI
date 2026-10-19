@@ -28,9 +28,12 @@ from app.config import (
     DEFAULT_MAX_TOKENS,
     LLM_MODEL,
     NOVA_MAX_OUTPUT_TOKENS,
+    GROQ_API_KEY,
+    GROQ_MODEL,
     PROMPT_CACHE_SECONDS,
     PROMPTS_BEDROCK_ONLY,
     model_for,
+    uses_groq,
 )
 from app.services.common import aws_clients, prompt_files, token_usage
 
@@ -97,6 +100,34 @@ class LLMError(RuntimeError):
     content filter / guardrail, or cut off mid-JSON)."""
 
 
+def _groq(system_prompt: str, user_prompt: str, temperature: float, max_tokens: int, call_name: str) -> tuple[str, str | None]:
+    """One Groq chat-completions call (OpenAI-compatible). Returns (text, stopReason) like _converse."""
+    import requests
+
+    response = requests.post(
+        "https://api.groq.com/openai/v1/chat/completions",
+        headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
+        json={
+            "model": GROQ_MODEL,
+            "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        },
+        timeout=120,
+    )
+    if response.status_code != 200:
+        raise LLMError(f"{call_name}: Groq returned {response.status_code}: {response.text[:300]}")
+    data = response.json()
+    usage = data.get("usage") or {}
+    token_usage.record(call_name, GROQ_MODEL, {
+        "inputTokens": usage.get("prompt_tokens", 0), "outputTokens": usage.get("completion_tokens", 0),
+        "totalTokens": usage.get("total_tokens", 0),
+    })
+    choice = (data.get("choices") or [{}])[0]
+    stop = "max_tokens" if choice.get("finish_reason") == "length" else choice.get("finish_reason")
+    return (choice.get("message") or {}).get("content") or "", stop
+
+
 def _converse(
     system_prompt: str,
     user_prompt: str,
@@ -106,6 +137,8 @@ def _converse(
     call_name: str,
 ) -> tuple[str, str | None]:
     """One Converse call. Returns (text, stopReason)."""
+    if uses_groq(call_name):
+        return _groq(system_prompt, user_prompt, temperature, max_tokens, call_name)
     if "amazon.nova" in model:
         max_tokens = min(max_tokens, NOVA_MAX_OUTPUT_TOKENS)  # Nova rejects longer answers
     client = aws_clients.bedrock_runtime()

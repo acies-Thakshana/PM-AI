@@ -1,8 +1,10 @@
-import { PlannerSkippedContext, hasBrief } from "./context/plannerSkipped";
+import { DataSourceContext, PlannerSkippedContext, hasBrief } from "./context/plannerSkipped";
+import type { DataSource } from "./context/plannerSkipped";
 import { useRef, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import WelcomePage from "./pages/WelcomePage";
 import UploadPage from "./pages/UploadPage";
+import TripsPage from "./pages/TripsPage";
 import PlannerPage from "./pages/PlannerPage";
 import AuditPage from "./pages/AuditPage";
 import FeaturesPage from "./pages/FeaturesPage";
@@ -15,6 +17,9 @@ import type { UploadSlotId } from "./types/upload";
 import { resetAllState, resetDownstreamState } from "./state/sessionStore";
 import { EMPTY_BRIEF } from "./components/ClientBriefInput";
 import type { BriefState } from "./components/ClientBriefInput";
+import type { SwpTripsResponse, TripEdits } from "./api/swp";
+import { EMPTY_SWP_CONFIG } from "./utils/swpTrips";
+import type { SwpConfigState } from "./utils/swpTrips";
 
 export type FilesState = Record<UploadSlotId, File | null>;
 export type UploadedSessionIdsState = Partial<Record<UploadSlotId, string>>;
@@ -24,13 +29,7 @@ export type AuditErrorsState = Partial<Record<UploadSlotId, string>>;
 export type ResolvingState = Partial<Record<UploadSlotId, string>>;
 export type { BriefState };
 
-/** What the Configure page asks the SWP API for: a status (empty = all), how many trips, or specific trips. */
-export interface SwpConfigState {
-  status: string;
-  nTrips: number;
-  tripIds: string[];
-}
-const EMPTY_SWP_CONFIG: SwpConfigState = { status: "", nTrips: 1, tripIds: [] };
+export type { SwpConfigState };
 
 const EMPTY_FILES: FilesState = {
   sensiwatch: null,
@@ -42,7 +41,11 @@ const EMPTY_FILES: FilesState = {
 function App() {
   const [files, setFiles] = useState<FilesState>(EMPTY_FILES);
   const [brief, setBrief] = useState<BriefState>(EMPTY_BRIEF);
+  const [dataSource, setDataSource] = useState<DataSource>("api");
   const [swpConfig, setSwpConfig] = useState<SwpConfigState>(EMPTY_SWP_CONFIG);
+  // The program's trip list (fetched on the Configure page) and the changes made to trips in the app.
+  const [swpTrips, setSwpTrips] = useState<SwpTripsResponse | null>(null);
+  const [tripEdits, setTripEdits] = useState<TripEdits>({});
   const [uploadedSessionIds, setUploadedSessionIds] = useState<UploadedSessionIdsState>({});
   const [plannerSessionId, setPlannerSessionId] = useState<string | null>(null);
   // The brief text the current sessions were created with: coming back to Upload with the same files
@@ -61,6 +64,30 @@ function App() {
   // after its file was replaced or removed can tell its result is stale and drop it.
   const sessionIdsRef = useRef<UploadedSessionIdsState>({});
   sessionIdsRef.current = uploadedSessionIds;
+
+  // Files were uploaded (the other way to bring data in): one session per audited file.
+  const handleUploadComplete = (sessionIds: UploadedSessionIdsState, briefSignature: string) => {
+    resetAllState();
+    setUploadedBriefSignature(briefSignature);
+    setUploadedSessionIds(sessionIds);
+    setPlannerSessionId(sessionIds.sensiwatch ?? null);
+  };
+
+  // Switching between API and upload: whatever was loaded the other way is dropped (brief, profiles and
+  // the API configuration stay).
+  const handleSourceChange = (source: DataSource) => {
+    if (source === dataSource) return;
+    resetAllState();
+    setDataSource(source);
+    setFiles((prev) => ({ ...prev, sensiwatch: null, coldstream: null }));
+    setUploadedSessionIds({});
+    setUploadedBriefSignature(null);
+    setPlannerSessionId(null);
+    setAuditReports({});
+    setAuditErrors({});
+    setAuditLoading({});
+    setResolvingIssueId({});
+  };
 
   // The trips were loaded from the SWP API into one session. `label` is a stand-in "file" that only
   // carries the source's name for the pages that show it.
@@ -123,6 +150,8 @@ function App() {
     setFiles(EMPTY_FILES);
     setBrief(EMPTY_BRIEF);
     setSwpConfig(EMPTY_SWP_CONFIG);
+    setSwpTrips(null);
+    setTripEdits({});
     setUploadedSessionIds({});
     setUploadedBriefSignature(null);
     setPlannerSessionId(null);
@@ -205,6 +234,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <DataSourceContext.Provider value={dataSource}>
       <PlannerSkippedContext.Provider value={plannerSkipped}>
       <Routes>
         <Route path="/" element={<WelcomePage />} />
@@ -214,12 +244,32 @@ function App() {
             <UploadPage
               files={files}
               brief={brief}
+              dataSource={dataSource}
+              onSourceChange={handleSourceChange}
               config={swpConfig}
               onConfigChange={setSwpConfig}
+              trips={swpTrips}
+              onTripsChange={setSwpTrips}
               onSelect={handleSelect}
               onRemove={handleRemove}
               onClearAll={handleClearAll}
               onBriefChange={setBrief}
+              onUploadComplete={handleUploadComplete}
+              uploadedSessionIds={uploadedSessionIds}
+              uploadedBriefSignature={uploadedBriefSignature}
+            />
+          }
+        />
+        <Route
+          path="/trips"
+          element={
+            <TripsPage
+              brief={brief}
+              files={files}
+              config={swpConfig}
+              trips={swpTrips}
+              edits={tripEdits}
+              onEditsChange={setTripEdits}
               onLoadComplete={handleLoadComplete}
               uploadedSessionIds={uploadedSessionIds}
               uploadedBriefSignature={uploadedBriefSignature}
@@ -255,6 +305,7 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </PlannerSkippedContext.Provider>
+      </DataSourceContext.Provider>
     </BrowserRouter>
   );
 }

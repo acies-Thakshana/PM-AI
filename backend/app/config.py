@@ -138,6 +138,17 @@ PROMPTS_BEDROCK_ONLY = os.getenv("PROMPTS_BEDROCK_ONLY", "0") == "1"
 PROMPT_CACHE_SECONDS = int(os.getenv("PROMPT_CACHE_SECONDS", "300"))
 
 
+# Groq (OpenAI-compatible API) for the calls named in GROQ_CALLS -- for now just the Planner. Needs
+# GROQ_API_KEY; every other call stays on Bedrock. GROQ_CALLS="" turns this off, "*" sends every call.
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "") or "llama-3.3-70b-versatile"
+GROQ_CALLS = {c.strip() for c in os.getenv("GROQ_CALLS", "planner_agent").split(",") if c.strip()}
+
+
+def uses_groq(call_name: str) -> bool:
+    return bool(GROQ_API_KEY) and ("*" in GROQ_CALLS or call_name in GROQ_CALLS)
+
+
 # =====================================================================================
 # MODEL PER LLM CALL
 #

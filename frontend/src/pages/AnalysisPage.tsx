@@ -458,7 +458,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
       <div className="analysis-page">
         <Header subtitle="Analysis" />
         <main className="analysis-page__main">
-          <StepIndicator current={5} />
+          <StepIndicator current={6} />
           <div className="analysis-page__empty">
             <p>No audited data yet.</p>
             <button type="button" className="btn btn--primary" onClick={() => navigate("/upload")}>
@@ -475,7 +475,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
       <div className="analysis-page">
         <Header subtitle="Analysis" />
         <main className="analysis-page__main">
-          <StepIndicator current={5} />
+          <StepIndicator current={6} />
           <div className="analysis-page__empty">
             <p>Finish resolving the data audit before analysis can run.</p>
             <button type="button" className="btn btn--primary" onClick={() => navigate("/audit")}>
@@ -492,7 +492,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
       <div className="analysis-page">
         <Header subtitle="Analysis" />
         <main className="analysis-page__main">
-          <StepIndicator current={5} />
+          <StepIndicator current={6} />
           <div className="analysis-page__empty">
             <p>
               {Object.values(featureCheckLoading).some(Boolean)
@@ -514,7 +514,7 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
     <div className="analysis-page">
       <Header subtitle="Analysis" />
       <main className="analysis-page__main">
-        <StepIndicator current={5} />
+        <StepIndicator current={6} />
 
         <PageNav position="top" onBack={() => navigate("/features")}>
           <button type="button" className="btn btn--primary" onClick={() => navigate("/report")}>

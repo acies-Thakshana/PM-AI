@@ -28,15 +28,22 @@ STATUS_LABELS = {
 # An empty search returns nothing, so "all trips" is the union of one search per status.
 ALL_STATUS_KEYWORDS = ["NotStarted", "Started", "InTransit", "Arrived", "Draft", "Disabled"]
 
-_REQUIRED = ("SWP_BASE_URL", "SWP_PROGRAM_ID", "SWP_SECURITY_KEY", "SWP_TRIP_KEY", "SWP_USER", "SWP_PASS")
+_REQUIRED = ("SWP_BASE_URL", "SWP_SECURITY_KEY", "SWP_TRIP_KEY", "SWP_USER", "SWP_PASS")
 
 
 class SwpError(Exception):
     """The SWP API is not configured, or it refused / failed a call."""
 
 
-def missing_settings() -> list[str]:
-    return [name for name in _REQUIRED if not getattr(config, name)]
+def missing_settings(program_id: str | None = None) -> list[str]:
+    missing = [name for name in _REQUIRED if not getattr(config, name)]
+    if not (program_id or config.SWP_PROGRAM_ID):
+        missing.append("SWP_PROGRAM_ID")
+    return missing
+
+
+def _program(program_id: str | None) -> str:
+    return (program_id or config.SWP_PROGRAM_ID).strip()
 
 
 _lock = threading.Lock()          # one call at a time keeps us under the 20 calls/min limit
@@ -77,13 +84,13 @@ def get_token() -> str:
     return _token["value"]
 
 
-def search_trips(token: str, keyword: str) -> list[dict]:
+def search_trips(token: str, keyword: str, program_id: str | None = None) -> list[dict]:
     """All trips matching a keyword (page through the results)."""
     trips: list[dict] = []
     page = 0
     while True:
         data = _call(
-            "POST", f"/api/trip/external/ExternalTrip/tripsearch/programId/{config.SWP_PROGRAM_ID}",
+            "POST", f"/api/trip/external/ExternalTrip/tripsearch/programId/{_program(program_id)}",
             config.SWP_TRIP_KEY, token, json={"keyword": keyword, "from": page},
         )
         records = data.get("records") or []
@@ -93,22 +100,22 @@ def search_trips(token: str, keyword: str) -> list[dict]:
         page += 1
 
 
-def get_trip(token: str, trip_id: str) -> dict:
+def get_trip(token: str, trip_id: str, program_id: str | None = None) -> dict:
     return _call(
-        "GET", f"/api/trip/external/ExternalTrip/programId/{config.SWP_PROGRAM_ID}/tripId/{trip_id}",
+        "GET", f"/api/trip/external/ExternalTrip/programId/{_program(program_id)}/tripId/{trip_id}",
         config.SWP_TRIP_KEY, token,
     )
 
 
-def get_trip_detail(token: str, trip_id: str) -> dict:
+def get_trip_detail(token: str, trip_id: str, program_id: str | None = None) -> dict:
     return _call(
-        "GET", f"/api/trip/external/ExternalTripDetail/programId/{config.SWP_PROGRAM_ID}/tripId/{trip_id}",
+        "GET", f"/api/trip/external/ExternalTripDetail/programId/{_program(program_id)}/tripId/{trip_id}",
         config.SWP_TRIP_KEY, token,
     )
 
 
 # ---- the list of all trips, fetched once and reused ------------------------------------------
-_trips_cache: dict = {"at": 0.0, "trips": None}
+_trips_cache: dict[str, dict] = {}   # program id -> {"at": time, "trips": [...]}
 _trips_lock = threading.Lock()
 
 
@@ -121,16 +128,70 @@ def status_name(record: dict) -> str:
     return STATUS_LABELS.get(key, "Unknown") if key else "Unknown"
 
 
-def all_trips(refresh: bool = False) -> list[dict]:
+def all_trips(program_id: str | None = None, refresh: bool = False) -> list[dict]:
     """Every trip in the program (de-duplicated across the per-status searches)."""
+    program = _program(program_id)
     with _trips_lock:
-        fresh = time.time() - _trips_cache["at"] < config.SWP_TRIPS_CACHE_SECONDS
-        if _trips_cache["trips"] is not None and fresh and not refresh:
-            return _trips_cache["trips"]
+        cached = _trips_cache.get(program)
+        if cached and not refresh and time.time() - cached["at"] < config.SWP_TRIPS_CACHE_SECONDS:
+            return cached["trips"]
         token = get_token()
         by_id: dict[str, dict] = {}
         for keyword in ALL_STATUS_KEYWORDS:
-            for t in search_trips(token, keyword):
+            for t in search_trips(token, keyword, program):
                 by_id[t["tripID"]] = t
-        _trips_cache.update(at=time.time(), trips=list(by_id.values()))
-        return _trips_cache["trips"]
+        _trips_cache[program] = {"at": time.time(), "trips": list(by_id.values())}
+        return _trips_cache[program]["trips"]
+
+
+def _flat(obj, prefix: str = "") -> dict:
+    out: dict = {}
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            out.update(_flat(v, f"{prefix}{k}."))
+    elif isinstance(obj, list):
+        if obj:
+            out.update(_flat(obj[0], prefix))
+    else:
+        out[prefix.rstrip(".")] = obj
+    return out
+
+
+def _find_time(record: dict, needle: str) -> str | None:
+    """The first text value whose field name contains `needle` ("depart" / "arriv"), preferring
+    actual times over estimated, planned or scheduled ones. The list record's exact field names are not
+    documented, so this looks for them by name."""
+    hits = [(k, v) for k, v in _flat(record).items() if needle in k.lower() and isinstance(v, str) and v[:2] == "20"]
+    soft = ("estimat", "plan", "schedul", "eta", "expect")
+    hits.sort(key=lambda kv: (any(s in kv[0].lower() for s in soft), "actual" not in kv[0].lower()))
+    return hits[0][1] if hits else None
+
+
+def departure_of(record: dict) -> str | None:
+    return _find_time(record, "depart")
+
+
+def arrival_of(record: dict) -> str | None:
+    return _find_time(record, "arriv")
+
+
+def record_fields(record: dict) -> list[str]:
+    return sorted(_flat(record))
+
+
+# ---- write-back (NOT ENABLED) ------------------------------------------------------------------
+# Changing a trip's status or its departure / arrival time is done in the UI only for now. When it is
+# time to send it to SWP, the guide ("Create / Update Trip", Trip Manage API for External) says: search
+# for the trip first, then call UpdateTrip with the trip's TripID GUID and a body holding only the
+# fields to change (the rest can stay as returned by the search). The exact URL, verb (PUT or PATCH)
+# and body field names are in the developer portal under trip-api-external-manage > UpdateTrip -- they
+# are NOT in the guide, so confirm them there before enabling this. Needs a Trip Manage subscription
+# key and is limited to 20 calls a minute.
+#
+# def update_trip(token: str, trip_id: str, changes: dict, program_id: str | None = None) -> dict:
+#     current = get_trip(token, trip_id, program_id)            # keep what is not being changed
+#     body = {**current, **changes}   # e.g. {"tripStatusGuid": STATUS_GUIDS["arrived"],
+#                                     #       "tripActualArrivalTime": "2026-10-12T09:32:00Z"}
+#     return _call("PUT", f"/api/trip-manage/external/ExternalTrip/programId/{_program(program_id)}",
+#                  config.SWP_TRIP_MANAGE_KEY, token, json=body)   # URL and key name: confirm in the portal
+

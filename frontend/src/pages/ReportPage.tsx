@@ -315,7 +315,7 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
       <div className="report-page">
         <Header subtitle="Report" />
         <main className="report-page__main">
-          <StepIndicator current={6} />
+          <StepIndicator current={7} />
           <div className="report-page__empty">
             <p>No audited data yet.</p>
             <button type="button" className="btn btn--primary" onClick={() => navigate("/upload")}>
@@ -332,7 +332,7 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
       <div className="report-page">
         <Header subtitle="Report" />
         <main className="report-page__main">
-          <StepIndicator current={6} />
+          <StepIndicator current={7} />
           <div className="report-page__empty">
             <p>Finish resolving the data audit before a report can be generated.</p>
             <button type="button" className="btn btn--primary" onClick={() => navigate("/audit")}>
@@ -352,7 +352,7 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
       <div className="report-page">
         <Header subtitle="Report" />
         <main className="report-page__main">
-          <StepIndicator current={6} />
+          <StepIndicator current={7} />
           <div className="report-page__empty">
             <p>
               {stillChecking
@@ -372,7 +372,7 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
     <div className="report-page">
       <Header subtitle="Report" />
       <main className="report-page__main">
-        <StepIndicator current={6} />
+        <StepIndicator current={7} />
 
         <PageNav position="top" onBack={() => navigate("/analysis")} />
 

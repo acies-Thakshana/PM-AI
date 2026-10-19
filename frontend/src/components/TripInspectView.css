@@ -1,0 +1,50 @@
+.trip-inspect {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.trip-inspect__heading {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--carrier-blue);
+}
+
+.trip-inspect__box {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 4px 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.trip-inspect__note {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin: 6px 0 0;
+}
+
+.trip-inspect__error {
+  font-size: 13.5px;
+  color: var(--color-error);
+  margin: 0;
+}
+
+.trip-inspect-modal {
+  width: min(960px, 94vw);
+}
+
+/* The modal body is a flex column that lets its children shrink; the charts need their own height. */
+.trip-inspect,
+.trip-inspect > section,
+.trip-inspect__box {
+  flex-shrink: 0;
+}
+
+.trip-inspect__box--map {
+  height: 368px;
+}
+
+.trip-inspect__box--chart {
+  height: 268px;
+}

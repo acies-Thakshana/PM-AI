@@ -5,6 +5,8 @@ export class SwpApiError extends Error {}
 export interface SwpTrip {
   trip_id: string;
   status: string;
+  departure: string | null;
+  arrival: string | null;
   created: string | null;
   updated: string | null;
   alarmed: boolean | null;
@@ -13,16 +15,28 @@ export interface SwpTrip {
 }
 
 export interface SwpTripsResponse {
+  program_id: string;
   total: number;
   status_counts: Record<string, number>;
   max_trips: number;
   trips: SwpTrip[];
+  /** Field names of one trip-list record (helps when a departure date is missing). */
+  sample_fields: string[];
 }
 
+/** A change made in the app only (nothing is written back to SWP): status label, departure / arrival (ISO UTC). */
+export interface TripEdit {
+  status?: string;
+  departure?: string;
+  arrival?: string;
+}
+export type TripEdits = Record<string, TripEdit>;
+
 export interface SwpLoadRequest {
-  status: string | null;
-  n_trips: number;
+  program_id: string | null;
   trip_ids: string[];
+  sensors: string[];
+  edits: TripEdits;
 }
 
 export interface SwpLoadResponse {
@@ -36,8 +50,15 @@ export interface SwpLoadResponse {
 
 export interface SwpSessionTrip {
   trip_id: string;
+  status: string | null;
+  departure: string | null;
+  arrival: string | null;
+  mean_temp: number | null;
+  segment_days: number | null;
   sensors: string[];
   readings: number;
+  gps_points: number;
+  edited: boolean;
 }
 
 export interface SwpSensorSeries {
@@ -47,9 +68,18 @@ export interface SwpSensorSeries {
   y: number[];
 }
 
+export interface SwpMapPoint {
+  lat: number;
+  lng: number;
+  time: string | null;
+}
+
 export interface SwpTripRaw {
   trip_id: string;
   series: SwpSensorSeries[];
+  route: SwpMapPoint[];
+  start: SwpMapPoint | null;
+  end: SwpMapPoint | null;
 }
 
 async function failure(response: Response, fallback: string): Promise<SwpApiError> {
@@ -62,9 +92,13 @@ async function failure(response: Response, fallback: string): Promise<SwpApiErro
   return new SwpApiError(`${fallback} (${response.status}).`);
 }
 
-/** Step 1: every trip in the program. `refresh` skips the backend's short-lived cache. */
-export async function fetchAllTrips(refresh = false): Promise<SwpTripsResponse> {
-  const response = await apiFetch(`${API_BASE_URL}/api/swp/trips${refresh ? "?refresh=true" : ""}`);
+/** Step 1: every trip of the program (empty program id = the backend's default). `refresh` skips its short-lived cache. */
+export async function fetchAllTrips(programId: string, refresh = false): Promise<SwpTripsResponse> {
+  const query = new URLSearchParams();
+  if (programId.trim()) query.set("program_id", programId.trim());
+  if (refresh) query.set("refresh", "true");
+  const qs = query.toString();
+  const response = await apiFetch(`${API_BASE_URL}/api/swp/trips${qs ? `?${qs}` : ""}`);
   if (!response.ok) throw await failure(response, "Could not fetch the trips from the SWP API");
   return response.json();
 }

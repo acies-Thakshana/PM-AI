@@ -1,146 +1,206 @@
 import { Spinner } from "../components/ThinkingLoader";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import { IconChevronLeft } from "../components/icons";
+import SourceSelect from "../components/SourceSelect";
 import FileUploadCard from "../components/FileUploadCard";
 import StepIndicator from "../components/StepIndicator";
 import ClientBriefInput from "../components/ClientBriefInput";
-import { UPLOAD_SLOTS, isAudited } from "../constants/uploadSlots";
+import SwpConfigPanel from "../components/SwpConfigPanel";
+import { UPLOAD_SLOTS, AUDITED_SLOTS, isAudited } from "../constants/uploadSlots";
 import type { UploadSlotId } from "../types/upload";
-import type { FilesState, SwpConfigState } from "../App";
+import type { FilesState } from "../App";
 import type { BriefState } from "../components/ClientBriefInput";
-import { fetchAllTrips, loadTrips } from "../api/swp";
 import type { SwpTripsResponse } from "../api/swp";
+import { selectedTrips } from "../utils/swpTrips";
+import type { SwpConfigState } from "../utils/swpTrips";
+import { uploadOnly } from "../api/audit";
 import { finalizeBrief } from "../api/brief";
 import { hasBrief } from "../context/plannerSkipped";
+import type { DataSource } from "../context/plannerSkipped";
 import "./UploadPage.css";
 
-// The trip data comes from the SWP API now; only the two JSON profiles are still files.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+
+type ErrorsState = Partial<Record<UploadSlotId, string>>;
+
+// Bundled example files (see backend/data/samples/, served statically at /samples/* by main.py) for the
+// "Add all samples" button in upload mode. Not every slot has a sample; coldstream is left for the user.
+const SAMPLE_FILES: { id: UploadSlotId; filename: string; mimeType: string }[] = [
+  { id: "sensiwatch", filename: "sensiwatch_sample.xlsm", mimeType: "application/vnd.ms-excel.sheet.macroEnabled.12" },
+  { id: "customerKpis", filename: "customer_kpi_profile_sample.json", mimeType: "application/json" },
+  { id: "analysisProfile", filename: "analysis_profile_sample.json", mimeType: "application/json" },
+];
+
+// The API mode brings the trip data in itself; the two JSON profiles are files in both modes.
 const PROFILE_SLOTS = UPLOAD_SLOTS.filter((s) => !isAudited(s.id));
-const SECONDS_PER_TRIP = 5; // two API calls, each followed by a rate-limit pause
-const MAX_LISTED_TRIPS = 200;
 
 interface UploadPageProps {
   files: FilesState;
   brief: BriefState;
+  dataSource: DataSource;
+  onSourceChange: (source: DataSource) => void;
   config: SwpConfigState;
   onConfigChange: (config: SwpConfigState) => void;
+  trips: SwpTripsResponse | null;
+  onTripsChange: (trips: SwpTripsResponse | null) => void;
   onSelect: (id: UploadSlotId, file: File) => void;
   onRemove: (id: UploadSlotId) => void;
   onClearAll: () => void;
   onBriefChange: (state: BriefState) => void;
-  onLoadComplete: (sessionId: string, label: File, signature: string) => void;
-  /** The session already created from the current config (cleared whenever the config changes). */
+  onUploadComplete: (sessionIds: Partial<Record<UploadSlotId, string>>, briefSignature: string) => void;
+  /** The sessions already created from the files now selected (cleared whenever a file changes). */
   uploadedSessionIds: Partial<Record<UploadSlotId, string>>;
   uploadedBriefSignature: string | null;
-}
-
-function formatDate(value: string | null): string {
-  if (!value) return "–";
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? value : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
 export default function UploadPage({
   files,
   brief,
+  dataSource,
+  onSourceChange,
   config,
   onConfigChange,
+  trips,
+  onTripsChange,
   onSelect,
   onRemove,
   onClearAll,
   onBriefChange,
-  onLoadComplete,
+  onUploadComplete,
   uploadedSessionIds,
   uploadedBriefSignature,
 }: UploadPageProps) {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<ErrorsState>({});
+  const [highlighted, setHighlighted] = useState<UploadSlotId | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [briefError, setBriefError] = useState<string | undefined>();
-  const [trips, setTrips] = useState<SwpTripsResponse | null>(null);
-  const [fetching, setFetching] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-  const [tripSearch, setTripSearch] = useState("");
+  const [samplesLoading, setSamplesLoading] = useState(false);
+  const cardRefs: Partial<Record<UploadSlotId, HTMLDivElement | null>> = {};
 
-  // Step 1: fetch every trip first, so the configuration below is built from what exists.
-  const fetchTrips = useCallback(async (refresh: boolean) => {
-    setFetching(true);
-    setFetchError(null);
+  const apiMode = dataSource === "api";
+  const chosen = selectedTrips(trips, config);
+  const apiReady = !!trips && chosen.length > 0 && chosen.length <= trips.max_trips && config.sensors.length > 0;
+
+  const handleSelect = (id: UploadSlotId, file: File) => {
+    onSelect(id, file);
+    setErrors((prev) => ({ ...prev, [id]: undefined }));
+  };
+
+  const handleAddAllSamples = async () => {
+    setSamplesLoading(true);
+    setUploadError(null);
     try {
-      setTrips(await fetchAllTrips(refresh));
+      const loaded = await Promise.all(
+        SAMPLE_FILES.map(async ({ id, filename, mimeType }) => {
+          const response = await fetch(`${API_BASE_URL}/samples/${filename}`);
+          if (!response.ok) throw new Error(`Could not load sample "${filename}" (${response.status}).`);
+          const blob = await response.blob();
+          return { id, file: new File([blob], filename, { type: mimeType }) };
+        })
+      );
+      for (const { id, file } of loaded) handleSelect(id, file);
     } catch (err) {
-      setFetchError(err instanceof Error ? err.message : "Could not fetch the trips. Is the backend running?");
+      setUploadError(err instanceof Error ? err.message : "Could not load the sample files.");
     } finally {
-      setFetching(false);
+      setSamplesLoading(false);
     }
-  }, []);
+  };
 
-  useEffect(() => {
-    void fetchTrips(false);
-  }, [fetchTrips]);
+  const checkBrief = (): boolean => {
+    const missing = !brief.rawText.trim();
+    setBriefError(missing ? "Client brief is required." : undefined);
+    if (missing) window.scrollTo({ top: 0, behavior: "smooth" });
+    return !missing;
+  };
 
-  const update = (patch: Partial<SwpConfigState>) => onConfigChange({ ...config, ...patch });
+  // API mode: the choices are made here; the trips themselves are loaded after the Trips page.
+  const handleContinueApi = () => {
+    if (!checkBrief() || !apiReady) return;
+    navigate("/trips");
+  };
 
-  const inStatus = useMemo(
-    () => (trips?.trips ?? []).filter((t) => !config.status || t.status === config.status),
-    [trips, config.status]
-  );
-  const listed = useMemo(() => {
-    const q = tripSearch.trim().toLowerCase();
-    const rows = q
-      ? inStatus.filter((t) => [t.trip_id, t.trailer_id, t.template].some((v) => (v ?? "").toLowerCase().includes(q)))
-      : inStatus;
-    return rows.slice(0, MAX_LISTED_TRIPS);
-  }, [inStatus, tripSearch]);
+  const handleContinueUpload = async () => {
+    const nextErrors: ErrorsState = {};
+    for (const slot of UPLOAD_SLOTS) {
+      if (slot.required && !files[slot.id]) nextErrors[slot.id] = `${slot.title} is required.`;
+    }
+    setErrors(nextErrors);
+    if (!checkBrief() || Object.keys(nextErrors).length > 0) return;
 
-  const maxTrips = trips?.max_trips ?? 1;
-  const pickedIds = config.tripIds;
-  const tripsToLoad = pickedIds.length > 0 ? pickedIds.length : Math.min(config.nTrips, inStatus.length);
-  const overLimit = tripsToLoad > maxTrips;
-  const statuses = Object.entries(trips?.status_counts ?? {}).sort(([a], [b]) => a.localeCompare(b));
-
-  const toggleTrip = (id: string) =>
-    update({ tripIds: pickedIds.includes(id) ? pickedIds.filter((t) => t !== id) : [...pickedIds, id] });
-
-  const handleContinue = async () => {
-    const missingBrief = !brief.rawText.trim();
-    setBriefError(missingBrief ? "Client brief is required." : undefined);
-    if (missingBrief) window.scrollTo({ top: 0, behavior: "smooth" });
-    if (missingBrief || tripsToLoad < 1 || overLimit) return;
-
-    // Same config and the same brief as the session we already have: carry on with it. Loading again
-    // would create a new session and run the Planner (and everything after it) all over again.
-    const signature = JSON.stringify([brief.rawText, brief.finalText, config.status, config.nTrips, [...pickedIds].sort()]);
-    if (uploadedSessionIds.sensiwatch && signature === uploadedBriefSignature) {
+    // Same files and the same brief as the sessions we already have: carry on with them. Uploading again
+    // would create new sessions and run the Planner (and everything after it) all over again.
+    const briefSignature = `${brief.rawText} ${brief.finalText}`;
+    const haveSessions = AUDITED_SLOTS.some((id) => uploadedSessionIds[id]);
+    const allUploaded = AUDITED_SLOTS.every((id) => !files[id] || uploadedSessionIds[id]);
+    if (haveSessions && allUploaded && briefSignature === uploadedBriefSignature) {
       navigate(hasBrief(brief) ? "/planner" : "/audit");
       return;
     }
 
-    setLoading(true);
-    setLoadError(null);
+    setUploading(true);
+    setUploadError(null);
     try {
-      const loaded = await loadTrips({
-        status: config.status || null,
-        n_trips: config.nTrips,
-        trip_ids: pickedIds,
-      });
-      // The Planner and the later steps only look at the file's name, so a stand-in carries the label.
-      const label = new File([], loaded.filename);
-      await finalizeBrief(brief, { ...files, sensiwatch: label }, [loaded.session_id]);
-      onLoadComplete(loaded.session_id, label, signature);
+      const sessionIds: Partial<Record<UploadSlotId, string>> = {};
+      for (const id of AUDITED_SLOTS) {
+        const file = files[id];
+        if (!file) continue;
+        const result = await uploadOnly(id, file);
+        sessionIds[id] = result.session_id;
+      }
+      const sessionIdsList = Object.values(sessionIds).filter((s): s is string => Boolean(s));
+      if (sessionIdsList.length > 0) await finalizeBrief(brief, files, sessionIdsList);
+
+      onUploadComplete(sessionIds, briefSignature);
       // No client brief = nothing for the Planner to plan: go straight to the data Audit.
       navigate(hasBrief(brief) ? "/planner" : "/audit");
     } catch (err: unknown) {
-      setLoadError(err instanceof Error ? err.message : "Could not load the trips. Is the backend running?");
+      setUploadError(err instanceof Error ? err.message : "Upload failed. Is the backend running?");
     } finally {
-      setLoading(false);
+      setUploading(false);
     }
   };
 
+  const handleContinue = apiMode ? handleContinueApi : handleContinueUpload;
+  const continueLabel = apiMode ? "Continue to Trips" : "Upload & Continue";
+  const continueDisabled = uploading || (apiMode && !apiReady);
+
   // A full page load (not a router navigation) so the app starts completely fresh on the Get Started page.
   const handleBack = () => window.location.assign("/");
+
+  const handleJumpTo = (id: UploadSlotId) => {
+    cardRefs[id]?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlighted(id);
+    setTimeout(() => setHighlighted((prev) => (prev === id ? null : prev)), 1600);
+  };
+
+  const selectedCount = Object.values(files).filter(Boolean).length;
+  const slots = apiMode ? PROFILE_SLOTS : UPLOAD_SLOTS;
+
+  const buttons = (
+    <div className="upload-page__buttons">
+      {!apiMode && (
+        <button
+          type="button"
+          className="btn btn--secondary"
+          onClick={handleAddAllSamples}
+          disabled={uploading || samplesLoading}
+          title="Fills every slot with a bundled example file, so you can skip hunting one down each time you try the app."
+        >
+          {samplesLoading ? <><Spinner />Loading samples…</> : "Add all samples"}
+        </button>
+      )}
+      <button type="button" className="btn btn--secondary" onClick={onClearAll} disabled={uploading}>
+        Clear All
+      </button>
+      <button type="button" className="btn btn--primary" onClick={handleContinue} disabled={continueDisabled}>
+        {uploading ? <><Spinner />Uploading…</> : continueLabel}
+      </button>
+    </div>
+  );
 
   return (
     <div className="upload-page">
@@ -158,136 +218,75 @@ export default function UploadPage({
         />
 
         <div className="upload-page__intro">
-          <h1 className="upload-page__heading">Configure Source Data</h1>
+          <h1 className="upload-page__heading">Source Data</h1>
+          <div className="source-toggle" role="tablist" aria-label="Where the trip data comes from">
+            {(["api", "upload"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                role="tab"
+                aria-selected={dataSource === mode}
+                className={`source-toggle__option${dataSource === mode ? " source-toggle__option--active" : ""}`}
+                onClick={() => onSourceChange(mode)}
+                disabled={uploading}
+              >
+                {mode === "api" ? "Configure (SWP API)" : "Upload files"}
+              </button>
+            ))}
+          </div>
           <p className="upload-page__lede">
-            Trip data is pulled from the SWP API. All trips are fetched first; choose which ones to bring in, then
-            continue to the data audit. Nothing is written back to SWP.
+            {apiMode
+              ? "Trip data is pulled from the SWP API. All trips of the program are fetched first; choose the departure dates, the sensors and the trips to bring in. Nothing is written back to SWP."
+              : "Provide the SensiWatch export and a client brief to begin. ColdStream data, the Customer KPI Profile, and the Analysis Profile are optional but improve triage and reporting accuracy. SensiWatch and ColdStream files go through the data audit."}
           </p>
         </div>
 
-        {loadError && <div className="upload-page__error">{loadError}</div>}
-
-        <section className="swp-card">
-          <div className="swp-card__head">
-            <h2 className="swp-card__title">SWP trips</h2>
-            <button type="button" className="btn btn--secondary" onClick={() => fetchTrips(true)} disabled={fetching || loading}>
-              {fetching ? <><Spinner />Fetching…</> : "Refresh"}
-            </button>
+        {!apiMode && (
+          <div className="upload-page__search-row">
+            <SourceSelect files={files} onSelect={handleJumpTo} />
           </div>
+        )}
 
-          {fetching && !trips && (
-            <p className="swp-card__note">Fetching all trips from the SWP API. This can take a minute (the API is rate limited)…</p>
-          )}
-          {fetchError && <div className="upload-page__error">{fetchError}</div>}
+        {uploadError && <div className="upload-page__error">{uploadError}</div>}
 
-          {trips && (
-            <>
-              <p className="swp-card__note">
-                <strong>{trips.total}</strong> trips in the program
-                {statuses.length > 0 && <> — {statuses.map(([status, n]) => `${status}: ${n}`).join(" · ")}</>}
-              </p>
+        {apiMode && (
+          <SwpConfigPanel
+            config={config}
+            onConfigChange={onConfigChange}
+            trips={trips}
+            onTripsChange={onTripsChange}
+            disabled={uploading}
+          />
+        )}
 
-              <div className="swp-form">
-                <label className="swp-field">
-                  <span className="swp-field__label">Trip status</span>
-                  <select
-                    className="swp-field__input"
-                    value={config.status}
-                    onChange={(e) => update({ status: e.target.value, tripIds: [] })}
-                    disabled={loading}
-                  >
-                    <option value="">All statuses ({trips.total})</option>
-                    {statuses.map(([status, n]) => (
-                      <option key={status} value={status}>
-                        {status} ({n})
-                      </option>
-                    ))}
-                  </select>
-                </label>
+        <div className="upload-page__actions">
+          <div className="upload-page__left">
+            <button type="button" className="btn btn--secondary" onClick={handleBack} disabled={uploading}>
+              <IconChevronLeft /> Back
+            </button>
+            <span className="upload-page__count">
+              {apiMode ? `${chosen.length} trip(s) selected` : `${selectedCount} of ${UPLOAD_SLOTS.length} files selected`}
+            </span>
+          </div>
+          {buttons}
+        </div>
 
-                <label className="swp-field">
-                  <span className="swp-field__label">Number of trips</span>
-                  <input
-                    className="swp-field__input"
-                    type="number"
-                    min={1}
-                    max={Math.max(1, Math.min(maxTrips, inStatus.length))}
-                    value={config.nTrips}
-                    onChange={(e) => update({ nTrips: Math.max(1, Math.floor(Number(e.target.value)) || 1) })}
-                    disabled={loading || pickedIds.length > 0}
-                  />
-                  <span className="swp-field__hint">
-                    {pickedIds.length > 0
-                      ? "Ignored: specific trips are selected below."
-                      : `The most recently updated trips first (up to ${maxTrips}).`}
-                  </span>
-                </label>
-              </div>
+        {apiMode && <h2 className="upload-page__subheading">Optional profiles</h2>}
 
-              <div className="swp-picker">
-                <div className="swp-picker__head">
-                  <span className="swp-field__label">Specific trips (optional)</span>
-                  <input
-                    className="swp-field__input swp-picker__search"
-                    type="search"
-                    placeholder="Search by trip id, trailer or template"
-                    value={tripSearch}
-                    onChange={(e) => setTripSearch(e.target.value)}
-                  />
-                  <span className="swp-field__hint">
-                    {pickedIds.length} selected
-                    {pickedIds.length > 0 && (
-                      <>
-                        {" · "}
-                        <button type="button" className="swp-link" onClick={() => update({ tripIds: [] })}>
-                          Clear
-                        </button>
-                      </>
-                    )}
-                  </span>
-                </div>
-                <div className="swp-picker__list" role="group" aria-label="Trips">
-                  {listed.length === 0 && <p className="swp-card__note">No trips match.</p>}
-                  {listed.map((t) => (
-                    <label key={t.trip_id} className="swp-picker__row">
-                      <input
-                        type="checkbox"
-                        checked={pickedIds.includes(t.trip_id)}
-                        onChange={() => toggleTrip(t.trip_id)}
-                        disabled={loading}
-                      />
-                      <span className="swp-picker__id">{t.trip_id}</span>
-                      <span className="swp-picker__status">{t.status}</span>
-                      <span className="swp-picker__meta">
-                        {[t.trailer_id, formatDate(t.updated)].filter(Boolean).join(" · ")}
-                      </span>
-                    </label>
-                  ))}
-                  {inStatus.length > listed.length && !tripSearch && (
-                    <p className="swp-card__note">Showing the first {MAX_LISTED_TRIPS}; search to narrow the list.</p>
-                  )}
-                </div>
-              </div>
-
-              <p className={`swp-summary${overLimit ? " swp-summary--error" : ""}`}>
-                {overLimit
-                  ? `At most ${maxTrips} trips can be loaded at once.`
-                  : tripsToLoad < 1
-                    ? "No trips match this selection."
-                    : `Will load ${tripsToLoad} trip${tripsToLoad === 1 ? "" : "s"} (about ${Math.max(5, tripsToLoad * SECONDS_PER_TRIP)} seconds).`}
-              </p>
-            </>
-          )}
-        </section>
-
-        <h2 className="upload-page__subheading">Optional profiles</h2>
         <div className="upload-page__grid">
-          {PROFILE_SLOTS.map((slot) => (
-            <div key={slot.id}>
+          {slots.map((slot) => (
+            <div
+              key={slot.id}
+              ref={(el) => {
+                cardRefs[slot.id] = el;
+              }}
+            >
               <FileUploadCard
                 config={slot}
                 file={files[slot.id]}
-                onSelect={(file) => onSelect(slot.id, file)}
+                error={errors[slot.id]}
+                highlighted={highlighted === slot.id}
+                onSelect={(file) => handleSelect(slot.id, file)}
                 onRemove={() => onRemove(slot.id)}
               />
             </div>
@@ -295,22 +294,12 @@ export default function UploadPage({
         </div>
 
         <div className="upload-page__actions upload-page__actions--bottom">
-          <button type="button" className="btn btn--secondary" onClick={handleBack} disabled={loading}>
+          <button type="button" className="btn btn--secondary" onClick={handleBack} disabled={uploading}>
             <IconChevronLeft /> Back
           </button>
-          <div className="upload-page__buttons">
-            <button type="button" className="btn btn--secondary" onClick={onClearAll} disabled={loading}>
-              Clear All
-            </button>
-            <button
-              type="button"
-              className="btn btn--primary"
-              onClick={handleContinue}
-              disabled={loading || fetching || !trips || tripsToLoad < 1 || overLimit}
-            >
-              {loading ? <><Spinner />Loading trips…</> : "Load Data & Continue"}
-            </button>
-          </div>
+          <button type="button" className="btn btn--primary" onClick={handleContinue} disabled={continueDisabled}>
+            {uploading ? <><Spinner />Uploading…</> : continueLabel}
+          </button>
         </div>
       </main>
     </div>

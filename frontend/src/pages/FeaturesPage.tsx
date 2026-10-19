@@ -192,7 +192,7 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
       <div className="features-page">
         <Header subtitle="Feature Engineering" />
         <main className="features-page__main">
-          <StepIndicator current={4} />
+          <StepIndicator current={5} />
           <div className="features-page__empty">
             <p>No audited data yet.</p>
             <button type="button" className="btn btn--primary" onClick={() => navigate("/upload")}>
@@ -209,7 +209,7 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
       <div className="features-page">
         <Header subtitle="Feature Engineering" />
         <main className="features-page__main">
-          <StepIndicator current={4} />
+          <StepIndicator current={5} />
           <div className="features-page__empty">
             <p>Finish resolving the data audit before features can be computed.</p>
             <button type="button" className="btn btn--primary" onClick={() => navigate("/audit")}>
@@ -225,7 +225,7 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
     <div className="features-page">
       <Header subtitle="Feature Engineering" />
       <main className="features-page__main">
-        <StepIndicator current={4} />
+        <StepIndicator current={5} />
 
         <PageNav position="top" onBack={() => navigate("/audit")}>
           <button type="button" className="btn btn--primary" onClick={() => navigate("/analysis")}>
