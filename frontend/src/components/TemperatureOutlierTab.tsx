@@ -15,6 +15,8 @@ interface Props {
   data: TemperatureOutliersResult;
   sessionId: string;
   onUpdated: (updated: OutliersResponse) => void;
+  /** Opens the trip (graph, map, times) by its Trip ID; when given, each row gets an Inspect button. */
+  onInspect?: (tripNumber: string) => void;
 }
 
 // Same categorical palette as AnalysisChart.tsx / report_style.py -- a trip's
@@ -28,7 +30,7 @@ const COLOR_AVG = CHART_COLORS.neutral;
 const COLOR_OUTLIER_LINE = CHART_COLORS.highlight;
 
 // Columns of the affected-trips table (the Flags count is no longer shown). TRIP_REF carries each row's trip.
-const TRIP_COLUMNS = ["Serial Number", "Trip ID", "Mean Temp", "Low Limit", "Status"];
+const TRIP_COLUMNS = ["Serial Number", "Trip ID", "Mean Temp", "Low Limit", "Status", "Inspect"];
 const TRIP_REF = "__trip";
 
 function statusLabel(status: ProductTemperatureTrip["status"]): string {
@@ -136,6 +138,7 @@ function AffectedTripsPanel({
   flaggedTrips,
   sessionId,
   onUpdated,
+  onInspect,
   show,
   setShow,
   query,
@@ -147,6 +150,7 @@ function AffectedTripsPanel({
   flaggedTrips: ProductTemperatureTrip[];
   sessionId: string;
   onUpdated: (updated: OutliersResponse) => void;
+  onInspect?: (tripNumber: string) => void;
   show: boolean;
   setShow: (v: boolean | ((s: boolean) => boolean)) => void;
   query: string;
@@ -212,6 +216,16 @@ function AffectedTripsPanel({
               else rowRefs.current.delete(key);
             }}
             renderCell={(col, row) => {
+              if (col === "Inspect") {
+                const trip = row[TRIP_REF] as ProductTemperatureTrip;
+                return onInspect && trip.trip_id != null ? (
+                  <button type="button" className="btn btn--secondary btn--small" onClick={(e) => { e.stopPropagation(); onInspect(String(trip.trip_id)); }}>
+                    Inspect
+                  </button>
+                ) : (
+                  "—"
+                );
+              }
               if (col !== "Mean Temp") return undefined;
               const t = row[TRIP_REF] as ProductTemperatureTrip;
               if (t.serial == null || t.trip_id == null) return t.mean_temp != null ? `${t.mean_temp}°` : "—";
@@ -242,10 +256,12 @@ function ProductDetail({
   product,
   sessionId,
   onUpdated,
+  onInspect,
 }: {
   product: ProductTemperatureResult;
   sessionId: string;
   onUpdated: (updated: OutliersResponse) => void;
+  onInspect?: (tripNumber: string) => void;
 }) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [show, setShow] = useState(false);
@@ -279,6 +295,7 @@ function ProductDetail({
         flaggedTrips={flaggedTrips}
         sessionId={sessionId}
         onUpdated={onUpdated}
+        onInspect={onInspect}
         show={show}
         setShow={setShow}
         query={query}
@@ -291,7 +308,7 @@ function ProductDetail({
   );
 }
 
-export default function TemperatureOutlierTab({ data, sessionId, onUpdated }: Props) {
+export default function TemperatureOutlierTab({ data, sessionId, onUpdated, onInspect }: Props) {
   const [openProduct, setOpenProduct] = useState<string | null>(null);
   const [productQuery, setProductQuery] = useState("");
 
@@ -384,7 +401,7 @@ export default function TemperatureOutlierTab({ data, sessionId, onUpdated }: Pr
               </button>
             </div>
             <div className="audit-issue__modal-body">
-              <ProductDetail key={activeProduct.product} product={activeProduct} sessionId={sessionId} onUpdated={onUpdated} />
+              <ProductDetail key={activeProduct.product} product={activeProduct} sessionId={sessionId} onUpdated={onUpdated} onInspect={onInspect} />
             </div>
           </div>
         </div>

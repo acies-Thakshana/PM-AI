@@ -17,7 +17,7 @@ import type { UploadSlotId } from "./types/upload";
 import { resetAllState, resetDownstreamState } from "./state/sessionStore";
 import { EMPTY_BRIEF } from "./components/ClientBriefInput";
 import type { BriefState } from "./components/ClientBriefInput";
-import type { SwpTripsResponse, TripEdits } from "./api/swp";
+import type { SwpTimesResult, SwpTripsResponse, TripEdits } from "./api/swp";
 import { EMPTY_SWP_CONFIG } from "./utils/swpTrips";
 import type { SwpConfigState } from "./utils/swpTrips";
 
@@ -213,6 +213,18 @@ function App() {
     }
   };
 
+  // A trip's times were changed on the Audit page: keep them in the Trips page's edit list too, so loading the
+  // trips again keeps the change.
+  const handleTripTimesEdited = (tripKey: string, result: SwpTimesResult) =>
+    setTripEdits((prev) => ({
+      ...prev,
+      [tripKey]: {
+        ...prev[tripKey],
+        ...(result.departure_utc ? { departure: result.departure_utc } : {}),
+        ...(result.arrival_utc ? { arrival: result.arrival_utc } : {}),
+      },
+    }));
+
   const handleRevertIssue = async (id: UploadSlotId, issueId: string) => {
     const report = auditReports[id];
     if (!report) return;
@@ -296,6 +308,7 @@ function App() {
               onReuploadSensiwatch={handleReuploadSensiwatch}
               reuploadingSensiwatch={reuploadingSensiwatch}
               reuploadError={reuploadError}
+              onTripTimesEdited={handleTripTimesEdited}
             />
           }
         />

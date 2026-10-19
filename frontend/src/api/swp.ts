@@ -142,6 +142,32 @@ export async function fetchSessionTrips(sessionId: string): Promise<SwpSessionTr
   return response.json();
 }
 
+export interface SwpTimesResult {
+  /** The new times as CET wall-clock text, as shown in the audit table. */
+  departure: string | null;
+  arrival: string | null;
+  /** The same instants in UTC, the form the Trips page keeps its edits in. */
+  departure_utc: string | null;
+  arrival_utc: string | null;
+  segment_days: number | null;
+}
+
+/** Change a trip's departure and / or arrival in this session's data (CET wall-clock "YYYY-MM-DDTHH:mm"). The app's
+ * data changes; nothing is sent to SWP. */
+export async function patchTripTimes(
+  sessionId: string,
+  tripKey: string,
+  times: { departure?: string; arrival?: string }
+): Promise<SwpTimesResult> {
+  const response = await apiFetch(`${API_BASE_URL}/api/swp/${sessionId}/trips/${tripKey}/times`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(times),
+  });
+  if (!response.ok) throw await failure(response, "Could not change the times");
+  return response.json();
+}
+
 export async function fetchTripRaw(sessionId: string, tripId: string): Promise<SwpTripRaw> {
   const response = await apiFetch(`${API_BASE_URL}/api/swp/${sessionId}/trips/${tripId}/raw`);
   if (!response.ok) throw await failure(response, "Could not load the raw readings");

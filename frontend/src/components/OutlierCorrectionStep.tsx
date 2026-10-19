@@ -19,6 +19,8 @@ interface OutlierCorrectionStepProps {
   /** Data from the SWP API: the review (segment days by lane, mean temp by product) is always shown, even with
    * nothing flagged, and there is no corrected-file loop since nothing is written back. */
   apiData?: boolean;
+  /** Opens a trip (graph, map, times) by its Trip ID; the flagged-trip tables get an Inspect button. */
+  onInspect?: (tripNumber: string) => void;
 }
 
 const REUPLOAD_SLOT_CONFIG = {
@@ -39,6 +41,7 @@ export default function OutlierCorrectionStep({
   uploading,
   uploadError,
   apiData = false,
+  onInspect,
 }: OutlierCorrectionStepProps) {
   const [data, setData] = useState<OutliersResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -156,9 +159,9 @@ export default function OutlierCorrectionStep({
 
       <div className="outlier-step__section">
         {subTab === "segment" ? (
-          <SegmentOutlierTab data={data.segment} sessionId={sessionId} onUpdated={setData} />
+          <SegmentOutlierTab data={data.segment} sessionId={sessionId} onUpdated={setData} onInspect={onInspect} />
         ) : subTab === "temperature" ? (
-          <TemperatureOutlierTab data={data.temperature} sessionId={sessionId} onUpdated={setData} />
+          <TemperatureOutlierTab data={data.temperature} sessionId={sessionId} onUpdated={setData} onInspect={onInspect} />
         ) : (
           <p className="outlier-step__empty-subtab">No other outliers found.</p>
         )}

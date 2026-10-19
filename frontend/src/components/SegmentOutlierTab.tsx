@@ -10,10 +10,12 @@ interface Props {
   data: SegmentOutliersResult;
   sessionId: string;
   onUpdated: (updated: OutliersResponse) => void;
+  /** Opens the trip (graph, map, times) by its Trip ID; when given, each row gets an Inspect button. */
+  onInspect?: (tripNumber: string) => void;
 }
 
 // Columns of the flagged-trips table. TRIP_REF carries each row's source record.
-const COLUMNS = ["Serial Number", "Trip ID", "Segment Days", "Origin", "Destination", "Lower Fence", "Upper Fence", "Status"];
+const COLUMNS = ["Serial Number", "Trip ID", "Segment Days", "Origin", "Destination", "Lower Fence", "Upper Fence", "Status", "Inspect"];
 const TRIP_REF = "__trip";
 
 type ModeGroup = "Road" | "Ocean" | "Others";
@@ -35,7 +37,7 @@ function statusLabel(row: SegmentOutlierRow): string {
   return "Outlier";
 }
 
-export default function SegmentOutlierTab({ data, sessionId, onUpdated }: Props) {
+export default function SegmentOutlierTab({ data, sessionId, onUpdated, onInspect }: Props) {
   const [query, setQuery] = useState("");
   // Mode groups switched OFF (everything is shown by default).
   const [hiddenGroups, setHiddenGroups] = useState<Set<ModeGroup>>(new Set());
@@ -146,6 +148,16 @@ export default function SegmentOutlierTab({ data, sessionId, onUpdated }: Props)
             highlight="Segment Days"
             emptyText={query || hiddenGroups.size > 0 ? "No trips match the current search or mode selection." : undefined}
             renderCell={(col, row) => {
+              if (col === "Inspect") {
+                const trip = row[TRIP_REF] as SegmentOutlierRow;
+                return onInspect && trip.trip_id != null ? (
+                  <button type="button" className="btn btn--secondary btn--small" onClick={(e) => { e.stopPropagation(); onInspect(String(trip.trip_id)); }}>
+                    Inspect
+                  </button>
+                ) : (
+                  "—"
+                );
+              }
               if (col !== "Segment Days") return undefined;
               const t = row[TRIP_REF] as SegmentOutlierRow;
               if (t.serial == null || t.trip_id == null) return t.segment_days != null ? String(t.segment_days) : "—";

@@ -56,3 +56,18 @@
   color: var(--color-error);
   margin: 0;
 }
+
+.trip-table__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.trip-table input[type="datetime-local"] {
+  font: inherit;
+  font-size: 12.5px;
+  padding: 4px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: #fff;
+}

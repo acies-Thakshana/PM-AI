@@ -14,7 +14,7 @@ from app.routers.job_route import JobRoute
 from app.services.audit.audit_store import get_or_404, store
 from app.services.common import audit_log, column_meta, file_store, request_context
 from app.services.swp import cache, client, progress
-from app.services.swp.transform import build_tables
+from app.services.swp.transform import TIMEZONE, build_tables
 
 router = APIRouter(route_class=JobRoute, prefix="/api/swp", tags=["swp"])
 
@@ -266,7 +266,11 @@ def session_trips(session_id: str) -> list[SessionTrip]:
 
     def text(row, col):
         value = row.get(col)
-        return None if value is None or pd.isna(value) else str(value)
+        if value is None or pd.isna(value):
+            return None
+        if isinstance(value, pd.Timestamp):
+            return value.isoformat()
+        return str(int(value)) if isinstance(value, float) and value.is_integer() else str(value)  # 4750576.0 -> "4750576"
 
     out = []
     for key, rows in df.groupby("SWP Trip Key", sort=False):
@@ -284,6 +288,86 @@ def session_trips(session_id: str) -> list[SessionTrip]:
             edited=bool(text(first, "editedInApp")),
         ))
     return out
+
+
+class TimesBody(BaseModel):
+    """New departure and / or arrival time as a CET wall-clock time ("2026-10-18T15:42"): the times in the
+    audit table are CET."""
+    departure: str | None = None
+    arrival: str | None = None
+
+
+class TimesResponse(BaseModel):
+    departure: str | None
+    arrival: str | None
+    departure_utc: str | None   # the same instants in UTC, for the Trips page's edit list
+    arrival_utc: str | None
+    segment_days: float | None
+
+
+def _localize(ts: pd.Timestamp) -> pd.Timestamp:
+    return ts.tz_localize(TIMEZONE, ambiguous=True, nonexistent="shift_forward")
+
+
+def _wall_clock(value: str | None, field: str) -> pd.Timestamp | None:
+    if not value:
+        return None
+    ts = pd.to_datetime(value, errors="coerce")
+    if pd.isna(ts):
+        raise HTTPException(status_code=422, detail=f"'{value}' is not a valid {field} time.")
+    return ts.tz_localize(None) if ts.tzinfo else ts
+
+
+def _iso(ts: pd.Timestamp | None, utc: bool = False) -> str | None:
+    if ts is None or pd.isna(ts):
+        return None
+    return _localize(ts).tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ") if utc else ts.strftime("%Y-%m-%dT%H:%M:%S")
+
+
+@router.patch("/{session_id}/trips/{trip_key}/times", response_model=TimesResponse)
+def edit_trip_times(session_id: str, trip_key: str, body: TimesBody) -> TimesResponse:
+    """Change a trip's departure and / or arrival in this session's data (CET), and with them its segment
+    length. Only the app's data changes: nothing is sent to SWP."""
+    departure, arrival = _wall_clock(body.departure, "departure"), _wall_clock(body.arrival, "arrival")
+    if departure is None and arrival is None:
+        raise HTTPException(status_code=422, detail="Give a departure and / or an arrival time.")
+    session = get_or_404(session_id)
+    result = None
+    for name in ("df", "audit_baseline"):   # the audited data, and the baseline a revert rebuilds it from
+        frame = getattr(session, name)
+        if frame is None or "SWP Trip Key" not in frame.columns:
+            continue
+        mask = frame["SWP Trip Key"].astype(str).str.lower() == trip_key.lower()
+        if not mask.any():
+            if name == "df":
+                raise HTTPException(status_code=404, detail="This trip is not in the session's data.")
+            continue
+        frame = frame.copy()
+        if "editedInApp" in frame.columns:
+            frame["editedInApp"] = frame["editedInApp"].astype(object)  # an all-empty column is float until text is put in it
+        if departure is not None:
+            frame.loc[mask, ["Actual Departure Time CET", "Segment Start Date Time"]] = departure
+        if arrival is not None:
+            frame.loc[mask, ["Actual Arrival Time CET", "Segment End Date Time"]] = arrival
+        start = pd.to_datetime(frame.loc[mask, "Actual Departure Time CET"].iloc[0], errors="coerce")
+        end = pd.to_datetime(frame.loc[mask, "Actual Arrival Time CET"].iloc[0], errors="coerce")
+        days = _num((_localize(end) - _localize(start)).total_seconds() / 86400) if pd.notna(start) and pd.notna(end) else None
+        frame.loc[mask, "Segment Length (Days)"] = days
+        changed = {w for w, v in (("departure", departure), ("arrival", arrival)) if v is not None}
+        had = str(frame.loc[mask, "editedInApp"].iloc[0] or "") if "editedInApp" in frame.columns else ""
+        frame.loc[mask, "editedInApp"] = ", ".join(sorted(changed | {p for p in had.split(", ") if p}))
+        setattr(session, name, frame)
+        if name == "df":
+            result = TimesResponse(
+                departure=_iso(start), arrival=_iso(end), departure_utc=_iso(start, utc=True),
+                arrival_utc=_iso(end, utc=True), segment_days=days,
+            )
+    store.save(session)
+    audit_log.log_event(
+        session_id, session.user_id, "swp_times_edited",
+        {"trip": trip_key, "departure": _iso(departure), "arrival": _iso(arrival)},
+    )
+    return result
 
 
 class SensorSeries(BaseModel):

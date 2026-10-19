@@ -1,6 +1,6 @@
 import ThinkingLoader from "../components/ThinkingLoader";
 import { LOADING } from "../utils/loadingMessages";
-import { useContext, useEffect, useRef } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import StepIndicator from "../components/StepIndicator";
@@ -12,10 +12,12 @@ import AuditSummaryPanel from "../components/AuditSummaryPanel";
 import OutlierCorrectionStep from "../components/OutlierCorrectionStep";
 import Collapsible from "../components/Collapsible";
 import TripInspectTable from "../components/TripInspectTable";
+import TripInspectModal from "../components/TripInspectModal";
+import type { SwpTimesResult } from "../api/swp";
 import { DataSourceContext } from "../context/plannerSkipped";
 import { IconShieldSearch, IconDownload } from "../components/icons";
 import { downloadCleansedFile } from "../api/audit";
-import { useStoredState } from "../state/sessionStore";
+import { resetDownstreamState, useStoredState } from "../state/sessionStore";
 import { AUDITED_SLOTS, UPLOAD_SLOTS } from "../constants/uploadSlots";
 import type { UploadSlotId } from "../types/upload";
 import type { AuditErrorsState, AuditLoadingState, AuditReportsState, FilesState, ResolvingState, UploadedSessionIdsState } from "../App";
@@ -39,6 +41,8 @@ interface AuditPageProps {
   onReuploadSensiwatch: (file: File) => Promise<string | null>;
   reuploadingSensiwatch: boolean;
   reuploadError: string | null;
+  /** A trip's departure / arrival was changed here (CET, UTC given for the Trips page's own edit list). */
+  onTripTimesEdited: (tripKey: string, result: SwpTimesResult) => void;
 }
 
 export default function AuditPage({
@@ -54,9 +58,19 @@ export default function AuditPage({
   onReuploadSensiwatch,
   reuploadingSensiwatch,
   reuploadError,
+  onTripTimesEdited,
 }: AuditPageProps) {
   const navigate = useNavigate();
   const apiSource = useContext(DataSourceContext) === "api";
+  // The trip open in the Inspect window (by SWP key from the trips table, by Trip ID from the outlier tables), and
+  // a counter that goes up whenever a trip's times were changed so what is built on them is read again.
+  const [inspect, setInspect] = useState<{ key?: string; number?: string } | null>(null);
+  const [dataVersion, setDataVersion] = useState(0);
+  const handleTimesSaved = (tripKey: string, result: SwpTimesResult) => {
+    resetDownstreamState(); // features, analyses and the report were built on the old times
+    setDataVersion((v) => v + 1);
+    onTripTimesEdited(tripKey, result);
+  };
   // Held in the shared store (not local state) so leaving this page and coming
   // back keeps the PM where they were instead of replaying the outlier step.
   const [activeTabs, setActiveTabs] = useStoredState<Partial<Record<UploadSlotId, Tab>>>("audit.activeTabs", {});
@@ -175,7 +189,12 @@ export default function AuditPage({
                 <>
                   {apiSource && (
                     <Collapsible label="trips (mean temperature, segment days, inspect)" defaultOpen>
-                      <TripInspectTable sessionId={uploadedSessionIds[id]!} />
+                      <TripInspectTable
+                        key={`${uploadedSessionIds[id]}:${dataVersion}`}
+                        sessionId={uploadedSessionIds[id]!}
+                        onInspect={(key) => setInspect({ key })}
+                        onTimesSaved={handleTimesSaved}
+                      />
                     </Collapsible>
                   )}
                   <div className="audit-page__wizard-tabs" role="tablist">
@@ -224,6 +243,8 @@ export default function AuditPage({
 
                   {wizardActiveTab === "outliers" ? (
                     <OutlierCorrectionStep
+                      key={`${uploadedSessionIds[id]}:${dataVersion}`}
+                      onInspect={apiSource ? (number) => setInspect({ number }) : undefined}
                       sessionId={uploadedSessionIds[id]!}
                       onFileCorrected={handleCorrectedFile}
                       onProceed={() => advanceSensiwatchToStandard()}
@@ -301,6 +322,17 @@ export default function AuditPage({
             </section>
           );
         })}
+
+        {inspect && uploadedSessionIds[WIZARD_SLOT] && (
+          <TripInspectModal
+            sessionId={uploadedSessionIds[WIZARD_SLOT]!}
+            tripKey={inspect.key}
+            tripNumber={inspect.number}
+            dataVersion={dataVersion}
+            onClose={() => setInspect(null)}
+            onTimesSaved={handleTimesSaved}
+          />
+        )}
 
         <PageNav position="bottom" onBack={() => navigate("/planner")}>
           <button type="button" className="btn btn--primary" disabled={!canContinue} onClick={() => navigate("/features")}>
