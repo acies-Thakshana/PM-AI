@@ -1,13 +1,14 @@
 import type { SwpTrip, SwpTripsResponse, TripEdits } from "../api/swp";
 
-/** What the Configure page asks for. `selectedIds` null means "every matching trip, up to the limit". */
+/** What the Configure page asks for. Trip IDs typed in `idsText` win over the date filter; with none typed,
+ * the newest trips departing in the chosen dates (up to the limit) are used. */
 export interface SwpConfigState {
   programId: string;
   /** Departure-date range (YYYY-MM-DD, UTC); either end may be empty. */
   dateFrom: string;
   dateTo: string;
   sensors: string[];
-  selectedIds: string[] | null;
+  idsText: string;
 }
 
 export const SENSOR_OPTIONS = ["Temperature", "Light", "Humidity"] as const;
@@ -17,7 +18,7 @@ export const EMPTY_SWP_CONFIG: SwpConfigState = {
   dateFrom: "",
   dateTo: "",
   sensors: [...SENSOR_OPTIONS],
-  selectedIds: null,
+  idsText: "",
 };
 
 /** Trips whose departure date is inside the range. With no range every trip matches; with one, trips
@@ -33,12 +34,26 @@ export function matchingTrips(data: SwpTripsResponse | null, config: SwpConfigSt
   return [...filtered].sort((a, b) => (b.departure ?? "").localeCompare(a.departure ?? ""));
 }
 
-/** The trips that will be loaded: the ticked ones, or by default the newest matching ones up to the limit. */
+/** The trip IDs in a pasted text: split on whitespace, commas and semicolons, de-duplicated, in order. */
+export function parseTripIds(text: string): string[] {
+  return [...new Set(text.split(/[\s,;]+/).map((s) => s.trim()).filter(Boolean))];
+}
+
+/** Typed IDs that the program has no trip for. */
+export function unknownTripIds(data: SwpTripsResponse | null, config: SwpConfigState): string[] {
+  const known = new Set((data?.trips ?? []).map((t) => t.trip_id.toLowerCase()));
+  return parseTripIds(config.idsText).filter((id) => !known.has(id.toLowerCase()));
+}
+
+/** The trips that will be loaded: the typed IDs (whatever their dates), else the newest matching ones up to the limit. */
 export function selectedTrips(data: SwpTripsResponse | null, config: SwpConfigState): SwpTrip[] {
+  const ids = parseTripIds(config.idsText);
+  if (ids.length > 0) {
+    const byId = new Map((data?.trips ?? []).map((t) => [t.trip_id.toLowerCase(), t]));
+    return ids.map((id) => byId.get(id.toLowerCase())).filter((t): t is SwpTrip => t !== undefined);
+  }
   const matches = matchingTrips(data, config);
-  if (config.selectedIds === null) return matches.slice(0, data?.max_trips ?? matches.length);
-  const picked = new Set(config.selectedIds);
-  return matches.filter((t) => picked.has(t.trip_id));
+  return matches.slice(0, data?.max_trips ?? matches.length);
 }
 
 /** A trip with the changes made in the app laid over what SWP returned. */

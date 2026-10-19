@@ -104,17 +104,27 @@ def _groq(system_prompt: str, user_prompt: str, temperature: float, max_tokens: 
     """One Groq chat-completions call (OpenAI-compatible). Returns (text, stopReason) like _converse."""
     import requests
 
-    response = requests.post(
-        "https://api.groq.com/openai/v1/chat/completions",
-        headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
-        json={
-            "model": GROQ_MODEL,
-            "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-        },
-        timeout=120,
-    )
+    body = {
+        "model": GROQ_MODEL,
+        "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    # The free tier limits tokens per minute and says how long to wait ("try again in 21.4s"): wait that
+    # long and retry rather than failing the step.
+    for attempt in range(4):
+        response = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
+            json=body,
+            timeout=120,
+        )
+        if response.status_code != 429 or attempt == 3:
+            break
+        found = re.search(r"try again in ([0-9.]+)s", response.text)
+        wait = float(found.group(1)) + 1 if found else float(response.headers.get("retry-after") or 10)
+        log.warning("%s: Groq rate limit, retrying in %.0fs", call_name, min(wait, 60))
+        time.sleep(min(wait, 60))
     if response.status_code != 200:
         raise LLMError(f"{call_name}: Groq returned {response.status_code}: {response.text[:300]}")
     data = response.json()

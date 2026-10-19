@@ -1,10 +1,10 @@
 import { useCallback, useMemo, useState } from "react";
 import ApiProgress from "./ApiProgress";
-import { Spinner } from "./ThinkingLoader";
 import { fetchAllTrips } from "../api/swp";
 import type { SwpTripsResponse } from "../api/swp";
-import { SENSOR_OPTIONS, formatDateTime, matchingTrips, selectedTrips } from "../utils/swpTrips";
+import { SENSOR_OPTIONS, formatDateTime, matchingTrips, parseTripIds, selectedTrips, unknownTripIds } from "../utils/swpTrips";
 import type { SwpConfigState } from "../utils/swpTrips";
+import { Spinner } from "./ThinkingLoader";
 import "../pages/UploadPage.css";
 
 const MAX_LISTED_TRIPS = 300;
@@ -18,7 +18,8 @@ interface SwpConfigPanelProps {
 }
 
 /** The SWP side of the Configure page: the program id, which departure dates and sensors, then (once the
- * program's trips have been fetched) the matching trips, with their ids and departure dates, to tick. */
+ * program's trips have been fetched) a box for the trip IDs to load and the trips departing in the dates,
+ * with their ids and departure dates. */
 export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsChange, disabled }: SwpConfigPanelProps) {
   const [fetching, setFetching] = useState(false);
   const [progressId, setProgressId] = useState<string | null>(null);
@@ -50,7 +51,8 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
   const shownTrips = trips && trips.program_id === programId ? trips : null;
   const matches = useMemo(() => matchingTrips(shownTrips, config), [shownTrips, config]);
   const chosen = useMemo(() => selectedTrips(shownTrips, config), [shownTrips, config]);
-  const chosenIds = useMemo(() => new Set(chosen.map((t) => t.trip_id)), [chosen]);
+  const unknown = useMemo(() => unknownTripIds(shownTrips, config), [shownTrips, config]);
+  const typed = parseTripIds(config.idsText);
   const max = shownTrips?.max_trips ?? 1;
   const withDeparture = (shownTrips?.trips ?? []).filter((t) => t.departure).length;
   const dateFilterOn = Boolean(config.dateFrom || config.dateTo);
@@ -61,11 +63,9 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
     return rows.slice(0, MAX_LISTED_TRIPS);
   }, [matches, search]);
 
-  const toggleTrip = (id: string) => {
-    const next = new Set(chosenIds);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    update({ selectedIds: [...next] });
+  const addId = (id: string) => {
+    if (typed.some((t) => t.toLowerCase() === id.toLowerCase())) return;
+    update({ idsText: config.idsText.trim() ? `${config.idsText.trim()}\n${id}` : id });
   };
   const toggleSensor = (name: string) =>
     update({ sensors: config.sensors.includes(name) ? config.sensors.filter((s) => s !== name) : [...config.sensors, name] });
@@ -86,7 +86,7 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
               inputMode="numeric"
               placeholder="Enter the program ID"
               value={config.programId}
-              onChange={(e) => update({ programId: e.target.value, selectedIds: null })}
+              onChange={(e) => update({ programId: e.target.value, idsText: "" })}
               disabled={disabled || fetching}
             />
             <button type="button" className="btn btn--secondary" onClick={() => fetchTrips(true)} disabled={disabled || fetching || !programId}>
@@ -105,7 +105,7 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
               aria-label="Departure from"
               value={config.dateFrom}
               max={config.dateTo || undefined}
-              onChange={(e) => update({ dateFrom: e.target.value, selectedIds: null })}
+              onChange={(e) => update({ dateFrom: e.target.value })}
               disabled={disabled}
             />
             <span className="swp-field__hint">to</span>
@@ -115,11 +115,11 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
               aria-label="Departure to"
               value={config.dateTo}
               min={config.dateFrom || undefined}
-              onChange={(e) => update({ dateTo: e.target.value, selectedIds: null })}
+              onChange={(e) => update({ dateTo: e.target.value })}
               disabled={disabled}
             />
             {dateFilterOn && (
-              <button type="button" className="swp-link" onClick={() => update({ dateFrom: "", dateTo: "", selectedIds: null })}>
+              <button type="button" className="swp-link" onClick={() => update({ dateFrom: "", dateTo: "" })}>
                 Clear
               </button>
             )}
@@ -160,9 +160,38 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
             </div>
           )}
 
+          <label className="swp-field">
+            <span className="swp-field__label">Trip IDs</span>
+            <textarea
+              className="swp-field__input swp-ids"
+              rows={4}
+              spellCheck={false}
+              placeholder="Paste trip IDs, one per line or separated by commas. Leave empty to load the newest trips departing in the dates above."
+              value={config.idsText}
+              onChange={(e) => update({ idsText: e.target.value })}
+              disabled={disabled}
+            />
+            <span className={`swp-field__hint${unknown.length || chosen.length > max ? " swp-field__hint--error" : ""}`}>
+              {typed.length > 0
+                ? `${typed.length} ID${typed.length === 1 ? "" : "s"} entered, ${chosen.length} found in this program.${
+                    unknown.length ? ` Not found: ${unknown.slice(0, 3).join(", ")}${unknown.length > 3 ? ` and ${unknown.length - 3} more` : ""}.` : ""
+                  }`
+                : `No IDs entered: the newest ${Math.min(max, matches.length)} trip(s) departing in the dates will be loaded (up to ${max}).`}
+              {chosen.length > max && ` At most ${max} trips can be loaded at once.`}
+              {typed.length > 0 && (
+                <>
+                  {" · "}
+                  <button type="button" className="swp-link" onClick={() => update({ idsText: "" })}>
+                    Clear
+                  </button>
+                </>
+              )}
+            </span>
+          </label>
+
           <div className="swp-picker">
             <div className="swp-picker__head">
-              <span className="swp-field__label">Trips</span>
+              <span className="swp-field__label">Trips{dateFilterOn ? " departing in the chosen dates" : ""}</span>
               <input
                 className="swp-field__input swp-picker__search"
                 type="search"
@@ -170,34 +199,29 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              <span className="swp-field__hint">
-                {chosen.length} of {matches.length} selected (up to {max})
-                {" · "}
-                <button type="button" className="swp-link" onClick={() => update({ selectedIds: null })}>
-                  Newest {max}
-                </button>
-                {" · "}
-                <button type="button" className="swp-link" onClick={() => update({ selectedIds: [] })}>
-                  None
-                </button>
-              </span>
+              <span className="swp-field__hint">Click a trip id to add it to the box above.</span>
             </div>
-            <div className="swp-picker__list" role="group" aria-label="Trips">
+            <div className="swp-picker__list" role="list" aria-label="Trips">
               {listed.length === 0 && <p className="swp-card__note">No trips match.</p>}
               {listed.map((t) => (
-                <label key={t.trip_id} className="swp-picker__row">
-                  <input type="checkbox" checked={chosenIds.has(t.trip_id)} onChange={() => toggleTrip(t.trip_id)} disabled={disabled} />
+                <button
+                  key={t.trip_id}
+                  type="button"
+                  role="listitem"
+                  className="swp-picker__row swp-picker__row--button"
+                  onClick={() => addId(t.trip_id)}
+                  disabled={disabled}
+                >
                   <span className="swp-picker__id">{t.trip_id}</span>
                   <span className="swp-picker__status">{t.status}</span>
                   <span className="swp-picker__meta">Departs {formatDateTime(t.departure)}</span>
-                </label>
+                </button>
               ))}
               {matches.length > listed.length && !search && (
                 <p className="swp-card__note">Showing the first {MAX_LISTED_TRIPS}; search or set dates to narrow the list.</p>
               )}
             </div>
           </div>
-          {chosen.length > max && <p className="swp-summary swp-summary--error">At most {max} trips can be loaded at once.</p>}
         </>
       )}
     </section>
