@@ -212,11 +212,12 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
           </div>
 
           <div className="trips-tiles">
-            {tile(view === IN_TRANSIT ? "In transit trips" : "Arrived trips", String(kpis.trips))}
-            {tile("Alarmed", String(kpis.alarmed))}
-            {tile("Avg mean temp", show(kpis.avgMeanTemp, " °C"))}
-            {tile("Avg segment days", show(kpis.avgSegmentDays))}
-            {tile("Longest segment (days)", show(kpis.longestSegmentDays))}
+            {tile("Total trips", String(inDates.length))}
+            {tile("Arrived", String(counts[ARRIVED]))}
+            {tile("In transit", String(counts[IN_TRANSIT]))}
+            {tile(`Alarmed (${view === IN_TRANSIT ? "in transit" : "arrived"})`, String(kpis.alarmed))}
+            {tile(`Avg mean temp (${view === IN_TRANSIT ? "in transit" : "arrived"})`, show(kpis.avgMeanTemp, " °C"))}
+            {tile(`Avg segment days (${view === IN_TRANSIT ? "in transit" : "arrived"})`, show(kpis.avgSegmentDays))}
           </div>
 
           <div className="swp-picker__head">
