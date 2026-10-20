@@ -131,6 +131,29 @@ export default function TripInspectView({ sessionId, tripId }: TripInspectViewPr
         hovertemplate: `%{x|%d %b %Y %H:%M}<br>%{y} ${UNITS[s.sensor] ?? ""}<extra>${name}</extra>`,
       };
     });
+    // The ideal range: two dashed lines on the temperature axis, from the first to the last reading.
+    const times = series.flatMap((s) => s.x).sort();
+    const hasTemperature = series.some((s) => axisGroup(s.sensor).startsWith("Temperature"));
+    if (hasTemperature && times.length) {
+      const span = [times[0], times[times.length - 1]];
+      const limits: [string, number | null | undefined, string][] = [
+        ["Ideal min", raw?.limit_low, "#1A8F5E"],
+        ["Ideal max", raw?.limit_high, "#C62828"],
+      ];
+      for (const [label, value, color] of limits) {
+        if (value === null || value === undefined) continue;
+        data.push({
+          type: "scatter" as const,
+          mode: "lines" as const,
+          name: `${label} (${value} °C)`,
+          x: span,
+          y: [value, value],
+          yaxis: "y",
+          line: { width: 1.5, color, dash: "dash" },
+          hovertemplate: `${label}: ${value} °C<extra></extra>`,
+        } as (typeof data)[number]);
+      }
+    }
     const extraAxes = Math.max(groups.length - 2, 0);
     const layout: Record<string, unknown> = {
       height: 260,

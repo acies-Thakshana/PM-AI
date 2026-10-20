@@ -399,6 +399,9 @@ class TripRaw(BaseModel):
     route: list[MapPoint]
     start: MapPoint | None
     end: MapPoint | None
+    # The trip's ideal temperature range in degrees C (its product limits), when it has one.
+    limit_low: float | None = None
+    limit_high: float | None = None
 
 
 def _point(row) -> MapPoint:
@@ -408,11 +411,24 @@ def _point(row) -> MapPoint:
     )
 
 
+def _limits(df: pd.DataFrame, trip_id: str) -> tuple[float | None, float | None]:
+    """The trip's Limit Low / Limit High (the ideal temperature range) from the audited table."""
+    if "SWP Trip Key" not in df.columns or "Limit Low" not in df.columns:
+        return None, None
+    rows = df[df["SWP Trip Key"].astype(str).str.lower() == trip_id.lower()]
+    if "Sensor Type" in rows.columns and (rows["Sensor Type"] == "Temperature").any():
+        rows = rows[rows["Sensor Type"] == "Temperature"]
+    if rows.empty:
+        return None, None
+    return _num(rows["Limit Low"].iloc[0]), _num(rows["Limit High"].iloc[0])
+
+
 @router.get("/{session_id}/trips/{trip_id}/raw", response_model=TripRaw)
 def trip_raw(session_id: str, trip_id: str) -> TripRaw:
     """The raw sensor readings (one series per sensor and logger) and the GPS route of one trip."""
     sensors = _frame(session_id, SENSORS_FILE)
     route = _frame(session_id, ROUTE_FILE)
+    limit_low, limit_high = _limits(get_or_404(session_id).df, trip_id)
     wanted = trip_id.lower()
     trip = sensors[sensors["tripID"].astype(str).str.lower() == wanted]
     path = route[route["tripID"].astype(str).str.lower() == wanted].reset_index(drop=True)
@@ -432,4 +448,5 @@ def trip_raw(session_id: str, trip_id: str) -> TripRaw:
     return TripRaw(
         trip_id=trip_id, series=series, route=[_point(r) for _, r in thinned.iterrows()],
         start=_point(path.iloc[0]) if len(path) else None, end=_point(path.iloc[-1]) if len(path) else None,
+        limit_low=limit_low, limit_high=limit_high,
     )

@@ -96,6 +96,9 @@ export interface SwpTripRaw {
   route: SwpMapPoint[];
   start: SwpMapPoint | null;
   end: SwpMapPoint | null;
+  /** The trip's ideal temperature range (°C), when it has one. */
+  limit_low: number | null;
+  limit_high: number | null;
 }
 
 async function failure(response: Response, fallback: string): Promise<SwpApiError> {
