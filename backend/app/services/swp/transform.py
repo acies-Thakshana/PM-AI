@@ -11,6 +11,7 @@ from Fahrenheit (what the API returns) to Celsius.
 """
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from app import config
@@ -143,6 +144,14 @@ def _round(value, digits: int = 2):
     return None if value is None or pd.isna(value) else round(float(value), digits)
 
 
+def mean_kinetic_temperature(celsius: pd.Series) -> float | None:
+    """MKT in Celsius from the readings (the standard formula with delta-H/R = 10000 K)."""
+    kelvin = celsius.astype(float) + 273.15
+    if kelvin.empty:
+        return None
+    return float(10000.0 / -np.log(np.exp(-10000.0 / kelvin).mean()) - 273.15)
+
+
 def _reading_stats(values: pd.DataFrame, low, ideal, high) -> dict:
     """Mean, SD, min, max of one sensor's readings and -- for temperature, when the limits are known -- how long
     and by how many degree-minutes it was beyond each limit. Each reading counts for the time until the next one
@@ -158,11 +167,12 @@ def _reading_stats(values: pd.DataFrame, low, ideal, high) -> dict:
     temp = v["value"]
 
     def beyond(limit, above: bool):
+        # Hours are whole numbers in the export; degree-minutes keep six decimals.
         if limit is None:
             return None, None
         gap = (temp - limit) if above else (limit - temp)
         hit = gap > 0
-        return _round(minutes[hit].sum() / 60), _round((gap[hit] * minutes[hit]).sum())
+        return float(round(minutes[hit].sum() / 60)), _round((gap[hit] * minutes[hit]).sum(), 6)
 
     out["Time Below Low Hours"], out["Value Minutes Below Low"] = beyond(low, above=False)
     out["Time Below Ideal Hours"], out["Value Minutes Below Ideal"] = beyond(ideal, above=False)
@@ -172,8 +182,8 @@ def _reading_stats(values: pd.DataFrame, low, ideal, high) -> dict:
 
 
 def trip_rows(basic: dict, detail: dict, sens: pd.DataFrame, edit: dict | None = None, record: dict | None = None) -> list[dict]:
-    """The audit-table rows of one trip: one per sensor in TABLE_SENSORS that has readings (always at least one
-    row, so a trip with no readings is not lost). `edit` holds the changes made in the app (status, departure,
+    """The audit-table rows of one trip: one per logger and sensor in TABLE_SENSORS that has readings (always at
+    least one row, so a trip with no readings is not lost). `edit` holds the changes made in the app (status, departure,
     arrival), which replace what the API returned because nothing is written back to SWP; `record` is the trip's
     entry in the trip list (search result)."""
     edit = edit or {}
@@ -239,21 +249,26 @@ def trip_rows(basic: dict, detail: dict, sens: pd.DataFrame, edit: dict | None =
     }
     default_serial = (basic.get("serialNumbers") or [None])[0]
 
+    # One row per logger (serial number) and sensor, Light before Temperature -- as in the export.
     rows = []
-    for sensor in TABLE_SENSORS:
-        values = sens[sens["sensor"] == sensor] if not sens.empty else sens
-        if values.empty:
-            continue
-        row = {**common, "Sensor Type": sensor, "Serial Number": values["serialNumber"].dropna().iloc[0] if values["serialNumber"].notna().any() else default_serial}
-        if sensor == "Temperature":
-            row["Degree Unit"] = "C"
-            row["Limit Low"], row["Limit Ideal"], row["Limit High"] = limits["low"], limits["ideal"], limits["high"]
-            row.update(_reading_stats(values, limits["low"], limits["ideal"], limits["high"]))
-            row["MKT Statistics Value"] = _round(f_to_c(stats.get("mkt")))
-        else:
-            row["Degree Unit"] = "%"
-            row.update({k: v for k, v in _reading_stats(values, None, None, None).items() if k in ("Mean Value", "Min Value", "Max Value", "Standard Deviation")})
-        rows.append(row)
+    if not sens.empty:
+        sens = sens.assign(serialNumber=sens["serialNumber"].fillna(default_serial))
+    for serial in sorted(sens["serialNumber"].dropna().unique()) if not sens.empty else []:
+        for sensor in sorted(TABLE_SENSORS):
+            values = sens[(sens["serialNumber"] == serial) & (sens["sensor"] == sensor)]
+            if values.empty:
+                continue
+            row = {**common, "Sensor Type": sensor, "Serial Number": serial}
+            if sensor == "Temperature":
+                row["Degree Unit"] = "C"
+                row["Limit Low"], row["Limit Ideal"], row["Limit High"] = limits["low"], limits["ideal"], limits["high"]
+                row.update(_reading_stats(values, limits["low"], limits["ideal"], limits["high"]))
+                mkt = f_to_c(stats.get("mkt")) if stats.get("mkt") is not None else mean_kinetic_temperature(values["value"])
+                row["MKT Statistics Value"] = _round(mkt)
+            else:
+                row["Degree Unit"] = "%"
+                row.update({k: v for k, v in _reading_stats(values, None, None, None).items() if k in ("Mean Value", "Min Value", "Max Value", "Standard Deviation")})
+            rows.append(row)
     if not rows:
         # No temperature or light readings: keep the trip with its search statistics (Fahrenheit) if there are any.
         var, reading = stats.get("tempVariance") or {}, stats.get("tempReading") or {}
