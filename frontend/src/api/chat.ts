@@ -37,7 +37,7 @@ export interface ChatPlan {
 export type ChatAction =
   | { type: "set_brief"; text: string }
   | { type: "approve_plan" }
-  | { type: "navigate"; page: "upload" | "planner" | "audit" | "features" | "analysis" | "report" }
+  | { type: "navigate"; page: "upload" | "audit" | "features" | "analysis" | "report" }
   | { type: "add_analysis"; name: string; description: string }
   | { type: "add_feature"; name: string; description: string }
   | { type: "explain"; target: string }

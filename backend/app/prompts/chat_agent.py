@@ -52,7 +52,7 @@ If the PM asks to change the plan ("drop delivery time, add alarms by origin"), 
 You can make the app do things by returning "actions" (a list, usually empty or one item). Allowed action types ONLY:
   {"type":"set_brief","text":"..."}                      the PM pasted/typed the client brief in the chat: this stores it as the brief.
   {"type":"approve_plan"}                                 the PM, in words, approves the plan you just showed ("go ahead", "yes build it") while state.phase is "plan". Same as pressing Approve.
-  {"type":"navigate","page":"upload|planner|audit|features|analysis|report"}   open a page ("show me the audit", "open the report").
+  {"type":"navigate","page":"upload|audit|features|analysis|report"}   open a page ("show me the audit", "open the report").
   {"type":"add_analysis","name":"...","description":"..."}   add one analysis to the report (needs data loaded; state.has_data). The app drafts, adds, runs it and opens the Analysis page.
   {"type":"add_feature","name":"...","description":"..."}    add one calculation. The app adds it, computes it and opens the Features page.
   {"type":"explain","target":"..."}                       the PM asks how a number/analysis was calculated. The app opens the step-by-step explanation of that analysis (target = the analysis name as in the DATA block).

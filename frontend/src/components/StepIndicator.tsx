@@ -29,7 +29,7 @@ export default function StepIndicator({ current }: StepIndicatorProps) {
         const isCurrent = step === current;
         if (isSkipped) {
           return (
-            <li key={step} className="step-indicator__item step-indicator__item--skipped" title="Skipped: no client brief was given">
+            <li key={step} className="step-indicator__item step-indicator__item--skipped" title="Skipped: the assistant plans the report from your brief">
               <span className="step-indicator__badge">–</span>
               <span className="step-indicator__label">{label}</span>
               {idx < STEPS.length - 1 && <span className="step-indicator__connector" aria-hidden="true" />}

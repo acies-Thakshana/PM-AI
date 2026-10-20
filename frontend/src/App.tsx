@@ -1,4 +1,4 @@
-import { DataSourceContext, PlannerSkippedContext, hasBrief } from "./context/plannerSkipped";
+import { DataSourceContext, PlannerSkippedContext } from "./context/plannerSkipped";
 import type { DataSource } from "./context/plannerSkipped";
 import { useRef, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
@@ -59,7 +59,8 @@ function App() {
   const [reuploadingSensiwatch, setReuploadingSensiwatch] = useState(false);
   const [reuploadError, setReuploadError] = useState<string | null>(null);
 
-  const plannerSkipped = !hasBrief(brief);
+  // The assistant interviews the PM and plans the report from the brief, so the Planner page is no longer a step.
+  const plannerSkipped = true;
 
   // Always-current session ids, so an async audit/resolve/revert that finishes
   // after its file was replaced or removed can tell its result is stale and drop it.

@@ -148,7 +148,7 @@ export default function AuditPage({
       <main className="audit-page__main">
         <StepIndicator current={3} />
 
-        <PageNav position="top" onBack={() => navigate("/planner")}>
+        <PageNav position="top" onBack={() => navigate("/upload")}>
           <button type="button" className="btn btn--primary" disabled={!canContinue} onClick={() => navigate("/features")}>
             Proceed to Features
           </button>
@@ -334,7 +334,7 @@ export default function AuditPage({
           />
         )}
 
-        <PageNav position="bottom" onBack={() => navigate("/planner")}>
+        <PageNav position="bottom" onBack={() => navigate("/upload")}>
           <button type="button" className="btn btn--primary" disabled={!canContinue} onClick={() => navigate("/features")}>
             Proceed to Features
           </button>

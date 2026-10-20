@@ -101,7 +101,6 @@ export function useChat(): ChatValue {
 
 const PAGE_PATH: Record<string, string> = {
   upload: "/upload",
-  planner: "/planner",
   audit: "/audit",
   features: "/features",
   analysis: "/analysis",
@@ -260,6 +259,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     say(head + tail + " Tell me what to change, or ask whether it is ready to send.", { links });
     setLine("done", `Report ready: ${done} of ${total} analyses built.`);
     setPhase("refine");
+    navigate("/report");
   };
 
   /** Adds the approved plan's items that the Planner/Features/Analysis steps do not already have. */

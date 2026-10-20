@@ -35,7 +35,7 @@ router = APIRouter(route_class=JobRoute, prefix="/api/chat", tags=["chat"])
 INTERVIEW_DOC = "INTERVIEW"
 
 PHASES = ("interview", "readback", "plan", "build", "refine")
-PAGES = ("upload", "planner", "audit", "features", "analysis", "report")
+PAGES = ("upload", "audit", "features", "analysis", "report")
 ACTION_TYPES = (
     "set_brief", "approve_plan", "navigate", "add_analysis", "add_feature", "explain", "check_ready", "continue_build",
 )

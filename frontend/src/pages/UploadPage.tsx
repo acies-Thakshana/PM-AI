@@ -19,7 +19,6 @@ import { selectedTrips } from "../utils/swpTrips";
 import type { SwpConfigState } from "../utils/swpTrips";
 import { uploadOnly } from "../api/audit";
 import { finalizeBrief } from "../api/brief";
-import { hasBrief } from "../context/plannerSkipped";
 import type { DataSource } from "../context/plannerSkipped";
 import "./UploadPage.css";
 
@@ -140,7 +139,7 @@ export default function UploadPage({
     // planning) all over again.
     const signature = JSON.stringify([brief.rawText, brief.finalText, config.programId, config.sensors, ids, edits]);
     if (uploadedSessionIds.sensiwatch && signature === uploadedBriefSignature) {
-      navigate(hasBrief(brief) ? "/planner" : "/audit");
+      navigate("/audit");
       return;
     }
     setUploading(true);
@@ -159,7 +158,7 @@ export default function UploadPage({
       const label = new File([], loaded.filename);
       await finalizeBrief(brief, { ...files, sensiwatch: label }, [loaded.session_id]);
       onLoadComplete(loaded.session_id, label, signature);
-      navigate(hasBrief(brief) ? "/planner" : "/audit");
+      navigate("/audit");
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Could not load the trips. Is the backend running?");
     } finally {
@@ -182,7 +181,7 @@ export default function UploadPage({
     const haveSessions = AUDITED_SLOTS.some((id) => uploadedSessionIds[id]);
     const allUploaded = AUDITED_SLOTS.every((id) => !files[id] || uploadedSessionIds[id]);
     if (haveSessions && allUploaded && briefSignature === uploadedBriefSignature) {
-      navigate(hasBrief(brief) ? "/planner" : "/audit");
+      navigate("/audit");
       return;
     }
 
@@ -201,7 +200,7 @@ export default function UploadPage({
 
       onUploadComplete(sessionIds, briefSignature);
       // No client brief = nothing for the Planner to plan: go straight to the data Audit.
-      navigate(hasBrief(brief) ? "/planner" : "/audit");
+      navigate("/audit");
     } catch (err: unknown) {
       setUploadError(err instanceof Error ? err.message : "Upload failed. Is the backend running?");
     } finally {
