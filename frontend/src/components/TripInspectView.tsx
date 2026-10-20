@@ -50,6 +50,17 @@ function RouteMap({ route, start, end }: { route: SwpMapPoint[]; start: SwpMapPo
   const data = [
     { type: "scattermap", mode: "lines", lat: all.map((p) => p.lat), lon: all.map((p) => p.lng), line: { width: 3, color: CHART_PALETTE[0] }, hoverinfo: "skip", name: "Route" },
     {
+      // Every raw location point between start and end, in red (start and end are drawn on top of these).
+      type: "scattermap",
+      mode: "markers",
+      lat: all.slice(1, -1).map((p) => p.lat),
+      lon: all.slice(1, -1).map((p) => p.lng),
+      marker: { size: 6, color: END_COLOR },
+      hovertext: all.slice(1, -1).map((p) => `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}${p.time ? `<br>${p.time}` : ""}`),
+      hoverinfo: "text",
+      name: "Locations",
+    },
+    {
       type: "scattermap",
       mode: "markers+text",
       lat: ends.map((p) => p.lat),
