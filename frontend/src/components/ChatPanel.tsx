@@ -46,8 +46,9 @@ export default function ChatPanel() {
   const endRef = useRef<HTMLDivElement>(null);
   const { open, messages, busy, build, plan, phase } = chat;
 
-  // The welcome page is a landing page: the assistant starts once the PM is in the flow.
-  const hidden = location.pathname === "/";
+  // Configure (brief and data connection), Planner and Audit work as before: the assistant joins once the data
+  // is audited, for the interview, the build and the report.
+  const hidden = !["/features", "/analysis", "/report"].includes(location.pathname);
 
   useEffect(() => {
     // Push the page content aside while the panel is open so it never covers the page.

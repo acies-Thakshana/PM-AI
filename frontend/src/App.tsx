@@ -259,7 +259,6 @@ function App() {
         files={files}
         sessionId={uploadedSessionIds.sensiwatch ?? null}
         auditReport={auditReports.sensiwatch}
-        onRunAudit={() => handleRunAudit("sensiwatch")}
       >
       <Routes>
         <Route path="/" element={<WelcomePage />} />

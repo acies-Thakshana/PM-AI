@@ -8,19 +8,18 @@ import {
   saveInterview,
 } from "../api/chat";
 import type { Assumption, ChatAction, ChatPhase, ChatPlan, ChatTurnMessage, InterviewRecord, Understanding } from "../api/chat";
-import { fetchSuggestions, saveDecisions } from "../api/planner";
-import type { PlannerRecommendation, PlannerSuggestResponse, PmDecisionValue } from "../api/planner";
 import {
+  acceptAnalysisEntry,
+  acceptFeatureEntry,
   addCustomAnalysis,
   addCustomFeature,
   applyFeatures,
   draftAnalysis,
   draftCustomFeature,
   fetchAnalysisRepository,
+  fetchFeatureRepository,
   runAnalysisEntry,
   selectRequiredFeature,
-  uploadAnalysisDefinitions,
-  uploadFeatureDefinitions,
 } from "../api/audit";
 import type { AnalysisRepositoryEntry, AuditReport } from "../api/audit";
 import type { FilesState } from "../App";
@@ -113,8 +112,8 @@ const GREETING: ChatMsg = {
   id: "greeting",
   role: "assistant",
   text:
-    "Hi! Paste the client brief here (or on the Configure page) and I'll ask a few quick questions before building anything, " +
-    "so the report fits what the client actually needs. Short on time? Say \"skip the questions\" and I'll use my best guess and show you every assumption.",
+    "Hi! Your data is audited. Before I build the analyses, I'll ask a few quick questions about the client brief so the report fits what the client actually needs. " +
+    "Short on time? Say \"skip the questions\" and I'll use my best guess and show you every assumption. Or press \"Build the report\" to begin.",
 };
 
 const SKIP_REPLY = "Skip the questions, use your best guess";
@@ -149,29 +148,16 @@ function errorText(err: unknown, fallback: string): string {
   return err instanceof Error && err.message ? err.message : fallback;
 }
 
-// A feature recommendation without a formula is not listed on the Planner page, so it is never accepted here either.
-function hasFormula(rec: PlannerRecommendation): boolean {
-  if (rec.type !== "feature") return true;
-  return Boolean((rec.feature_formula_expression ?? rec.generated_feature_formula ?? "").trim());
-}
-
-interface PlannerCacheEntry {
-  result: PlannerSuggestResponse;
-  decisions: Record<number, PmDecisionValue>;
-  activeTab: "features" | "analyses";
-}
-
 interface ProviderProps {
   brief: BriefState;
   onBriefChange: (brief: BriefState) => void;
   files: FilesState;
   sessionId: string | null;
   auditReport: AuditReport | undefined;
-  onRunAudit: () => Promise<AuditReport | null>;
   children: ReactNode;
 }
 
-export function ChatProvider({ brief, onBriefChange, files, sessionId, auditReport, onRunAudit, children }: ProviderProps) {
+export function ChatProvider({ brief, onBriefChange, files, sessionId, auditReport, children }: ProviderProps) {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -186,10 +172,6 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
   const [build, setBuild] = useState<BuildState>({ status: "idle", line: "" });
   const [changes, setChanges] = useState<ChatChange[]>([]);
 
-  // The planner page keeps its suggestions and decisions in this shared store; the build writes there too so
-  // the page shows what the chat already accepted.
-  const plannerCache = useStoredRef<Map<string, PlannerCacheEntry>>("planner.cache", () => new Map());
-  const plannerInflight = useStoredRef<Map<string, Promise<PlannerSuggestResponse>>>("planner.inflight", () => new Map());
   // Analyses started here must not be started a second time by the Analysis page's own auto-run.
   const analysisStarted = useStoredRef<{ current: Set<string> }>("analysis.autoStarted", () => ({ current: new Set<string>() }));
 
@@ -280,68 +262,50 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     setPhase("refine");
   };
 
-  /** Runs the build from `from` on. Stops (paused) when the audit needs the PM's decisions. */
-  const runBuild = async (from: "start" | "after_audit") => {
+  /** Adds the approved plan's items that the Planner/Features/Analysis steps do not already have. */
+  const addPlanItems = async (sid: string): Promise<void> => {
+    const planned = interview.current?.plan;
+    if (!planned) return;
+    const [featureRepo, analysisRepo] = await Promise.all([fetchFeatureRepository(sid), fetchAnalysisRepository(sid)]);
+    const features = featureRepo.entries.filter((e) => e.status !== "rejected");
+    const analyses = analysisRepo.entries.filter((e) => e.status !== "rejected" && e.source !== "drilldown");
+    let failed = 0;
+
+    // Calculations first: the analyses may need them.
+    for (const item of planned.features) {
+      const found = features.find((e) => sameThing(e.name, item.name));
+      setLine("running", `Adding the calculation "${item.name}"…`);
+      if (found) {
+        if (found.status === "pending") await acceptFeatureEntry(sid, found.id).catch(() => (failed += 1));
+      } else if (!(await addFeatureAction(item.name, item.description, true))) failed += 1;
+    }
+    for (const item of planned.analyses) {
+      const found = analyses.find((e) => sameThing(e.name, item.name));
+      setLine("running", `Adding the analysis "${item.name}"…`);
+      if (found) {
+        if (found.status === "pending") await acceptAnalysisEntry(sid, found.id).catch(() => (failed += 1));
+      } else if (!(await addAnalysisAction(item.name, item.description, true))) failed += 1;
+    }
+    if (failed) say(`${failed} item${failed > 1 ? "s" : ""} of the plan could not be added; the review below says which.`);
+  };
+
+  /** The plan was approved after the audit: add what the plan needs, calculate, run the analyses, review. */
+  const runBuild = async () => {
     const sid = live.current.sessionId;
     if (!sid || building.current) return;
     building.current = true;
     try {
-      if (from === "start") {
-        if (interview.current && savedFor.current !== sid) {
-          await saveInterview(sid, interview.current);
-          savedFor.current = sid;
-        }
-        // 1. Planner: plan from the brief and the interview, accept everything that can be built.
-        setLine("running", "Planning: turning the brief and your answers into analyses…");
-        const uploads = [
-          live.current.files.customerKpis ? uploadFeatureDefinitions(live.current.files.customerKpis) : null,
-          live.current.files.analysisProfile ? uploadAnalysisDefinitions(live.current.files.analysisProfile) : null,
-        ].filter((u) => u !== null);
-        const request =
-          plannerInflight.get(sid) ??
-          Promise.allSettled(uploads)
-            .then(() => fetchSuggestions(sid))
-            .finally(() => plannerInflight.delete(sid));
-        plannerInflight.set(sid, request);
-        const planned = await request;
-        const decisions: Record<number, PmDecisionValue> = {};
-        planned.recommendations.forEach((rec, i) => {
-          const earlier = rec.pm_decision && rec.pm_decision !== "pending" ? rec.pm_decision : null;
-          decisions[i] = earlier ?? (hasFormula(rec) ? "accepted" : "pending");
-        });
-        await saveDecisions(
-          sid,
-          planned.recommendations.map((_, i) => ({ recommendation_index: i, pm_decision: decisions[i], pm_notes: "" }))
-        );
-        plannerCache.set(sid, { result: planned, decisions, activeTab: "features" });
-        // The planner page may still be open with its own copy of the decisions; leave it for the next step's page.
-        if (live.current.pathname === "/planner") navigate("/audit");
-
-        // 2. Audit.
-        setLine("running", "Auditing the data…");
-        const report = live.current.auditReport ?? (await onRunAudit());
-        if (!report) throw new Error("The data audit could not be run.");
-        const pending = report.issues.filter((i) => i.requires_decision && i.status === "pending");
-        if (report.status === "pending_review" && pending.length) {
-          setLine("paused_audit", `Audit done: ${report.issues.length} issues found, ${pending.length} need your decision.`);
-          say(
-            `Audit done: ${report.issues.length} issue${report.issues.length === 1 ? "" : "s"} found, ${pending.length} of them need your decision. ` +
-              "Please review them on the Audit page. I'll carry on building as soon as you're done.",
-            { links: [{ label: "Open the audit", path: "/audit" }] }
-          );
-          return;
-        }
-        say(`Audit done: ${report.issues.length} issue${report.issues.length === 1 ? "" : "s"} found, none need a decision.`);
+      if (interview.current && savedFor.current !== sid) {
+        await saveInterview(sid, interview.current);
+        savedFor.current = sid;
       }
-
-      // 3. Calculations.
+      await addPlanItems(sid);
       setLine("running", "Calculating the features…");
       try {
         await applyFeatures(sid);
       } catch (err) {
         say(`Some calculations could not be computed (${errorText(err, "unknown error")}). I'll build what I can.`);
       }
-      // 4. Analyses, 5. review.
       await finishBuild(sid);
     } catch (err) {
       setLine("error", errorText(err, "The build stopped."));
@@ -353,18 +317,9 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
 
   // The data arrived after the plan was approved: start the build.
   useEffect(() => {
-    if (sessionId && build.status === "waiting_data") void runBuild("start");
+    if (sessionId && build.status === "waiting_data") void runBuild();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, build.status]);
-
-  // The PM finished the audit decisions: carry on.
-  useEffect(() => {
-    if (build.status === "paused_audit" && auditReport?.status === "reviewed") {
-      say("Audit reviewed. Carrying on with the calculations and analyses.");
-      void runBuild("after_audit");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [build.status, auditReport?.status]);
 
   // The data loaded is a different one (new session): the old build and changes no longer apply.
   const lastSession = useRef<string | null>(sessionId);
@@ -394,7 +349,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     if (current.sessionId) {
       say(`Plan approved: ${counts}. Building now. You can keep chatting or browse the pages while I work.`);
       setLine("running", "Starting the build…");
-      void runBuild("start");
+      void runBuild();
     } else {
       say(
         `Plan approved: ${counts}. I need the data first: load the trips (or upload the files) on the Configure page and I'll start building as soon as it is in.`,
@@ -426,13 +381,13 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
   // ------------------------------------------------------------------------------------- refine actions
   const addChange = (change: Omit<ChatChange, "id" | "state">) => setChanges((prev) => [...prev, { ...change, id: nextId(), state: "added" }]);
 
-  const addAnalysisAction = async (name: string, description: string) => {
+  const addAnalysisAction = async (name: string, description: string, quiet = false): Promise<boolean> => {
     const sid = live.current.sessionId;
     if (!sid) {
       say("I need data loaded before I can add an analysis. Let's go to the Configure page first.", { links: [{ label: "Open Configure", path: "/upload" }] });
-      return;
+      return false;
     }
-    say(`Adding "${name}": drafting it, then running it…`);
+    if (!quiet) say(`Adding "${name}": drafting it, then running it…`);
     try {
       const draft = await draftAnalysis(sid, { name, description });
       const options = [draft.chart, ...draft.chart.alternatives];
@@ -455,22 +410,24 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
         return null;
       });
       addChange({ kind: "analysis", label: name, entryId: entry.id, sessionId: sid });
-      if (result?.run_status === "done") {
+      if (!quiet && result?.run_status === "done") {
         say(`I added the analysis "${name}" and ran it. Keep or undo? (See "What I changed" below.)`, { links: [{ label: "Open the analyses", path: "/analysis" }] });
       }
-      navigate("/analysis");
+      if (!quiet) navigate("/analysis");
+      return true;
     } catch (err) {
       say(`I could not add "${name}": ${errorText(err, "unknown error")}`, { error: true });
+      return false;
     }
   };
 
-  const addFeatureAction = async (name: string, description: string) => {
+  const addFeatureAction = async (name: string, description: string, quiet = false): Promise<boolean> => {
     const sid = live.current.sessionId;
     if (!sid) {
       say("I need data loaded before I can add a calculation. Let's go to the Configure page first.", { links: [{ label: "Open Configure", path: "/upload" }] });
-      return;
+      return false;
     }
-    say(`Adding the calculation "${name}"…`);
+    if (!quiet) say(`Adding the calculation "${name}"…`);
     try {
       const draft = await draftCustomFeature(sid, { name, description });
       if (draft.status !== "ok") throw new Error(draft.error ?? "the formula did not pass the check on your data");
@@ -485,15 +442,17 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       await applyFeatures(sid);
       addChange({ kind: "feature", label: name, entryId: entry.id, sessionId: sid });
       const sample = draft.preview_rows.slice(0, 3).map((row) => String(row[draft.output_column] ?? "")).filter(Boolean);
-      say(
+      if (!quiet) say(
         `I added "${name}" and computed it. In plain words: ${draft.formula_steps.length ? draft.formula_steps.join(" ") : draft.formula}` +
           (sample.length ? ` Sample values: ${sample.join(", ")}.` : "") +
           ` Keep or undo? (See "What I changed" below.)`,
         { links: [{ label: "Open the features", path: "/features" }] }
       );
-      navigate("/features");
+      if (!quiet) navigate("/features");
+      return true;
     } catch (err) {
       say(`I could not add "${name}": ${errorText(err, "unknown error")}`, { error: true });
+      return false;
     }
   };
 
@@ -584,8 +543,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
         break;
       case "continue_build": {
         const status = live.current.build.status;
-        if (status === "error" || status === "idle") void runBuild(live.current.auditReport ? "after_audit" : "start");
-        else if (status === "paused_audit") say("The audit decisions still need to be finished first.", { links: [{ label: "Open the audit", path: "/audit" }] });
+        if (status === "error" || status === "idle") void runBuild();
         break;
       }
     }
