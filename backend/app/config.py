@@ -152,12 +152,12 @@ GROQ_MODEL = os.getenv("GROQ_MODEL", "") or "llama-3.3-70b-versatile"
 GROQ_CALLS = {c.strip() for c in os.getenv("GROQ_CALLS", "*").split(",") if c.strip()}
 
 
-# OpenRouter (OpenAI-compatible API) for the calls named in OPENROUTER_CALLS (default: the chat assistant).
+# OpenRouter (OpenAI-compatible API) for the calls named in OPENROUTER_CALLS (default "*": every LLM call).
 # Needs OPENROUTER_API_KEY; without it those calls keep using whatever provider they used before.
 # OPENROUTER_MODEL is any model id from https://openrouter.ai/models.
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "") or "anthropic/claude-sonnet-4.5"
-OPENROUTER_CALLS = {c.strip() for c in os.getenv("OPENROUTER_CALLS", "chat_agent").split(",") if c.strip()}
+OPENROUTER_CALLS = {c.strip() for c in os.getenv("OPENROUTER_CALLS", "*").split(",") if c.strip()}
 
 
 def uses_openrouter(call_name: str) -> bool:
