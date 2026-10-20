@@ -12,7 +12,7 @@ import { UPLOAD_SLOTS, AUDITED_SLOTS, isAudited } from "../constants/uploadSlots
 import type { UploadSlotId } from "../types/upload";
 import type { FilesState } from "../App";
 import type { BriefState } from "../components/ClientBriefInput";
-import type { SwpTripsResponse } from "../api/swp";
+import type { SwpTripsResponse, TripEdits } from "../api/swp";
 import { selectedTrips } from "../utils/swpTrips";
 import type { SwpConfigState } from "../utils/swpTrips";
 import { uploadOnly } from "../api/audit";
@@ -45,6 +45,8 @@ interface UploadPageProps {
   onConfigChange: (config: SwpConfigState) => void;
   trips: SwpTripsResponse | null;
   onTripsChange: (trips: SwpTripsResponse | null) => void;
+  edits: TripEdits;
+  onEditsChange: (edits: TripEdits) => void;
   onSelect: (id: UploadSlotId, file: File) => void;
   onRemove: (id: UploadSlotId) => void;
   onClearAll: () => void;
@@ -64,6 +66,8 @@ export default function UploadPage({
   onConfigChange,
   trips,
   onTripsChange,
+  edits,
+  onEditsChange,
   onSelect,
   onRemove,
   onClearAll,
@@ -84,7 +88,8 @@ export default function UploadPage({
   const apiMode = dataSource === "api";
   // Only trips fetched for the program id now typed count.
   const tripsForProgram = trips && trips.program_id === config.programId.trim() ? trips : null;
-  const chosen = selectedTrips(tripsForProgram, config);
+  // Only arrived trips go on (counting status changes made here).
+  const chosen = selectedTrips(tripsForProgram, config, edits);
   const apiReady =
     !!tripsForProgram && chosen.length > 0 && chosen.length <= tripsForProgram.max_trips &&
     config.sensors.some((s) => s === "Temperature" || s === "Light");
@@ -259,6 +264,8 @@ export default function UploadPage({
             onConfigChange={onConfigChange}
             trips={trips}
             onTripsChange={onTripsChange}
+            edits={edits}
+            onEditsChange={onEditsChange}
             disabled={uploading}
           />
         )}
@@ -269,7 +276,7 @@ export default function UploadPage({
               <IconChevronLeft /> Back
             </button>
             <span className="upload-page__count">
-              {apiMode ? `${chosen.length} trip(s) selected` : `${selectedCount} of ${UPLOAD_SLOTS.length} files selected`}
+              {apiMode ? `${chosen.length} arrived trip(s) selected` : `${selectedCount} of ${UPLOAD_SLOTS.length} files selected`}
             </span>
           </div>
           {buttons}

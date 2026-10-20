@@ -1,5 +1,6 @@
-"""Trip data from the SWP (SensiWatch) API: the list of all trips of a program, loading chosen trips into
-an audit session, and the per-trip numbers, raw sensor readings and GPS route the Data Audit shows.
+"""Trip data from the SWP (SensiWatch) API: syncing every trip of a program into the raw store (services/swp/preprocess.py),
+loading chosen ARRIVED trips into an audit session, and the per-trip numbers, raw sensor readings and GPS route the
+Data Audit shows.
 Nothing is written back to SWP (see the commented-out update_trip in services/swp/client.py)."""
 import io
 import uuid
@@ -7,7 +8,6 @@ from datetime import datetime, timezone
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from app import config
@@ -21,7 +21,6 @@ router = APIRouter(route_class=JobRoute, prefix="/api/swp", tags=["swp"])
 
 SENSORS_FILE = "swp_sensors.parquet"
 ROUTE_FILE = "swp_route.parquet"
-RAW_FILE = "swp_raw.zip"   # the raw API responses, one JSON per trip
 # The session's "file name": the Audit page shows it where an upload's file name used to be.
 SOURCE_NAME = "SWP API trips"
 MAX_MAP_POINTS = 600
@@ -43,15 +42,22 @@ def _swp_call(fn, *args):
 
 
 class TripSummary(BaseModel):
-    trip_id: str
+    trip_id: str                 # the SWP trip GUID
+    number: str | None = None    # the numeric Trip ID of the export
     status: str
-    departure: str | None = None
+    departure: str | None = None  # UTC
     arrival: str | None = None
     created: str | None = None
     updated: str | None = None
     alarmed: bool | None = None
     template: str | None = None
     trailer_id: str | None = None
+    product: str | None = None
+    origin: str | None = None
+    destination: str | None = None
+    carrier: str | None = None
+    mean_temp: float | None = None      # Celsius
+    segment_days: float | None = None
 
 
 class TripsResponse(BaseModel):
@@ -60,37 +66,48 @@ class TripsResponse(BaseModel):
     status_counts: dict[str, int]
     max_trips: int
     trips: list[TripSummary]
-    # The field names of a list record, so a missing departure date can be traced to the API's naming.
+    # The field names of a list record, so a missing field can be traced to the API's naming.
     sample_fields: list[str]
-    # When the list was fetched from SWP, and whether this answer reused that earlier fetch.
+    # When the trip list was fetched from SWP, and whether this answer reused that earlier fetch.
     fetched_at: str
     from_cache: bool
 
 
 @router.get("/trips", response_model=TripsResponse)
 def list_all_trips(program_id: str = "", refresh: bool = False, progress_id: str = "") -> TripsResponse:
-    """Step 1: every trip of the program. The list fetched earlier is reused (it is kept on disk) unless
-    `refresh`. The program id defaults to SWP_PROGRAM_ID."""
+    """Step 1: EVERY trip of the program, each with its numbers. The trip list and the raw data of every trip are
+    kept in the store; what is stored and still current is reused, so only the first call (or `refresh`, for trips
+    that changed) asks SWP. The program id defaults to SWP_PROGRAM_ID."""
     program = program_id.strip() or config.SWP_PROGRAM_ID
     _guard(program)
-    progress.start(progress_id, label="Fetching the trip list")
-    records, fetched_at, from_cache = _swp_call(client.all_trips_info, program, refresh)
+    progress.start(progress_id, label="Fetching all trips")
+    records_list, fetched_at, from_cache = _swp_call(client.all_trips_info, program, refresh)
+    records = {r["tripID"]: r for r in records_list}
+    # The calls still to make (the trip detail of every trip not in the store) count toward the total.
+    ids = list(records)
+    progress.add_total(preprocess.expected_calls(ids, records, preprocess.stored_payloads(program, ids, records)))
+    payloads, table = _swp_call(preprocess.sync_program, program, records, client.get_token)
     progress.finish()
-    trips = [
-        TripSummary(
-            trip_id=r["tripID"], status=client.status_name(r), departure=client.departure_of(r),
-            arrival=client.arrival_of(r), created=r.get("createDate"), updated=r.get("lastUpdatedDate"),
-            alarmed=r.get("alarmed"), template=r.get("templateName"), trailer_id=r.get("trailerID"),
-        )
-        for r in records
-    ]
+    kpis = preprocess.trip_kpis(table)
+    trips = []
+    for p in payloads:
+        r, k = p["record"], kpis.get(p["detail"].get("tripID") or p["tripID"], {})
+        departure, arrival = preprocess.trip_times(p)
+        trips.append(TripSummary(
+            trip_id=p["tripID"], number=k.get("number"), status=client.status_name(r), departure=departure, arrival=arrival,
+            created=r.get("createDate"), updated=r.get("lastUpdatedDate"),
+            alarmed=k["alarmed"] if k.get("alarmed") is not None else r.get("alarmed"),
+            template=r.get("templateName"), trailer_id=r.get("trailerID"), product=k.get("product"),
+            origin=k.get("origin"), destination=k.get("destination"), carrier=k.get("carrier"),
+            mean_temp=k.get("mean_temp"), segment_days=k.get("segment_days"),
+        ))
     trips.sort(key=lambda t: t.updated or "", reverse=True)
     counts: dict[str, int] = {}
     for t in trips:
         counts[t.status] = counts.get(t.status, 0) + 1
     return TripsResponse(
         program_id=program, total=len(trips), status_counts=counts, max_trips=config.SWP_MAX_TRIPS,
-        trips=trips, sample_fields=client.record_fields(records[0]) if records else [],
+        trips=trips, sample_fields=client.record_fields(records_list[0]) if records_list else [],
         fetched_at=datetime.fromtimestamp(fetched_at, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), from_cache=from_cache,
     )
 
@@ -152,9 +169,20 @@ def load_trips(body: LoadRequest) -> LoadResponse:
             detail=f"At most {config.SWP_MAX_TRIPS} trips can be loaded at once (each takes an API call or two).",
         )
 
-    # The raw API responses: arrived trips fetched before come from the cache, the rest from the API.
+    # Only arrived trips are analysed: a trip still on its way keeps changing. Status changes made in the app count.
     records = {tid: by_lower[tid.lower()] for tid in ids}
-    saved = preprocess.cached_payloads(program, ids, records)
+    not_arrived = [
+        tid for tid in ids
+        if (body.edits.get(tid) and body.edits[tid].status or client.status_name(records[tid])) != "Arrived"
+    ]
+    if not_arrived:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Only arrived trips can be loaded. Not arrived: {', '.join(not_arrived[:3])}{' ...' if len(not_arrived) > 3 else ''}",
+        )
+
+    # The raw data comes from the store (the trips were synced when the list was fetched); anything missing is fetched.
+    saved = preprocess.stored_payloads(program, ids, records)
     expected = preprocess.expected_calls(ids, records, saved)
     progress.start(body.progress_id, total=expected, label="Loading trip data")
     token = _swp_call(client.get_token) if expected else ""
@@ -176,7 +204,6 @@ def load_trips(body: LoadRequest) -> LoadResponse:
         pass
     _save_frame(session.session_id, SENSORS_FILE, sensors)
     _save_frame(session.session_id, ROUTE_FILE, route)
-    file_store.put(session.session_id, RAW_FILE, preprocess.raw_zip(trips_data, program), "application/zip")
     audit_log.log_event(
         session.session_id, session.user_id, "swp_load",
         {"program": program, "trips": len(ids), "rows": len(agg), "sensor_readings": len(sensors),
@@ -203,33 +230,6 @@ def get_progress(progress_id: str) -> ProgressResponse:
     if p is None:
         return ProgressResponse(done=0, total=0, label="", finished=False)
     return ProgressResponse(done=p.done, total=p.total, label=p.label, finished=p.finished)
-
-
-XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-
-
-@router.get("/{session_id}/export/aggregate")
-def export_aggregate(session_id: str):
-    """The aggregate file: the session's current (audited) trip table as 'Tabular Shipment Data.xlsx', in the
-    SensiWatch export's columns and header texts."""
-    session = get_or_404(session_id)
-    return Response(
-        content=preprocess.excel_bytes(session.df), media_type=XLSX_TYPE,
-        headers={"Content-Disposition": f'attachment; filename="{preprocess.AGGREGATE_FILE}"'},
-    )
-
-
-@router.get("/{session_id}/export/raw")
-def export_raw(session_id: str):
-    """The raw API responses of the session's trips: one JSON per trip in a zip (what SWP returned, unchanged)."""
-    get_or_404(session_id)
-    content = file_store.get(session_id, RAW_FILE)
-    if content is None:
-        raise HTTPException(status_code=404, detail="No raw data is stored for this session.")
-    return Response(
-        content=content, media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{preprocess.RAW_ARCHIVE}"'},
-    )
 
 
 def _frame(session_id: str, name: str) -> pd.DataFrame:

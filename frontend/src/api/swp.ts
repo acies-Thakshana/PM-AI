@@ -4,6 +4,8 @@ export class SwpApiError extends Error {}
 
 export interface SwpTrip {
   trip_id: string;
+  /** The numeric Trip ID of the SensiWatch export. */
+  number: string | null;
   status: string;
   departure: string | null;
   arrival: string | null;
@@ -12,6 +14,13 @@ export interface SwpTrip {
   alarmed: boolean | null;
   template: string | null;
   trailer_id: string | null;
+  product: string | null;
+  origin: string | null;
+  destination: string | null;
+  carrier: string | null;
+  /** Celsius, from the trip's temperature readings. */
+  mean_temp: number | null;
+  segment_days: number | null;
 }
 
 export interface SwpTripsResponse {

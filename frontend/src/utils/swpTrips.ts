@@ -41,19 +41,53 @@ export function parseTripIds(text: string): string[] {
 
 /** Typed IDs that the program has no trip for. */
 export function unknownTripIds(data: SwpTripsResponse | null, config: SwpConfigState): string[] {
-  const known = new Set((data?.trips ?? []).map((t) => t.trip_id.toLowerCase()));
+  const known = new Set((data?.trips ?? []).flatMap((t) => [t.trip_id.toLowerCase(), String(t.number ?? "")]));
   return parseTripIds(config.idsText).filter((id) => !known.has(id.toLowerCase()));
 }
 
-/** The trips that will be loaded: the typed IDs (whatever their dates), else the newest matching ones up to the limit. */
-export function selectedTrips(data: SwpTripsResponse | null, config: SwpConfigState): SwpTrip[] {
+/** The trips that will be loaded: the typed IDs (whatever their dates), else every trip departing in the chosen dates;
+ * of those, only the ARRIVED ones (a trip still on its way keeps changing), counting status changes made in the app. */
+export function selectedTrips(data: SwpTripsResponse | null, config: SwpConfigState, edits: TripEdits = {}): SwpTrip[] {
   const ids = parseTripIds(config.idsText);
+  let pool: SwpTrip[];
   if (ids.length > 0) {
     const byId = new Map((data?.trips ?? []).map((t) => [t.trip_id.toLowerCase(), t]));
-    return ids.map((id) => byId.get(id.toLowerCase())).filter((t): t is SwpTrip => t !== undefined);
+    const byNumber = new Map((data?.trips ?? []).filter((t) => t.number).map((t) => [String(t.number), t]));
+    pool = ids.map((id) => byId.get(id.toLowerCase()) ?? byNumber.get(id)).filter((t): t is SwpTrip => t !== undefined);
+  } else {
+    pool = matchingTrips(data, config);
   }
-  const matches = matchingTrips(data, config);
-  return matches.slice(0, data?.max_trips ?? matches.length);
+  return pool.map((t) => withEdit(t, edits)).filter((t) => t.status === ARRIVED);
+}
+
+export const ARRIVED = "Arrived";
+export const IN_TRANSIT = "InTransit";
+
+/** The trips departing in the chosen dates that are in `status`, with the changes made in the app laid over. */
+export function tripsInView(data: SwpTripsResponse | null, config: SwpConfigState, edits: TripEdits, status: string) {
+  return matchingTrips(data, config).map((t) => withEdit(t, edits)).filter((t) => t.status === status);
+}
+
+export interface TripKpis {
+  trips: number;
+  alarmed: number;
+  avgMeanTemp: number | null;
+  avgSegmentDays: number | null;
+  longestSegmentDays: number | null;
+}
+
+const average = (values: number[]) => (values.length ? Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 100) / 100 : null);
+
+export function kpisOf(trips: SwpTrip[]): TripKpis {
+  const temps = trips.map((t) => t.mean_temp).filter((v): v is number => v != null);
+  const days = trips.map((t) => t.segment_days).filter((v): v is number => v != null);
+  return {
+    trips: trips.length,
+    alarmed: trips.filter((t) => t.alarmed).length,
+    avgMeanTemp: average(temps),
+    avgSegmentDays: average(days),
+    longestSegmentDays: days.length ? Math.max(...days) : null,
+  };
 }
 
 /** A trip with the changes made in the app laid over what SWP returned. */

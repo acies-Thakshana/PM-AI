@@ -53,7 +53,8 @@ export default function TripsPage({
   const [progressId, setProgressId] = useState<string | null>(null);
 
   // The trips chosen on the Configure page, with the changes made here laid over what SWP returned.
-  const rows = useMemo(() => selectedTrips(trips, config).map((t) => withEdit(t, edits)), [trips, config, edits]);
+  // Only arrived trips are loaded, so these are the trips that will be.
+  const rows = useMemo(() => selectedTrips(trips, config, edits).map((t) => withEdit(t, edits)), [trips, config, edits]);
 
   const counts = useMemo(() => {
     const byStatus: Record<string, number> = {};
@@ -147,7 +148,7 @@ export default function TripsPage({
         <main className="trips-page__main">
           <StepIndicator current={2} />
           <div className="trips-page__empty">
-            <p>{trips ? "No trips are selected." : "No trips have been fetched yet."}</p>
+            <p>{trips ? "No arrived trips are selected." : "No trips have been fetched yet."}</p>
             <button type="button" className="btn btn--primary" onClick={() => navigate("/upload")}>
               Go to Configure
             </button>
@@ -183,7 +184,7 @@ export default function TripsPage({
         <PageHeader
           icon={<IconLayers />}
           title="Trips"
-          subtitle="The trips you chose, by status. Mark an in-transit trip as arrived, or change a departure or arrival time: the change is made here and carried into the audit; it is not sent to SWP."
+          subtitle="The arrived trips that will be loaded. Change a departure or arrival time if needed: the change is made here and carried into the audit; it is not sent to SWP."
         />
 
         {error && <div className="trips-page__error">{error}</div>}
@@ -245,7 +246,7 @@ export default function TripsPage({
                 const edit = edits[r.trip_id];
                 return (
                   <tr key={r.trip_id} className={r.edited ? "trips-table__row--edited" : undefined}>
-                    <td className="trips-table__id">{r.trip_id}</td>
+                    <td className="trips-table__id" title={r.trip_id}>{r.number ?? r.trip_id}</td>
                     <td>
                       <span className={`trips-status trips-status--${r.status.toLowerCase()}`}>{r.status}</span>
                       {edit?.status && <span className="trips-edited"> edited</span>}

@@ -1,11 +1,15 @@
-"""A small on-disk cache of what the SWP API returned, so the same program's data is not fetched again.
+"""The SWP data store: what the API returned, kept on disk per program (data/swp_cache/<program>/, gitignored).
 
-  * the list of all trips of a program (one file per program), reused until someone asks to refresh it;
-  * the basic + detail JSON of an ARRIVED trip (one file per trip) -- an arrived trip no longer changes, so it
-    is never fetched twice. Trips in any other status always come from the API;
+  * trips.json              the list of all trips of the program, reused until someone asks to refresh it;
+  * trips/<trip guid>.json  the RAW payload of each trip -- {tripID, record, basic, detail}, exactly as the API
+                            returned it (the detail carries the sensor readings and the GPS route). This is the source
+                            of truth: the aggregate is rebuilt from these files, the API is not asked again;
+  * Tabular Shipment Data.xlsx   the aggregate of all stored trips, in the SensiWatch export's columns, written
+                            whenever the program is synced.
 
-Edits made in the app are never stored here: they are laid over the raw API data on every load.
-Files live under data/swp_cache/ (gitignored) as JSON; a file that cannot be read is treated as missing.
+A stored trip is reused while it is still current: an arrived trip never changes, any other trip is current while its
+`lastUpdatedDate` in the trip list is the one stored. Edits made in the app are never stored here.
+A file that cannot be read is treated as missing; SWP_CACHE=0 turns the store off.
 """
 from __future__ import annotations
 
@@ -64,10 +68,26 @@ def save_trips(program_id: str, trips: list[dict]) -> float:
 
 
 def load_trip(program_id: str, trip_id: str) -> dict | None:
-    """{"basic": ..., "detail": ...} of an arrived trip, or None."""
+    """The raw payload {tripID, record, basic, detail} stored for a trip, or None."""
     return _read(_path(program_id, "trips", f"{trip_id}.json")) if enabled() else None
 
 
-def save_trip(program_id: str, trip_id: str, basic: dict, detail: dict) -> None:
+def save_trip(program_id: str, trip_id: str, payload: dict) -> None:
     if enabled():
-        _write(_path(program_id, "trips", f"{trip_id}.json"), {"basic": basic, "detail": detail})
+        _write(_path(program_id, "trips", f"{trip_id}.json"), payload)
+
+
+def aggregate_path(program_id: str) -> Path:
+    return _path(program_id).with_name(_SAFE.sub("_", program_id or "default")) / "Tabular Shipment Data.xlsx"
+
+
+def write_bytes(path: Path, data: bytes) -> None:
+    """Write a derived file (the aggregate Excel); like everything here, a failure is logged, not raised."""
+    if not enabled():
+        return
+    try:
+        with _lock:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("could not write %s: %s", path, exc)

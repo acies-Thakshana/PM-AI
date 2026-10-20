@@ -17,7 +17,6 @@ import type { SwpTimesResult } from "../api/swp";
 import { DataSourceContext } from "../context/plannerSkipped";
 import { IconShieldSearch, IconDownload } from "../components/icons";
 import { downloadCleansedFile } from "../api/audit";
-import { downloadFile } from "../api/apiFetch";
 import { resetDownstreamState, useStoredState } from "../state/sessionStore";
 import { AUDITED_SLOTS, UPLOAD_SLOTS } from "../constants/uploadSlots";
 import type { UploadSlotId } from "../types/upload";
@@ -188,32 +187,6 @@ export default function AuditPage({
 
               {id === WIZARD_SLOT ? (
                 <>
-                  {apiSource && (
-                    <div className="audit-page__row-actions">
-                      <a
-                        className="audit-page__download-link"
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          downloadFile(`/api/swp/${uploadedSessionIds[id]}/export/aggregate`, "Tabular Shipment Data.xlsx").catch((err) => window.alert(err instanceof Error ? err.message : "Download failed."));
-                        }}
-                      >
-                        <IconDownload />
-                        Aggregate file (Excel)
-                      </a>
-                      <a
-                        className="audit-page__download-link"
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          downloadFile(`/api/swp/${uploadedSessionIds[id]}/export/raw`, "SWP raw data.zip").catch((err) => window.alert(err instanceof Error ? err.message : "Download failed."));
-                        }}
-                      >
-                        <IconDownload />
-                        Raw data (JSON per trip, zip)
-                      </a>
-                    </div>
-                  )}
                   {apiSource && (
                     <Collapsible label="trips (mean temperature, segment days, inspect)" defaultOpen>
                       <TripInspectTable

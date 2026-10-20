@@ -262,6 +262,8 @@ function App() {
               onConfigChange={setSwpConfig}
               trips={swpTrips}
               onTripsChange={setSwpTrips}
+              edits={tripEdits}
+              onEditsChange={setTripEdits}
               onSelect={handleSelect}
               onRemove={handleRemove}
               onClearAll={handleClearAll}

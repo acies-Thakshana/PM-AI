@@ -69,8 +69,8 @@ SWP_CLIENT_SECRET = os.getenv("SWP_CLIENT_SECRET", "secret")
 SWP_CALL_DELAY_SECONDS = float(os.getenv("SWP_CALL_DELAY_SECONDS", "2.5"))
 # How long the fetched list of all trips is reused before it is fetched again.
 SWP_TRIPS_CACHE_SECONDS = int(os.getenv("SWP_TRIPS_CACHE_SECONDS", "600"))
-# Most trips one "Load" may pull in detail (each trip costs two API calls).
-SWP_MAX_TRIPS = int(os.getenv("SWP_MAX_TRIPS", "50"))
+# Most trips one "Load" may put into an audit session (they are read from the store, not fetched).
+SWP_MAX_TRIPS = int(os.getenv("SWP_MAX_TRIPS", "500"))
 
 
 # =====================================================================================

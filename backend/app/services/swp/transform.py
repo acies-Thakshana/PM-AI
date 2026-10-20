@@ -112,7 +112,7 @@ def sensor_frame(detail: dict) -> pd.DataFrame:
     df = pd.DataFrame(rows, columns=["serialNumber", "sensor", "dateTime", "value"])
     if not df.empty:
         df["dateTime"] = to_naive_utc(df["dateTime"])
-        df["value"] = pd.to_numeric(df["value"], errors="coerce")
+        df["value"] = pd.to_numeric(df["value"], errors="coerce").astype(float)
         df = df.dropna(subset=["dateTime", "value"]).sort_values(["serialNumber", "dateTime", "sensor"])
         df = df.reset_index(drop=True)
         is_temp = df["sensor"].isin(TEMPERATURE_SENSORS)
