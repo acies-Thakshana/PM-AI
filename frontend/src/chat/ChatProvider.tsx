@@ -112,7 +112,7 @@ const GREETING: ChatMsg = {
   id: "greeting",
   role: "assistant",
   text:
-    "Hi! Your data is audited. Before I build the analyses, I'll ask a few quick questions about the client brief so the report fits what the client actually needs. " +
+    "Hi! Before I build the analyses, I'll ask a few quick questions about the client brief so the report fits what the client actually needs. " +
     "Short on time? Say \"skip the questions\" and I'll use my best guess and show you every assumption. Or press \"Build the report\" to begin.",
 };
 
@@ -293,6 +293,18 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
   const runBuild = async () => {
     const sid = live.current.sessionId;
     if (!sid || building.current) return;
+    // Features and analyses are built on the audited data: wait until the PM has made the audit decisions
+    // (a decision changes the data and would throw the build away).
+    const report = live.current.auditReport;
+    if (report?.status !== "reviewed") {
+      const pending = (report?.issues ?? []).filter((i) => i.requires_decision && i.status === "pending").length;
+      setLine("paused_audit", pending ? `Waiting for your ${pending} audit decision${pending > 1 ? "s" : ""}.` : "Waiting for the data audit to finish.");
+      say(
+        "Your plan is saved. I'll start building as soon as the audit decisions are done" + (pending ? ` (${pending} still open).` : "."),
+        { links: [{ label: "Open the audit", path: "/audit" }] }
+      );
+      return;
+    }
     building.current = true;
     try {
       if (interview.current && savedFor.current !== sid) {
@@ -321,6 +333,16 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, build.status]);
 
+  // The PM finished the audit decisions: the saved plan is built now.
+  useEffect(() => {
+    if (build.status === "paused_audit" && auditReport?.status === "reviewed") {
+      say("Audit reviewed. Building now.");
+      setLine("running", "Starting the build…");
+      void runBuild();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [build.status, auditReport?.status]);
+
   // The data loaded is a different one (new session): the old build and changes no longer apply.
   const lastSession = useRef<string | null>(sessionId);
   useEffect(() => {
@@ -347,7 +369,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     setQuickReplies([]);
     const counts = `${current.plan.analyses.length} analyses and ${current.plan.features.length} calculations`;
     if (current.sessionId) {
-      say(`Plan approved: ${counts}. Building now. You can keep chatting or browse the pages while I work.`);
+      say(`Plan approved: ${counts}. You can keep chatting or browse the pages while I work.`);
       setLine("running", "Starting the build…");
       void runBuild();
     } else {

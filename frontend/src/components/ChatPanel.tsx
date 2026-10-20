@@ -46,9 +46,9 @@ export default function ChatPanel() {
   const endRef = useRef<HTMLDivElement>(null);
   const { open, messages, busy, build, plan, phase } = chat;
 
-  // Configure (brief and data connection), Planner and Audit work as before: the assistant joins once the data
-  // is audited, for the interview, the build and the report.
-  const hidden = !["/features", "/analysis", "/report"].includes(location.pathname);
+  // Configure (brief and data connection) and Planner work as before: the assistant joins at the audit, for the
+  // interview, the build (once the audit decisions are done) and the report.
+  const hidden = !["/audit", "/features", "/analysis", "/report"].includes(location.pathname);
 
   useEffect(() => {
     // Push the page content aside while the panel is open so it never covers the page.
