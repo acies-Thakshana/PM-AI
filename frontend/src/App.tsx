@@ -18,6 +18,8 @@ import { EMPTY_BRIEF } from "./components/ClientBriefInput";
 import type { BriefState } from "./components/ClientBriefInput";
 import type { SwpTimesResult, SwpTripsResponse, TripEdits } from "./api/swp";
 import { EMPTY_SWP_CONFIG } from "./utils/swpTrips";
+import { ChatProvider } from "./chat/ChatProvider";
+import ChatPanel from "./components/ChatPanel";
 import type { SwpConfigState } from "./utils/swpTrips";
 
 export type FilesState = Record<UploadSlotId, File | null>;
@@ -102,21 +104,25 @@ function App() {
     setResolvingIssueId({});
   };
 
-  const handleRunAudit = async (id: UploadSlotId) => {
+  // Resolves to the report (null when the audit failed or its file was replaced meanwhile) so the assistant's
+  // build can carry on from it.
+  const handleRunAudit = async (id: UploadSlotId): Promise<AuditReportData | null> => {
     const sessionId = uploadedSessionIds[id];
-    if (!sessionId) return;
+    if (!sessionId) return null;
     setAuditLoading((prev) => ({ ...prev, [id]: true }));
     setAuditErrors((prev) => ({ ...prev, [id]: undefined }));
     try {
       const report = await runAudit(sessionId);
-      if (sessionIdsRef.current[id] !== sessionId) return;
+      if (sessionIdsRef.current[id] !== sessionId) return null;
       setAuditReports((prev) => ({ ...prev, [id]: report }));
+      return report;
     } catch (err) {
-      if (sessionIdsRef.current[id] !== sessionId) return;
+      if (sessionIdsRef.current[id] !== sessionId) return null;
       setAuditErrors((prev) => ({
         ...prev,
         [id]: err instanceof AuditApiError ? err.message : "Could not run the data audit. Is the backend running?",
       }));
+      return null;
     } finally {
       setAuditLoading((prev) => ({ ...prev, [id]: false }));
     }
@@ -247,6 +253,14 @@ function App() {
     <BrowserRouter>
       <DataSourceContext.Provider value={dataSource}>
       <PlannerSkippedContext.Provider value={plannerSkipped}>
+      <ChatProvider
+        brief={brief}
+        onBriefChange={setBrief}
+        files={files}
+        sessionId={uploadedSessionIds.sensiwatch ?? null}
+        auditReport={auditReports.sensiwatch}
+        onRunAudit={() => handleRunAudit("sensiwatch")}
+      >
       <Routes>
         <Route path="/" element={<WelcomePage />} />
         <Route
@@ -303,6 +317,8 @@ function App() {
         <Route path="/report" element={<ReportPage files={files} auditReports={auditReports} />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <ChatPanel />
+      </ChatProvider>
       </PlannerSkippedContext.Provider>
       </DataSourceContext.Provider>
     </BrowserRouter>

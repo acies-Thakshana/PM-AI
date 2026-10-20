@@ -204,6 +204,9 @@ MODEL_BY_CALL: dict[str, str] = {
     "drilldown_agent": _D,
     "drilldown_agent_more": _D,
 
+    # -- Chat assistant: the PM interview and the refine-by-conversation turns ---------------
+    "chat_agent": _D,
+
     # -- Summaries -----------------------------------------------------------------------------
     "audit_agent": _C,
     "overall_analysis_agent": _C,

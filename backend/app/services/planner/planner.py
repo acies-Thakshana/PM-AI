@@ -64,15 +64,45 @@ def _build_columns_block(col_meta: dict, row_count: int) -> str:
     return "\n".join(lines)
 
 
+def _interview_block(session_id: str) -> str:
+    """The PM interview saved by the chat (what was clarified, what was assumed, the plan the PM approved), as
+    prompt text; empty when there was no interview."""
+    rec = doc_store.get(session_id, "INTERVIEW")
+    if not isinstance(rec, dict):
+        return ""
+    lines: list[str] = []
+    labels = {"goal": "Goal", "scope": "Scope", "period": "Period", "limits": "Limits and definitions",
+              "output": "Output", "kpis": "Client KPI definitions"}
+    for key, label in labels.items():
+        if (rec.get("understanding") or {}).get(key):
+            lines.append(f"- {label}: {rec['understanding'][key]}")
+    for a in rec.get("assumptions") or []:
+        lines.append(f"- Assumption (not confirmed by the client): {a.get('text', '')}")
+    plan = rec.get("plan") or {}
+    for key, title in (("analyses", "Analyses"), ("features", "Calculations")):
+        items = plan.get(key) or []
+        if items:
+            lines.append(f"{title} the PM approved (include each one, choosing the columns and formula yourself):")
+            lines.extend(f"  * {i.get('name', '')}: {i.get('description', '')}" for i in items)
+    if not lines:
+        return ""
+    return (
+        "PM INTERVIEW (the PM clarified the brief; follow these answers and make sure every approved item "
+        "below is covered, adding anything else the brief clearly needs):\n" + "\n".join(lines)
+    )
+
+
 def _build_user_prompt(
     final_brief: str,
     columns_block: str,
     catalog_block: str,
     additional_context: str = "",
+    interview_block: str = "",
 ) -> str:
     extra = f"\n\nADDITIONAL PM REQUEST:\n{additional_context}" if additional_context.strip() else ""
+    interview = f"\n\n{interview_block}" if interview_block else ""
     return (
-        f"CLIENT BRIEF (English):\n{final_brief}\n\n"
+        f"CLIENT BRIEF (English):\n{final_brief}{interview}\n\n"
         f"COLUMN CATALOG:\n{columns_block}\n\n"
         f"EXISTING DEFINITIONS (check these before proposing anything new):\n{catalog_block or 'None'}"
         f"{extra}\n\n"
@@ -124,7 +154,9 @@ def suggest(session_id: str, additional_context: str = "") -> dict:
     context = planner_dependencies.build_context(session_id)
     catalog_block = planner_dependencies.render_context(context)
 
-    user_prompt = _build_user_prompt(final_brief, columns_block, catalog_block, additional_context)
+    user_prompt = _build_user_prompt(
+        final_brief, columns_block, catalog_block, additional_context, _interview_block(session_id)
+    )
 
     raw = llm.chat_json(
         llm.system_prompt("planner_agent", _SYSTEM_PROMPT), user_prompt,
