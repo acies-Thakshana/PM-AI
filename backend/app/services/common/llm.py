@@ -30,10 +30,13 @@ from app.config import (
     NOVA_MAX_OUTPUT_TOKENS,
     GROQ_API_KEY,
     GROQ_MODEL,
+    OPENROUTER_API_KEY,
+    OPENROUTER_MODEL,
     PROMPT_CACHE_SECONDS,
     PROMPTS_BEDROCK_ONLY,
     model_for,
     uses_groq,
+    uses_openrouter,
 )
 from app.services.common import aws_clients, prompt_files, token_usage
 
@@ -138,6 +141,37 @@ def _groq(system_prompt: str, user_prompt: str, temperature: float, max_tokens: 
     return (choice.get("message") or {}).get("content") or "", stop
 
 
+def _openrouter(system_prompt: str, user_prompt: str, temperature: float, max_tokens: int, call_name: str) -> tuple[str, str | None]:
+    """One OpenRouter chat-completions call (OpenAI-compatible). Returns (text, stopReason) like _converse."""
+    import requests
+
+    body = {
+        "model": OPENROUTER_MODEL,
+        "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    response = requests.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}", "X-Title": "Program Manager AI"},
+        json=body,
+        timeout=90,
+    )
+    if response.status_code != 200:
+        raise LLMError(f"{call_name}: OpenRouter returned {response.status_code}: {response.text[:300]}")
+    data = response.json()
+    if data.get("error"):
+        raise LLMError(f"{call_name}: OpenRouter error: {str(data['error'])[:300]}")
+    usage = data.get("usage") or {}
+    token_usage.record(call_name, OPENROUTER_MODEL, {
+        "inputTokens": usage.get("prompt_tokens", 0), "outputTokens": usage.get("completion_tokens", 0),
+        "totalTokens": usage.get("total_tokens", 0),
+    })
+    choice = (data.get("choices") or [{}])[0]
+    stop = "max_tokens" if choice.get("finish_reason") == "length" else choice.get("finish_reason")
+    return (choice.get("message") or {}).get("content") or "", stop
+
+
 def _converse(
     system_prompt: str,
     user_prompt: str,
@@ -147,6 +181,8 @@ def _converse(
     call_name: str,
 ) -> tuple[str, str | None]:
     """One Converse call. Returns (text, stopReason)."""
+    if uses_openrouter(call_name):
+        return _openrouter(system_prompt, user_prompt, temperature, max_tokens, call_name)
     if uses_groq(call_name):
         return _groq(system_prompt, user_prompt, temperature, max_tokens, call_name)
     if "amazon.nova" in model:
