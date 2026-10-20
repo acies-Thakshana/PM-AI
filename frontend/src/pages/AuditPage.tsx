@@ -130,7 +130,7 @@ export default function AuditPage({
       <div className="audit-page">
         <Header subtitle="Data Audit" />
         <main className="audit-page__main">
-          <StepIndicator current={4} />
+          <StepIndicator current={3} />
           <div className="audit-page__empty">
             <p>No files have been uploaded yet.</p>
             <button type="button" className="btn btn--primary" onClick={() => navigate("/upload")}>
@@ -146,7 +146,7 @@ export default function AuditPage({
     <div className="audit-page">
       <Header subtitle="Data Audit" />
       <main className="audit-page__main">
-        <StepIndicator current={4} />
+        <StepIndicator current={3} />
 
         <PageNav position="top" onBack={() => navigate("/planner")}>
           <button type="button" className="btn btn--primary" disabled={!canContinue} onClick={() => navigate("/features")}>

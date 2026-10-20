@@ -4,7 +4,6 @@ import { useRef, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import WelcomePage from "./pages/WelcomePage";
 import UploadPage from "./pages/UploadPage";
-import TripsPage from "./pages/TripsPage";
 import PlannerPage from "./pages/PlannerPage";
 import AuditPage from "./pages/AuditPage";
 import FeaturesPage from "./pages/FeaturesPage";
@@ -264,27 +263,12 @@ function App() {
               onTripsChange={setSwpTrips}
               edits={tripEdits}
               onEditsChange={setTripEdits}
+              onLoadComplete={handleLoadComplete}
               onSelect={handleSelect}
               onRemove={handleRemove}
               onClearAll={handleClearAll}
               onBriefChange={setBrief}
               onUploadComplete={handleUploadComplete}
-              uploadedSessionIds={uploadedSessionIds}
-              uploadedBriefSignature={uploadedBriefSignature}
-            />
-          }
-        />
-        <Route
-          path="/trips"
-          element={
-            <TripsPage
-              brief={brief}
-              files={files}
-              config={swpConfig}
-              trips={swpTrips}
-              edits={tripEdits}
-              onEditsChange={setTripEdits}
-              onLoadComplete={handleLoadComplete}
               uploadedSessionIds={uploadedSessionIds}
               uploadedBriefSignature={uploadedBriefSignature}
             />

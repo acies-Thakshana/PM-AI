@@ -13,6 +13,8 @@ import type { UploadSlotId } from "../types/upload";
 import type { FilesState } from "../App";
 import type { BriefState } from "../components/ClientBriefInput";
 import type { SwpTripsResponse, TripEdits } from "../api/swp";
+import { loadTrips } from "../api/swp";
+import ApiProgress from "../components/ApiProgress";
 import { selectedTrips } from "../utils/swpTrips";
 import type { SwpConfigState } from "../utils/swpTrips";
 import { uploadOnly } from "../api/audit";
@@ -47,6 +49,8 @@ interface UploadPageProps {
   onTripsChange: (trips: SwpTripsResponse | null) => void;
   edits: TripEdits;
   onEditsChange: (edits: TripEdits) => void;
+  /** The arrived trips were loaded from the store into one audit session. */
+  onLoadComplete: (sessionId: string, label: File, signature: string) => void;
   onSelect: (id: UploadSlotId, file: File) => void;
   onRemove: (id: UploadSlotId) => void;
   onClearAll: () => void;
@@ -68,6 +72,7 @@ export default function UploadPage({
   onTripsChange,
   edits,
   onEditsChange,
+  onLoadComplete,
   onSelect,
   onRemove,
   onClearAll,
@@ -83,6 +88,7 @@ export default function UploadPage({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [briefError, setBriefError] = useState<string | undefined>();
   const [samplesLoading, setSamplesLoading] = useState(false);
+  const [progressId, setProgressId] = useState<string | null>(null);
   const cardRefs: Partial<Record<UploadSlotId, HTMLDivElement | null>> = {};
 
   const apiMode = dataSource === "api";
@@ -126,10 +132,40 @@ export default function UploadPage({
     return !missing;
   };
 
-  // API mode: the choices are made here; the trips themselves are loaded after the Trips page.
-  const handleContinueApi = () => {
+  // API mode: load the chosen arrived trips (from the store, no API calls for trips already fetched) and go on.
+  const handleContinueApi = async () => {
     if (!checkBrief() || !apiReady) return;
-    navigate("/trips");
+    const ids = chosen.map((t) => t.trip_id);
+    // Same choices and the same brief as the session we already have: carry on with it instead of loading (and
+    // planning) all over again.
+    const signature = JSON.stringify([brief.rawText, brief.finalText, config.programId, config.sensors, ids, edits]);
+    if (uploadedSessionIds.sensiwatch && signature === uploadedBriefSignature) {
+      navigate(hasBrief(brief) ? "/planner" : "/audit");
+      return;
+    }
+    setUploading(true);
+    setUploadError(null);
+    const progress = crypto.randomUUID();
+    setProgressId(progress);
+    try {
+      const loaded = await loadTrips({
+        program_id: config.programId.trim() || null,
+        progress_id: progress,
+        trip_ids: ids,
+        sensors: config.sensors,
+        edits: Object.fromEntries(ids.filter((id) => edits[id]).map((id) => [id, edits[id]])),
+      });
+      // The Planner and the later steps only look at the file's name, so a stand-in carries the label.
+      const label = new File([], loaded.filename);
+      await finalizeBrief(brief, { ...files, sensiwatch: label }, [loaded.session_id]);
+      onLoadComplete(loaded.session_id, label, signature);
+      navigate(hasBrief(brief) ? "/planner" : "/audit");
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Could not load the trips. Is the backend running?");
+    } finally {
+      setUploading(false);
+      setProgressId(null);
+    }
   };
 
   const handleContinueUpload = async () => {
@@ -174,7 +210,7 @@ export default function UploadPage({
   };
 
   const handleContinue = apiMode ? handleContinueApi : handleContinueUpload;
-  const continueLabel = apiMode ? "Continue to Trips" : "Upload & Continue";
+  const continueLabel = apiMode ? "Load Arrived Trips & Continue" : "Upload & Continue";
   const continueDisabled = uploading || (apiMode && !apiReady);
 
   // A full page load (not a router navigation) so the app starts completely fresh on the Get Started page.
@@ -206,7 +242,7 @@ export default function UploadPage({
         Clear All
       </button>
       <button type="button" className="btn btn--primary" onClick={handleContinue} disabled={continueDisabled}>
-        {uploading ? <><Spinner />Uploading…</> : continueLabel}
+        {uploading ? <><Spinner />{apiMode ? "Loading…" : "Uploading…"}</> : continueLabel}
       </button>
     </div>
   );
@@ -257,6 +293,7 @@ export default function UploadPage({
         )}
 
         {uploadError && <div className="upload-page__error">{uploadError}</div>}
+        {uploading && apiMode && <ApiProgress progressId={progressId} fallback="Loading the arrived trips…" />}
 
         {apiMode && (
           <SwpConfigPanel
@@ -309,7 +346,7 @@ export default function UploadPage({
             <IconChevronLeft /> Back
           </button>
           <button type="button" className="btn btn--primary" onClick={handleContinue} disabled={continueDisabled}>
-            {uploading ? <><Spinner />Uploading…</> : continueLabel}
+            {uploading ? <><Spinner />{apiMode ? "Loading…" : "Uploading…"}</> : continueLabel}
           </button>
         </div>
       </main>

@@ -1,7 +1,6 @@
 import ThinkingLoader, { Spinner } from "../components/ThinkingLoader";
 import { LOADING } from "../utils/loadingMessages";
-import { useContext, useEffect, useRef, useState } from "react";
-import { DataSourceContext } from "../context/plannerSkipped";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import StepIndicator from "../components/StepIndicator";
@@ -81,7 +80,6 @@ interface PlannerCacheEntry {
 
 export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
   const navigate = useNavigate();
-  const source = useContext(DataSourceContext);
   // Lives in the shared session store (like every other page's cross-navigation
   // state) instead of a module-level Map, so it also survives whatever Features/
   // Analysis/Report already rely on this store for -- same Map objects, same
@@ -213,7 +211,7 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
       <div className="planner-page">
         <Header subtitle="AI Planner" />
         <main className="planner-page__main">
-          <StepIndicator current={3} />
+          <StepIndicator current={2} />
           <div className="planner-page__loading">
             No session found. Please go back and upload your files.
           </div>
@@ -229,9 +227,9 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
     <div className="planner-page">
       <Header subtitle="AI Planner" />
       <main className="planner-page__main">
-        <StepIndicator current={3} />
+        <StepIndicator current={2} />
 
-        <PageNav position="top" onBack={() => navigate(source === "api" ? "/trips" : "/upload")}>
+        <PageNav position="top" onBack={() => navigate("/upload")}>
           <button
             type="button"
             className="btn btn--primary"
@@ -354,7 +352,7 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
           </>
         )}
 
-        <PageNav position="bottom" onBack={() => navigate(source === "api" ? "/trips" : "/upload")}>
+        <PageNav position="bottom" onBack={() => navigate("/upload")}>
           <button
             type="button"
             className="btn btn--primary"
