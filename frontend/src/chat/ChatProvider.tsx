@@ -80,6 +80,10 @@ interface ChatValue {
   build: BuildState;
   changes: ChatChange[];
   hasSession: boolean;
+  /** The PM approved a plan (the interview is done). */
+  planApproved: boolean;
+  /** Opens the panel and begins the interview. */
+  startInterview: () => void;
   send: (text: string) => void;
   approvePlan: () => void;
   cancelPlan: () => void;
@@ -170,6 +174,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
   const [quickReplies, setQuickReplies] = useState<string[]>([]);
   const [build, setBuild] = useState<BuildState>({ status: "idle", line: "" });
   const [changes, setChanges] = useState<ChatChange[]>([]);
+  const [planApproved, setPlanApproved] = useState(false);
 
   // Analyses started here must not be started a second time by the Analysis page's own auto-run.
   const analysisStarted = useStoredRef<{ current: Set<string> }>("analysis.autoStarted", () => ({ current: new Set<string>() }));
@@ -365,6 +370,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       transcript: transcriptOf(current.messages),
     };
     savedFor.current = null;
+    setPlanApproved(true);
     setPhase("build");
     setQuickReplies([]);
     const counts = `${current.plan.analyses.length} analyses and ${current.plan.features.length} calculations`;
@@ -622,6 +628,13 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
   const changesRef = useRef(changes);
   changesRef.current = changes;
 
+  const startInterview = useCallback(() => {
+    setOpen(true);
+    const fresh = live.current.phase === "interview" && live.current.messages.length <= 1;
+    if (fresh) send("Build this report for me.");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [send]);
+
   const keepChange = useCallback((id: string) => setChanges((prev) => prev.map((c) => (c.id === id ? { ...c, state: "kept" } : c))), []);
 
   const undoChange = useCallback(
@@ -648,6 +661,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     setQuickReplies([]);
     setBuild({ status: "idle", line: "" });
     setChanges([]);
+    setPlanApproved(false);
   }, []);
 
   const value = useMemo<ChatValue>(
@@ -664,6 +678,8 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       build,
       changes,
       hasSession: Boolean(sessionId),
+      planApproved,
+      startInterview,
       send,
       approvePlan,
       cancelPlan,
@@ -674,7 +690,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       undoChange,
       reset,
     }),
-    [open, messages, busy, phase, understanding, assumptions, plan, quickReplies, build, changes, sessionId, send, approvePlan, cancelPlan, editAssumption, removeAssumption, removePlanItem, keepChange, undoChange, reset]
+    [open, messages, busy, phase, understanding, assumptions, plan, quickReplies, build, changes, sessionId, planApproved, startInterview, send, approvePlan, cancelPlan, editAssumption, removeAssumption, removePlanItem, keepChange, undoChange, reset]
   );
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
