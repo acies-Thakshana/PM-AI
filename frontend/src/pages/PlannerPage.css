@@ -381,3 +381,17 @@
   font-size: 13.5px;
   color: var(--color-text-muted);
 }
+
+/* A suggestion the assistant just opened: a short glow so the eye finds it. */
+.planner-page__flash > * {
+  animation: planner-flash 2.6s ease-out;
+}
+@keyframes planner-flash {
+  0%,
+  55% {
+    box-shadow: 0 0 0 4px rgba(0, 120, 200, 0.4);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 120, 200, 0);
+  }
+}

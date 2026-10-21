@@ -650,8 +650,12 @@ body.chat-open .modal__overlay {
   font-size: 13px;
   color: var(--carrier-blue);
 }
-.chat__progress span {
+.chat__progress > span:not(.thinking__spinner) {
   flex: 1;
+}
+/* The small spinner keeps its own size: it is not a text span to stretch. */
+.chat__progress .thinking__spinner {
+  flex: none;
 }
 .chat__progress--done {
   background: rgba(228, 247, 237, 0.9);
@@ -798,4 +802,66 @@ body.chat-open .modal__overlay {
   text-align: center;
   font-size: 12.5px;
   color: var(--color-text-muted);
+}
+
+/* The questions' skip: a little more visible than the other answers, since it is the way out. */
+.chat__chip--skip {
+  border-color: var(--carrier-blue);
+  background: var(--carrier-blue-tint-2);
+  color: var(--carrier-blue);
+  font-weight: 700;
+}
+.chat__chip--skip:hover {
+  background: var(--carrier-blue-tint);
+}
+
+/* A suggestion's name opens it on its page. */
+.chat__review-name {
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  color: var(--carrier-blue);
+  cursor: pointer;
+}
+.chat__review-name:hover {
+  text-decoration: underline;
+}
+
+/* What was understood from the brief: a tidy list of label and value rows inside the bubble. */
+.chat__facts-title {
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--carrier-blue);
+}
+.chat__facts {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+.chat__facts > div {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 10px;
+  padding: 7px 0;
+  border-top: 1px solid rgba(0, 90, 170, 0.12);
+}
+.chat__facts dt {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  padding-top: 2px;
+}
+.chat__facts dd {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.chat__bubble:has(.chat__facts) {
+  white-space: normal;
+  min-width: min(100%, 320px);
 }

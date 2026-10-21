@@ -51,6 +51,8 @@ export interface ChatMsg {
   text: string;
   error?: boolean;
   links?: ChatLink[];
+  /** Label and value rows shown as a neat list inside the bubble (what the assistant understood from the brief). */
+  facts?: { label: string; value: string }[];
 }
 
 export type BuildStatus = "idle" | "waiting_data" | "running" | "paused_audit" | "done" | "error";
@@ -172,10 +174,12 @@ const UNDERSTANDING_ROWS: [keyof Understanding, string][] = [
   ["kpis", "Client KPIs"],
 ];
 
-/** What the assistant took from the brief, said as a reply (empty when nothing is settled yet). */
-function understandingReply(u: Understanding): string {
-  const rows = UNDERSTANDING_ROWS.filter(([key]) => u[key]).map(([key, label]) => `• ${label}: ${u[key]}`);
-  return rows.length ? `Here is what I picked up from the brief:\n${rows.join("\n")}` : "";
+/** What the assistant took from the brief: the rows, and the same as text for the conversation record. */
+function understandingReply(u: Understanding): { text: string; facts: { label: string; value: string }[] } | null {
+  const facts = UNDERSTANDING_ROWS.filter(([key]) => u[key]).map(([key, label]) => ({ label, value: u[key] }));
+  if (!facts.length) return null;
+  const heading = "Here is what I picked up from the brief:";
+  return { text: [heading, ...facts.map((f) => `• ${f.label}: ${f.value}`)].join("\n"), facts };
 }
 
 /** A brief written from the PM's answers, for when the interview happened with no brief on the Configure page. */
@@ -393,7 +397,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     if (sensorIssues.length) attention.push(`${sensorIssues.length} data issue${sensorIssues.length > 1 ? "s" : ""} were flagged as critical in the audit`);
     for (const f of failed) attention.push(`"${f.name}" could not be built (${f.error.slice(0, 140)})`);
 
-    const links: ChatLink[] = [{ label: "Open the analyses", path: "/analysis" }];
+    const links: ChatLink[] = [{ label: "Add drill-downs on the Analysis page", path: "/analysis" }];
     if (sensorIssues.length) links.unshift({ label: "Open the audit", path: "/audit" });
     links.push({ label: "Open the report", path: "/report" });
 
@@ -401,10 +405,11 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     const tail = attention.length
       ? ` ${attention.length === 1 ? "One thing needs" : `${attention.length} things need`} your attention: ${attention.join("; ")}.`
       : " Nothing needs your attention.";
-    say(head + tail + " Tell me what to change, or ask whether it is ready to send.", { links });
+    say(head + tail + " You can add drill-downs on the Analysis page, tell me what to change, or ask whether it is ready to send.", { links });
     setLine("done", `Report ready: ${done} of ${total} analyses built.`);
     setPhase("refine");
-    navigate("/report");
+    // Not the report: its analyses are listed on the Analysis page, where drill-downs are added.
+    navigate("/analysis");
   };
 
   /**
@@ -772,7 +777,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
           const firstTime = !Object.values(live.current.understanding).some(Boolean);
           if (firstTime && res.phase !== "ready") {
             const summary = understandingReply(res.understanding);
-            if (summary) say(summary);
+            if (summary) say(summary.text, { facts: summary.facts });
           }
           const promised = res.actions.some((a) => a.type === "navigate") ? [] : pageLinksIn(res.reply);
           say(res.reply, promised.length ? { links: promised } : undefined);
@@ -962,7 +967,11 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
 
   const inspect = useCallback(
     (item: ReviewItem) =>
-      navigate(item.id.startsWith("planner:") ? "/planner" : `${item.kind === "feature" ? "/features" : "/analysis"}?open=${item.id}`),
+      navigate(
+        item.id.startsWith("planner:")
+          ? `/planner?tab=${item.kind === "analysis" ? "analyses" : "features"}&item=${item.id.slice(8)}`
+          : `${item.kind === "feature" ? "/features" : "/analysis"}?open=${item.id}`
+      ),
     [navigate]
   );
 

@@ -93,8 +93,7 @@ def _data_block(session_id: str | None) -> str:
             )
         analyses = [
             f'- {e["name"]} ({e["status"]}, run={e.get("run_status", "not_run")})'
-            for e in analysis_repository.get_repository(session_id)
-            if e.get("source") != "drilldown"
+            for e in chat_tools.analyses_of(session_id)
         ]
         feats = [f'- {e["name"]} ({e["status"]})' for e in feature_repository.get_repository(session_id)]
         parts.append("EXISTING ANALYSES:\n" + ("\n".join(analyses) or "(none)"))

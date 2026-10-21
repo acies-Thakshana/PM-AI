@@ -1,7 +1,7 @@
 import ThinkingLoader, { Spinner } from "../components/ThinkingLoader";
 import { LOADING } from "../utils/loadingMessages";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Header from "../components/Header";
 import StepIndicator from "../components/StepIndicator";
 import PageHeader from "../components/PageHeader";
@@ -78,6 +78,21 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
   const [result, setResult] = useStoredState<PlannerSuggestResponse | null>(plannerResultKey(sessionId), cached?.result ?? null);
   const [decisions, setDecisions] = useStoredState<DecisionsMap>(plannerDecisionsKey(sessionId), cached?.decisions ?? {});
   const [activeTab, setActiveTab] = useState<PlannerTab>(cached?.activeTab ?? "features");
+  // The assistant opens one suggestion on its own tab (?tab=analyses&item=3): the tab switches and the card is shown.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const itemParam = searchParams.get("item");
+  const [flash, setFlash] = useState<number | null>(null);
+  useEffect(() => {
+    if (tabParam === "features" || tabParam === "analyses") setActiveTab(tabParam);
+    if (itemParam === null || !result) return;
+    const index = Number(itemParam);
+    setFlash(index);
+    window.setTimeout(() => document.getElementById(`planner-rec-${index}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 120);
+    window.setTimeout(() => setFlash(null), 2600);
+    setSearchParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabParam, itemParam, result]);
   const [moreLoading, setMoreLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const fetched = useRef(Boolean(cached));
@@ -300,8 +315,8 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
                 .map((rec, i) => ({ rec, i }))
                 .filter(({ rec }) => getTabs(rec.type).includes(activeTab) && hasFormula(rec))
                 .map(({ rec, i }) => (
+                  <div key={i} id={`planner-rec-${i}`} className={flash === i ? "planner-page__flash" : undefined}>
                   <RecommendationCard
-                    key={i}
                     rec={rec}
                     index={i}
                     onDecide={setDecision}
@@ -309,6 +324,7 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
                     featureColumnMap={featureColumnMap}
                     dependencyWarning={dependencyWarningFor(rec, decisions[i] ?? "pending", recs, decisions)}
                   />
+                  </div>
                 ))}
               {recs.filter((r) => getTabs(r.type).includes(activeTab) && hasFormula(r)).length === 0 && (
                 <div className="planner-page__empty-tab">

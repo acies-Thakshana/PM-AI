@@ -41,7 +41,23 @@ function Message({ msg, onOpen }: { msg: ChatMsg; onOpen: (path: string) => void
         </span>
       )}
       <div className="chat__msg-body">
-        <div className="chat__bubble">{msg.text}</div>
+        <div className="chat__bubble">
+          {msg.facts ? (
+            <>
+              <div className="chat__facts-title">{msg.text.split("\n")[0]}</div>
+              <dl className="chat__facts">
+                {msg.facts.map((f) => (
+                  <div key={f.label}>
+                    <dt>{f.label}</dt>
+                    <dd>{f.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </>
+          ) : (
+            msg.text
+          )}
+        </div>
         {!!msg.links?.length && (
           <div className="chat__msg-actions">
             {msg.links.map((l) => (
@@ -300,7 +316,9 @@ export default function ChatPanel() {
               {stageReview.map((r) => (
                 <li key={r.id} className={`chat__review-item chat__review-item--${r.state}`}>
                   <div className="chat__review-text">
-                    <strong>{r.name}</strong>
+                    <button type="button" className="chat__review-name" title="Open this on its page" onClick={() => chat.inspect(r)}>
+                      {r.name}
+                    </button>
                     <span>
                       {r.kind === "feature" ? "Calculation" : "Analysis"}
                       {r.description ? `: ${r.description}` : ""}
@@ -311,9 +329,11 @@ export default function ChatPanel() {
                     <span className={`chat__review-done chat__review-done--${r.state}`}>{r.state === "accepted" ? "Accepted" : "Rejected"}</span>
                   ) : (
                     <span className="chat__change-buttons">
-                      <button type="button" className="chat__btn chat__btn--ghost" onClick={() => chat.inspect(r)}>
-                        Details
-                      </button>
+                      {r.stage !== "planner" && (
+                        <button type="button" className="chat__btn chat__btn--ghost" onClick={() => chat.inspect(r)}>
+                          Details
+                        </button>
+                      )}
                       <button type="button" className="chat__btn chat__btn--solid" disabled={r.state === "working"} onClick={() => chat.decide(r.id, true)}>
                         {r.state === "working" ? "…" : "Accept"}
                       </button>
@@ -396,26 +416,6 @@ export default function ChatPanel() {
         </label>
       )}
 
-      {nextStep && (
-        <div className="chat__loadbar">
-          <button type="button" className="chat__load" disabled={!nextStep.enabled} onClick={() => openPath(nextStep.path)}>
-            {nextStep.label}
-          </button>
-          <span className="chat__load-hint">{nextStep.hint}</span>
-        </div>
-      )}
-
-      {stage === "configure" && (
-        <div className="chat__loadbar">
-          <button type="button" className="chat__load" disabled={!configure.canContinue} onClick={() => setLoadRequest((n) => n + 1)}>
-            {configure.label}
-          </button>
-          <span className="chat__load-hint">
-            {configure.canContinue ? "Loads your data and opens the next page." : configure.hint || "Working…"}
-          </span>
-        </div>
-      )}
-
       {chat.hasSession && !busy && (showCalculations || showAnalyses) && (
         <div className="chat__quick chat__quick--add" aria-label="Add to the report">
           {showCalculations && (
@@ -459,10 +459,30 @@ export default function ChatPanel() {
       {chat.quickReplies.length > 0 && !busy && (
         <div className="chat__quick">
           {chat.quickReplies.map((q) => (
-            <button key={q} type="button" className="chat__chip" onClick={() => chat.send(q)}>
+            <button key={q} type="button" className={`chat__chip${q.startsWith("Skip the questions") ? " chat__chip--skip" : ""}`} onClick={() => chat.send(q)}>
               {q}
             </button>
           ))}
+        </div>
+      )}
+
+      {nextStep && (
+        <div className="chat__loadbar">
+          <button type="button" className="chat__load" disabled={!nextStep.enabled} onClick={() => openPath(nextStep.path)}>
+            {nextStep.label}
+          </button>
+          <span className="chat__load-hint">{nextStep.hint}</span>
+        </div>
+      )}
+
+      {stage === "configure" && (
+        <div className="chat__loadbar">
+          <button type="button" className="chat__load" disabled={!configure.canContinue} onClick={() => setLoadRequest((n) => n + 1)}>
+            {configure.label}
+          </button>
+          <span className="chat__load-hint">
+            {configure.canContinue ? "Loads your data and opens the next page." : configure.hint || "Working…"}
+          </span>
         </div>
       )}
 

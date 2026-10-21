@@ -76,8 +76,38 @@ def name_overlap(a: str, b: str) -> float:
     return len(ta & tb) / min(len(ta), len(tb))
 
 
-def _analyses(session_id: str) -> list[dict]:
-    return [e for e in analysis_repository.get_repository(session_id) if e.get("source") != "drilldown" and e.get("status") != "rejected"]
+def analyses_of(session_id: str) -> list[dict]:
+    """The analyses of the report (not rejected, no drill-down levels), each with its run result. The repository only
+    holds the definitions: whether an analysis ran, its table and what it shows live on the session, and the pages
+    merge them in the same way."""
+    try:
+        results = getattr(get_or_404(session_id), "analysis_results", None) or {}
+    except Exception as exc:  # noqa: BLE001 - without results the definitions are still listed (as not run)
+        log.warning("chat tools: no run results for %s: %s", session_id, exc)
+        results = {}
+    out = []
+    for entry in analysis_repository.get_repository(session_id):
+        if entry.get("source") == "drilldown" or entry.get("status") == "rejected":
+            continue
+        result = results.get(entry["id"])
+        if result is not None:
+            entry = {
+                **entry,
+                "run_status": result.run_status,
+                "plan_text": result.plan_text or entry.get("plan_text"),
+                "result_table": result.result_table,
+                "result_columns": result.result_columns,
+                "chart_type": result.chart_type,
+                "interpretation": result.interpretation,
+                "error": result.error,
+            }
+            if not entry.get("filters") and result.filters:
+                entry["filters"] = result.filters
+        out.append(entry)
+    return out
+
+
+_analyses = analyses_of
 
 
 def _features(session_id: str) -> list[dict]:
