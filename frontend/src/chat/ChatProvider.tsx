@@ -20,11 +20,16 @@ import {
   fetchFeatureRepository,
   runAnalysisEntry,
   selectRequiredFeature,
+  suggestAnalysisEntries,
+  suggestFeatureEntries,
 } from "../api/audit";
 import type { AnalysisRepositoryEntry, AuditReport } from "../api/audit";
 import type { FilesState } from "../App";
 import type { BriefState } from "../components/ClientBriefInput";
-import { useStoredRef } from "../state/sessionStore";
+import { useStoredRef, useStoredState } from "../state/sessionStore";
+import { saveDecisions } from "../api/planner";
+import type { PlannerSuggestResponse, PmDecisionValue } from "../api/planner";
+import { hasFormula, plannerDecisionsKey, plannerResultKey } from "../utils/plannerRecs";
 
 // The chat assistant: one conversation that first interviews the PM about the client brief and, once the
 // plan is approved, builds the report (planner -> audit -> calculations -> analyses) and then refines it
@@ -67,7 +72,30 @@ export interface ChatChange {
   state: "added" | "kept" | "undone";
 }
 
+/** One analysis the assistant is building (or just added), shown live in the panel while it works. */
+export interface BuildItem {
+  id: string;
+  name: string;
+  state: "queued" | "running" | "done" | "failed";
+  error?: string;
+}
+
+/** A suggested calculation or analysis waiting for the PM's accept or reject, decided in the chat. */
+export interface ReviewItem {
+  id: string;
+  kind: "feature" | "analysis";
+  name: string;
+  description: string;
+  state: "pending" | "working" | "accepted" | "rejected" | "error";
+  error?: string;
+}
+
 interface ChatValue {
+  review: ReviewItem[];
+  decide: (id: string, accept: boolean) => void;
+  acceptAll: () => void;
+  inspect: (item: ReviewItem) => void;
+  buildItems: BuildItem[];
   open: boolean;
   setOpen: (open: boolean) => void;
   messages: ChatMsg[];
@@ -84,6 +112,7 @@ interface ChatValue {
   planApproved: boolean;
   /** Opens the panel and begins the interview. */
   startInterview: () => void;
+  suggestWithAi: (kind: "feature" | "analysis") => void;
   send: (text: string) => void;
   approvePlan: () => void;
   cancelPlan: () => void;
@@ -175,6 +204,44 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
   const [build, setBuild] = useState<BuildState>({ status: "idle", line: "" });
   const [changes, setChanges] = useState<ChatChange[]>([]);
   const [planApproved, setPlanApproved] = useState(false);
+  const [buildItems, setBuildItems] = useState<BuildItem[]>([]);
+  const [repoReview, setReview] = useState<ReviewItem[]>([]);
+
+  // The Planner's suggestions and the PM's decisions on them live in the shared store: the PM decides here in
+  // the chat, the Planner page shows the details.
+  const [plannerResult] = useStoredState<PlannerSuggestResponse | null>(plannerResultKey(sessionId), null);
+  const [plannerDecisions, setPlannerDecisions] = useStoredState<Record<number, PmDecisionValue>>(plannerDecisionsKey(sessionId), {});
+  const plannerItems = useMemo<ReviewItem[]>(
+    () =>
+      (plannerResult?.recommendations ?? []).flatMap((r, i) =>
+        hasFormula(r)
+          ? [
+              {
+                id: `planner:${i}`,
+                kind: (r.type === "analysis" || r.type === "feature_and_analysis" ? "analysis" : "feature") as ReviewItem["kind"],
+                name: r.name,
+                description: r.reason || r.description || "",
+                state: (plannerDecisions[i] === "accepted" ? "accepted" : plannerDecisions[i] === "rejected" ? "rejected" : "pending") as ReviewItem["state"],
+              },
+            ]
+          : []
+      ),
+    [plannerResult, plannerDecisions]
+  );
+  const review = useMemo(() => [...plannerItems, ...repoReview], [plannerItems, repoReview]);
+
+  // The decisions are saved on the server each time, so they hold even after the Planner page was left.
+  const savePlannerDecisions = (next: Record<number, PmDecisionValue>) => {
+    const sid = live.current.sessionId;
+    if (!sid || !plannerResult) return;
+    saveDecisions(
+      sid,
+      plannerResult.recommendations.map((_, i) => ({ recommendation_index: i, pm_decision: next[i] ?? "pending", pm_notes: "" }))
+    ).catch((err) => say(`I could not save that decision: ${errorText(err, "unknown error")}`, { error: true }));
+  };
+
+  const patchItem = (id: string, patch: Partial<BuildItem>) =>
+    setBuildItems((prev) => (prev.some((i) => i.id === id) ? prev.map((i) => (i.id === id ? { ...i, ...patch } : i)) : [...prev, { id, name: "", state: "queued", ...patch }]));
 
   // Analyses started here must not be started a second time by the Analysis page's own auto-run.
   const analysisStarted = useStoredRef<{ current: Set<string> }>("analysis.autoStarted", () => ({ current: new Set<string>() }));
@@ -194,6 +261,12 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
   }, []);
 
   const setLine = (status: BuildStatus, line: string) => setBuild({ status, line });
+
+  // While the assistant builds, the page follows it: the item that just finished opens (graph and all) and the
+  // next one runs behind it. Only on the wizard pages, so a PM who went to look at something else is not pulled back.
+  const follow = (path: string) => {
+    if (["/planner", "/audit", "/features", "/analysis"].includes(live.current.pathname)) navigate(path);
+  };
 
   // ------------------------------------------------------------------------------------------ build
   const analysesOf = (entries: AnalysisRepositoryEntry[]) =>
@@ -224,22 +297,32 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     let finished = entries.filter((e) => e.run_status === "done").length;
     const failed: { name: string; error: string }[] = [];
     const queue = entries.filter((e) => e.run_status !== "done");
+    setBuildItems(entries.map((e) => ({ id: e.id, name: e.name, state: e.run_status === "done" ? "done" : "queued" })));
     setLine("running", `Building analyses: ${finished} of ${total} finished.`);
 
     const worker = async () => {
       for (let entry = queue.shift(); entry; entry = queue.shift()) {
         analysisStarted.current.add(entry.id);
+        patchItem(entry.id, { name: entry.name, state: "running" });
         try {
           const result = await runAnalysisEntry(sid, entry.id);
-          if (result.run_status === "done") finished += 1;
-          else failed.push({ name: entry.name, error: result.error ?? "no result" });
+          if (result.run_status === "done") {
+            finished += 1;
+            patchItem(entry.id, { state: "done" });
+            follow(`/analysis?open=${entry.id}`);
+          } else {
+            failed.push({ name: entry.name, error: result.error ?? "no result" });
+            patchItem(entry.id, { state: "failed", error: result.error ?? "no result" });
+          }
         } catch (err) {
           failed.push({ name: entry.name, error: errorText(err, "could not run") });
+          patchItem(entry.id, { state: "failed", error: errorText(err, "could not run") });
         }
         setLine("running", `Building analyses: ${finished} of ${total} finished.`);
       }
     };
-    await Promise.all([worker(), worker()]);
+    // One at a time, so each finished analysis is on screen while the next one runs.
+    await worker();
     return { done: finished, failed, total };
   };
 
@@ -323,6 +406,8 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       } catch (err) {
         say(`Some calculations could not be computed (${errorText(err, "unknown error")}). I'll build what I can.`);
       }
+      const firstFeature = (await fetchFeatureRepository(sid).catch(() => null))?.entries.find((e) => e.status === "approved");
+      if (firstFeature) follow(`/features?open=${firstFeature.id}`);
       await finishBuild(sid);
     } catch (err) {
       setLine("error", errorText(err, "The build stopped."));
@@ -353,6 +438,8 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
   useEffect(() => {
     if (lastSession.current && sessionId !== lastSession.current) {
       setChanges([]);
+      setBuildItems([]);
+      setReview([]);
       if (live.current.build.status !== "waiting_data") setBuild({ status: "idle", line: "" });
     }
     lastSession.current = sessionId;
@@ -433,15 +520,17 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
         filters: draft.filters.map((f) => ({ column: f.column, reason: f.reason })),
       });
       analysisStarted.current.add(entry.id);
+      patchItem(entry.id, { name, state: "running" });
       const result = await runAnalysisEntry(sid, entry.id).catch((err) => {
         say(`I added "${name}" but it could not be run yet (${errorText(err, "unknown error")}). You can retry it on the Analysis page.`, { error: true });
         return null;
       });
+      patchItem(entry.id, { state: result?.run_status === "done" ? "done" : "failed" });
       addChange({ kind: "analysis", label: name, entryId: entry.id, sessionId: sid });
       if (!quiet && result?.run_status === "done") {
         say(`I added the analysis "${name}" and ran it. Keep or undo? (See "What I changed" below.)`, { links: [{ label: "Open the analyses", path: "/analysis" }] });
       }
-      if (!quiet) navigate("/analysis");
+      if (!quiet) navigate(`/analysis?open=${entry.id}`);
       return true;
     } catch (err) {
       say(`I could not add "${name}": ${errorText(err, "unknown error")}`, { error: true });
@@ -476,7 +565,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
           ` Keep or undo? (See "What I changed" below.)`,
         { links: [{ label: "Open the features", path: "/features" }] }
       );
-      if (!quiet) navigate("/features");
+      if (!quiet) navigate(`/features?open=${entry.id}`);
       return true;
     } catch (err) {
       say(`I could not add "${name}": ${errorText(err, "unknown error")}`, { error: true });
@@ -504,7 +593,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
           : `"${entry.name}" has not been run yet, so there is no calculation to explain.`,
         { links: [{ label: "Open the analyses", path: "/analysis" }] }
       );
-      navigate("/analysis");
+      navigate(`/analysis?open=${entry.id}`);
     } catch (err) {
       say(`I could not look that up: ${errorText(err, "unknown error")}`, { error: true });
     }
@@ -635,6 +724,132 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [send]);
 
+  // The pending suggestions of both kinds, as cards the PM accepts or rejects in the chat.
+  const loadReview = async (sid: string) => {
+    const [features, analyses] = await Promise.all([fetchFeatureRepository(sid), fetchAnalysisRepository(sid)]);
+    const pending = (e: { status: string; source: string }) => e.status === "pending" && e.source === "ai_suggested";
+    const items: ReviewItem[] = [
+      ...features.entries.filter(pending).map((e) => ({ id: e.id, kind: "feature" as const, name: e.name, description: e.description, state: "pending" as const })),
+      ...analyses.entries.filter(pending).map((e) => ({ id: e.id, kind: "analysis" as const, name: e.name, description: e.description, state: "pending" as const })),
+    ];
+    setReview(items);
+    return items;
+  };
+
+  /** "Suggest with AI": the suggestion agent runs here, the suggestions come back as cards to accept or reject. */
+  const suggestWithAi = useCallback(
+    async (kind: "feature" | "analysis") => {
+      const sid = live.current.sessionId;
+      if (!sid) {
+        say("I need the data loaded first. Load the trips on the Configure page and finish the audit decisions, then I can suggest.", {
+          links: [{ label: "Open Configure", path: "/upload" }],
+        });
+        return;
+      }
+      const noun = kind === "feature" ? "calculations" : "analyses";
+      setBusy(true);
+      say(`Asking the AI for ${noun} that fit the brief…`);
+      try {
+        await (kind === "feature" ? suggestFeatureEntries(sid) : suggestAnalysisEntries(sid));
+        const items = (await loadReview(sid)).filter((i) => i.kind === kind);
+        say(
+          items.length
+            ? `${items.length} ${noun} suggested. Accept or reject each one below; open one to see its details on the page.`
+            : `The AI had no new ${noun} to suggest.`
+        );
+        navigate(kind === "feature" ? "/features" : "/analysis");
+      } catch (err) {
+        say(`I could not get suggestions: ${errorText(err, "unknown error")}`, { error: true });
+      } finally {
+        setBusy(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [navigate, say]
+  );
+
+  // Whatever is already waiting for a decision (the planner's items, earlier AI suggestions) shows up in the
+  // chat as soon as it is opened, once per loaded dataset.
+  const reviewLoadedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!open || !sessionId || reviewLoadedFor.current === sessionId) return;
+    reviewLoadedFor.current = sessionId;
+    void loadReview(sessionId).catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, sessionId]);
+
+  const setReviewState = (id: string, state: ReviewItem["state"], error?: string) =>
+    setReview((prev) => prev.map((r) => (r.id === id ? { ...r, state, error } : r)));
+
+  const decide = useCallback(
+    async (id: string, accept: boolean) => {
+      const sid = live.current.sessionId;
+      const item = review.find((r) => r.id === id);
+      if (!sid || !item || item.state === "working") return;
+      if (id.startsWith("planner:")) {
+        const next = { ...plannerDecisions, [Number(id.slice(8))]: (accept ? "accepted" : "rejected") as PmDecisionValue };
+        setPlannerDecisions(next);
+        savePlannerDecisions(next);
+        return;
+      }
+      setReviewState(id, "working");
+      try {
+        if (!accept) {
+          await rejectEntry(item.kind, sid, id);
+          setReviewState(id, "rejected");
+          return;
+        }
+        if (item.kind === "feature") {
+          await acceptFeatureEntry(sid, id);
+          await applyFeatures(sid);
+        } else {
+          await acceptAnalysisEntry(sid, id);
+          analysisStarted.current.add(id);
+          patchItem(id, { name: item.name, state: "running" });
+          const result = await runAnalysisEntry(sid, id);
+          patchItem(id, { state: result.run_status === "done" ? "done" : "failed", error: result.error ?? undefined });
+        }
+        setReviewState(id, "accepted");
+      } catch (err) {
+        setReviewState(id, "error", errorText(err, "could not do that"));
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [review, plannerDecisions, plannerResult]
+  );
+
+  const acceptAll = useCallback(() => {
+    // One at a time: features first (analyses may need them), and each one computes before the next starts.
+    void (async () => {
+      const pendingPlanner = plannerItems.filter((r) => r.state === "pending");
+      if (pendingPlanner.length) {
+        const next = { ...plannerDecisions };
+        pendingPlanner.forEach((r) => (next[Number(r.id.slice(8))] = "accepted"));
+        setPlannerDecisions(next);
+        savePlannerDecisions(next);
+      }
+      const rest = repoReview.filter((r) => r.state === "pending");
+      for (const r of [...rest.filter((x) => x.kind === "feature"), ...rest.filter((x) => x.kind === "analysis")]) await decide(r.id, true);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plannerItems, repoReview, plannerDecisions, plannerResult, decide]);
+
+  const inspect = useCallback(
+    (item: ReviewItem) =>
+      navigate(item.id.startsWith("planner:") ? "/planner" : `${item.kind === "feature" ? "/features" : "/analysis"}?open=${item.id}`),
+    [navigate]
+  );
+
+  // Opening the assistant on a fresh conversation starts the questions at once (the six things it settles fill in
+  // as the PM answers), instead of waiting for "Build the report" to be pressed.
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (!open || autoStarted.current) return;
+    autoStarted.current = true;
+    if (live.current.phase === "interview" && live.current.messages.length <= 1) startInterview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   const keepChange = useCallback((id: string) => setChanges((prev) => prev.map((c) => (c.id === id ? { ...c, state: "kept" } : c))), []);
 
   const undoChange = useCallback(
@@ -661,11 +876,18 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     setQuickReplies([]);
     setBuild({ status: "idle", line: "" });
     setChanges([]);
+    setBuildItems([]);
+    setReview([]);
     setPlanApproved(false);
   }, []);
 
   const value = useMemo<ChatValue>(
     () => ({
+      review,
+      decide,
+      acceptAll,
+      inspect,
+      buildItems,
       open,
       setOpen,
       messages,
@@ -680,6 +902,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       hasSession: Boolean(sessionId),
       planApproved,
       startInterview,
+      suggestWithAi,
       send,
       approvePlan,
       cancelPlan,
@@ -690,7 +913,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       undoChange,
       reset,
     }),
-    [open, messages, busy, phase, understanding, assumptions, plan, quickReplies, build, changes, sessionId, planApproved, startInterview, send, approvePlan, cancelPlan, editAssumption, removeAssumption, removePlanItem, keepChange, undoChange, reset]
+    [review, decide, acceptAll, inspect, buildItems, open, messages, busy, phase, understanding, assumptions, plan, quickReplies, build, changes, sessionId, planApproved, startInterview, suggestWithAi, send, approvePlan, cancelPlan, editAssumption, removeAssumption, removePlanItem, keepChange, undoChange, reset]
   );
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

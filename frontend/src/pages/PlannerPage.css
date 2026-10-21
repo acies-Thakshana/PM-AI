@@ -362,3 +362,16 @@
 .planner-page__bulk-btns .btn {
   min-width: 96px;
 }
+
+/* Decisions are made in the assistant; the card only shows where each one stands. */
+.planner-page__decision {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+.planner-page__decision--accepted {
+  color: var(--color-success);
+}
+.planner-page__decision--rejected {
+  color: var(--color-error);
+}

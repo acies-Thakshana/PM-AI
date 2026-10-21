@@ -2,7 +2,7 @@ import ThinkingLoader, { Spinner } from "../components/ThinkingLoader";
 import { LOADING } from "../utils/loadingMessages";
 import { useEffect, useRef, useState } from "react";
 import { useStoredRef, useStoredState } from "../state/sessionStore";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Header from "../components/Header";
 import StepIndicator from "../components/StepIndicator";
 import PageHeader from "../components/PageHeader";
@@ -306,6 +306,30 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
       )
       .finally(() => setSuggestLoading((prev) => ({ ...prev, [id]: false })));
   };
+
+  // The assistant points at things with the URL: ?open=<entry id> opens that analysis, ?suggest=1 opens the
+  // AI suggestions (asking for some when there are none yet). The parameter is consumed once handled.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openParam = searchParams.get("open");
+  const suggestParam = searchParams.get("suggest");
+  useEffect(() => {
+    if (!openParam || slotsReady.length === 0) return;
+    // Refetch first: the item may have just finished, and the cached copy would open without its result.
+    const id = slotsReady[0];
+    refreshRepository(id, auditReports[id]!.session_id)
+      .then(() => {
+        setOpenEntry({ slotId: id, entryId: openParam });
+        setSearchParams({}, { replace: true });
+      })
+      .catch(() => undefined);
+  }, [openParam, slotsReady.length]);
+  useEffect(() => {
+    if (!suggestParam || slotsReady.length === 0 || !repositories[slotsReady[0]]) return;
+    const id = slotsReady[0];
+    if (!repositories[id]!.some((e) => e.source === "ai_suggested" && e.status === "pending") && !suggestLoading[id]) runSuggest(id);
+    setShowSuggestionsModal((prev) => ({ ...prev, [id]: true }));
+    setSearchParams({}, { replace: true });
+  }, [suggestParam, slotsReady.length, repositories]);
 
   const acceptSuggestion = (id: UploadSlotId, entry: AnalysisRepositoryEntry) => {
     const sessionId = auditReports[id]!.session_id;

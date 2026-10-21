@@ -1,35 +1,76 @@
 /* The assistant: a launcher button, and a panel docked on the right of every page. */
 .chat__launcher {
   position: fixed;
-  right: 20px;
-  bottom: 20px;
+  right: 22px;
+  bottom: 22px;
   z-index: 60;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 11px 18px;
-  border: none;
-  border-radius: 999px;
-  background: var(--carrier-blue);
+  justify-content: center;
+  width: 62px;
+  height: 62px;
+  padding: 0;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--carrier-blue), var(--carrier-light-blue));
   color: #fff;
-  font: inherit;
-  font-weight: 600;
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 6px 18px rgba(0, 40, 100, 0.35);
   cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.chat__launcher svg {
+  width: 32px;
+  height: 32px;
 }
 .chat__launcher:hover {
-  background: var(--carrier-light-blue);
+  transform: scale(1.08);
+  box-shadow: 0 8px 22px rgba(0, 40, 100, 0.45);
+}
+.chat__launcher:focus-visible {
+  outline: 3px solid var(--carrier-light-blue);
+  outline-offset: 3px;
 }
 .chat__launcher-dot {
-  width: 8px;
-  height: 8px;
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 13px;
+  height: 13px;
+  border: 2px solid #fff;
   border-radius: 50%;
   background: var(--accent-amber-solid);
 }
+/* While the assistant works, a soft ring pulses around the icon. */
+.chat__launcher--busy::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid var(--carrier-light-blue);
+  animation: chat-pulse 1.6s ease-out infinite;
+}
+@keyframes chat-pulse {
+  from {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  to {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat__launcher--busy::after {
+    animation: none;
+  }
+}
 
-/* Wide screens: the page moves over so the panel never hides it. */
+/* Open: the panel takes 30% of the screen and the page keeps the other 70%. */
+:root {
+  --chat-width: max(340px, 30vw);
+}
 body.chat-open {
-  padding-right: 340px;
+  padding-right: var(--chat-width);
 }
 @media (max-width: 900px) {
   body.chat-open {
@@ -43,7 +84,7 @@ body.chat-open {
   right: 0;
   bottom: 0;
   z-index: 70;
-  width: 340px;
+  width: var(--chat-width);
   max-width: 92vw;
   display: flex;
   flex-direction: column;
@@ -260,10 +301,81 @@ body.chat-open {
 .chat__plan li span {
   color: var(--color-text-muted);
 }
+.chat__open {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+.chat__review li {
+  align-items: center;
+}
+.chat__review-item--rejected {
+  opacity: 0.55;
+}
+.chat__review-done {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+.chat__review-error {
+  color: var(--color-error);
+}
 .chat__plan-buttons {
   display: flex;
   gap: 8px;
   margin-top: 10px;
+}
+
+/* The analyses as the assistant builds them, like a list of pages becoming active one after the other. */
+.chat__live {
+  padding: 10px 14px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-subtle);
+  max-height: 34vh;
+  overflow-y: auto;
+  font-size: 13px;
+}
+.chat__live-title {
+  font-weight: 600;
+  color: var(--carrier-blue);
+  margin-bottom: 4px;
+}
+.chat__live ul {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+.chat__live-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-left: 3px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+}
+.chat__live-state {
+  width: 16px;
+  text-align: center;
+  font-weight: 700;
+}
+.chat__live-name {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.chat__live-label {
+  font-size: 12px;
+}
+.chat__live-item--running {
+  background: var(--carrier-blue-tint);
+  border-left-color: var(--carrier-blue);
+  color: var(--carrier-blue);
+  font-weight: 600;
+}
+.chat__live-item--done {
+  color: var(--color-success);
+}
+.chat__live-item--failed {
+  color: var(--color-error);
 }
 
 .chat__progress {

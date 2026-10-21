@@ -13,27 +13,10 @@ import { uploadAnalysisDefinitions, uploadFeatureDefinitions } from "../api/audi
 import type { FilesState } from "../App";
 import type { PlannerRecommendation, PlannerRecommendationType, PlannerSuggestResponse, PmDecisionValue } from "../api/planner";
 import PlanText from "../components/PlanText";
-import { useStoredRef } from "../state/sessionStore";
+import { useStoredRef, useStoredState } from "../state/sessionStore";
+import { getTabs, hasFormula, plannerDecisionsKey, plannerResultKey } from "../utils/plannerRecs";
+import type { PlannerTab } from "../utils/plannerRecs";
 import "./PlannerPage.css";
-
-type PlannerTab = "features" | "analyses";
-
-// New suggestions are only "analysis" | "feature" | "configuration". A legacy
-// "feature_and_analysis" recommendation (old saved sessions) still produces an
-// entry on BOTH the Features and Analysis pages when accepted, so it stays in
-// both tabs.
-// A feature is a calculation: it is only listed once it has a formula. (The backend already
-// drops features without one and ranking / top-bottom ideas; this also covers older results.)
-function hasFormula(rec: PlannerRecommendation): boolean {
-  if (rec.type !== "feature") return true;
-  return Boolean((rec.feature_formula_expression ?? rec.generated_feature_formula ?? "").trim());
-}
-
-function getTabs(type: PlannerRecommendationType): PlannerTab[] {
-  if (type === "feature_and_analysis") return ["features", "analyses"];
-  if (type === "analysis") return ["analyses"];
-  return ["features"]; // "feature" and "configuration"
-}
 
 // Mirrors feature_repository.py's `_planner_entries` derivation
 // (re.sub(r"\W+", "_", name.strip().lower()).strip("_")) -- the Planner
@@ -90,8 +73,9 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
   const cached = sessionId ? plannerCache.get(sessionId) : undefined;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<PlannerSuggestResponse | null>(cached?.result ?? null);
-  const [decisions, setDecisions] = useState<DecisionsMap>(cached?.decisions ?? {});
+  // Result and decisions live in the shared store: the assistant is where the PM accepts or rejects, this page shows the details.
+  const [result, setResult] = useStoredState<PlannerSuggestResponse | null>(plannerResultKey(sessionId), cached?.result ?? null);
+  const [decisions, setDecisions] = useStoredState<DecisionsMap>(plannerDecisionsKey(sessionId), cached?.decisions ?? {});
   const [activeTab, setActiveTab] = useState<PlannerTab>(cached?.activeTab ?? "features");
   const [moreLoading, setMoreLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -147,24 +131,6 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
       fetched.current = false;
     };
   }, [sessionId]);
-
-  const setDecision = (index: number, value: PmDecisionValue) => {
-    setDecisions((prev) => ({
-      ...prev,
-      [index]: prev[index] === value ? "pending" : value,
-    }));
-  };
-
-  const setAllInTab = (tab: PlannerTab, value: PmDecisionValue) => {
-    if (!result) return;
-    setDecisions((prev) => {
-      const next = { ...prev };
-      result.recommendations.forEach((r, i) => {
-        if (getTabs(r.type).includes(tab) && hasFormula(r)) next[i] = value;
-      });
-      return next;
-    });
-  };
 
   const handleRequestMore = async () => {
     if (!sessionId || !result) return;
@@ -249,7 +215,7 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
             </svg>
           }
           title="AI Planner"
-          subtitle="The Planner has read your brief and the column details of your data. Review its suggested features and analyses below, then accept or reject each one before proceeding to the data audit."
+          subtitle="The Planner has read your brief and the column details of your data. Review its suggested features and analyses below, then accept or reject each one in the assistant before proceeding to the data audit."
         />
 
 
@@ -287,24 +253,6 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
                   );
                 })}
               </div>
-              {recs.filter((r) => getTabs(r.type).includes(activeTab) && hasFormula(r)).length > 0 && (
-                <div className="planner-page__bulk-btns">
-                  <button
-                    type="button"
-                    className="btn btn--sm btn--primary"
-                    onClick={() => setAllInTab(activeTab, "accepted")}
-                  >
-                    Accept all
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn--sm btn--secondary"
-                    onClick={() => setAllInTab(activeTab, "rejected")}
-                  >
-                    Reject all
-                  </button>
-                </div>
-              )}
             </div>
 
             <div className="planner-page__list">
@@ -315,9 +263,7 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
                   <RecommendationCard
                     key={i}
                     rec={rec}
-                    index={i}
                     decision={decisions[i] ?? "pending"}
-                    onDecide={setDecision}
                     featureColumnMap={featureColumnMap}
                     dependencyWarning={dependencyWarningFor(rec, decisions[i] ?? "pending", recs, decisions)}
                   />
@@ -369,9 +315,7 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
 
 interface RecCardProps {
   rec: PlannerRecommendation;
-  index: number;
   decision: PmDecisionValue;
-  onDecide: (index: number, value: PmDecisionValue) => void;
   featureColumnMap: Map<string, string>;
   dependencyWarning?: string | null;
 }
@@ -458,7 +402,7 @@ function statusLabel(status: string): string {
   return "New";
 }
 
-function RecommendationCard({ rec, index, decision, onDecide, featureColumnMap, dependencyWarning }: RecCardProps) {
+function RecommendationCard({ rec, decision, featureColumnMap, dependencyWarning }: RecCardProps) {
   // Defensive fallbacks: an older cached suggestion, a dev-server hot-reload
   // that preserved stale state from before this schema changed, or an LLM
   // response that omitted an array field should never blank the whole page.
@@ -592,24 +536,9 @@ function RecommendationCard({ rec, index, decision, onDecide, featureColumnMap, 
       )}
 
       <div className="planner-page__card-foot">
-        <div className="planner-page__actions">
-          <button
-            type="button"
-            className="btn btn--sm btn--primary"
-            aria-pressed={decision === "accepted"}
-            onClick={() => onDecide(index, "accepted")}
-          >
-            {decision === "accepted" ? "Accepted" : "Accept"}
-          </button>
-          <button
-            type="button"
-            className={`btn btn--sm btn--secondary${decision === "rejected" ? " btn--selected" : ""}`}
-            aria-pressed={decision === "rejected"}
-            onClick={() => onDecide(index, "rejected")}
-          >
-            {decision === "rejected" ? "Rejected" : "Reject"}
-          </button>
-        </div>
+        <span className={`planner-page__decision planner-page__decision--${decision}`}>
+          {decision === "accepted" ? "Accepted" : decision === "rejected" ? "Rejected" : "Waiting for your decision in the assistant"}
+        </span>
       </div>
     </div>
   );

@@ -28,6 +28,24 @@ export const IconSparkle = () => (
   </svg>
 );
 
+// The assistant's launcher: a speech bubble with a sparkle in it.
+export const IconChatBot = () => (
+  <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+    <path
+      d="M6 8.5A4.5 4.5 0 0 1 10.5 4h11A4.5 4.5 0 0 1 26 8.5v8a4.5 4.5 0 0 1-4.5 4.5H15l-5.2 4.6c-.6.5-1.5.1-1.5-.7V21A4.5 4.5 0 0 1 6 16.5v-8Z"
+      fill="currentColor"
+      fillOpacity="0.18"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M16 8.4l1.4 3.7 3.7 1.4-3.7 1.4L16 18.6l-1.4-3.7-3.7-1.4 3.7-1.4L16 8.4Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
 export const IconWarnTriangle = () => (
   <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
     <path d="M12 4 21 20H3L12 4Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useChat } from "../chat/ChatProvider";
 import type { ChatMsg } from "../chat/ChatProvider";
-import { IconSparkle } from "./icons";
+import { IconChatBot, IconSparkle } from "./icons";
 import { Spinner } from "./ThinkingLoader";
 import "./ChatPanel.css";
 
@@ -46,9 +46,8 @@ export default function ChatPanel() {
   const endRef = useRef<HTMLDivElement>(null);
   const { open, messages, busy, build, plan, phase } = chat;
 
-  // Configure (brief and data connection) and Planner work as before: the assistant joins at the audit, for the
-  // interview, the build (once the audit decisions are done) and the report.
-  const hidden = !["/audit", "/features", "/analysis", "/report"].includes(location.pathname);
+  // The assistant is there from the first page; only unknown routes (which redirect) have none.
+  const hidden = !["/", "/upload", "/planner", "/audit", "/features", "/analysis", "/report"].includes(location.pathname);
 
   useEffect(() => {
     // Push the page content aside while the panel is open so it never covers the page.
@@ -64,8 +63,14 @@ export default function ChatPanel() {
 
   if (!open) {
     return (
-      <button type="button" className="chat__launcher" onClick={() => chat.setOpen(true)} aria-label="Open the assistant">
-        <IconSparkle /> Assistant
+      <button
+        type="button"
+        className={`chat__launcher${build.status === "running" ? " chat__launcher--busy" : ""}`}
+        onClick={() => chat.setOpen(true)}
+        aria-label="Open the assistant"
+        title="Assistant"
+      >
+        <IconChatBot />
         {build.status === "running" && <span className="chat__launcher-dot" aria-hidden="true" />}
       </button>
     );
@@ -77,10 +82,22 @@ export default function ChatPanel() {
     setDraft("");
   };
 
-  const filled = UNDERSTANDING_LABELS.filter(([key]) => chat.understanding[key]);
-  const showSummary = filled.length > 0 || chat.assumptions.length > 0;
+  // The six things the interview settles are always listed, so the PM sees what is still open.
+  const filled = UNDERSTANDING_LABELS;
+  const showSummary = true;
+  const pendingReview = chat.review.filter((r) => r.state === "pending" || r.state === "working" || r.state === "error");
   const canBuild = phase !== "build" && build.status !== "running" && build.status !== "waiting_data";
   const openPath = (path: string) => navigate(path);
+  // The shortcuts belong to the page the PM is on: calculations on Features, analyses on Analysis, both where
+  // the report is planned or reviewed, none on the first two pages (no data yet).
+  const onPage = location.pathname;
+  const showCalculations = ["/planner", "/audit", "/features", "/report"].includes(onPage);
+  const showAnalyses = ["/planner", "/audit", "/analysis", "/report"].includes(onPage);
+  // "My own": the PM describes it in the chat; the assistant drafts it, adds it and opens it on its page.
+  const startOwn = (prefix: string) => {
+    setDraft(prefix);
+    document.getElementById("chat-input")?.focus();
+  };
 
   return (
     <aside className="chat" aria-label="Assistant">
@@ -116,7 +133,7 @@ export default function ChatPanel() {
               {filled.map(([key, label]) => (
                 <div key={key}>
                   <dt>{label}</dt>
-                  <dd>{chat.understanding[key]}</dd>
+                  <dd className={chat.understanding[key] ? undefined : "chat__open"}>{chat.understanding[key] || "Not asked yet"}</dd>
                 </div>
               ))}
             </dl>
@@ -207,8 +224,73 @@ export default function ChatPanel() {
             </div>
           </section>
         )}
+        {chat.review.length > 0 && (
+          <section className="chat__plan chat__review" aria-label="Suggestions to review">
+            <h3>Review suggestions ({pendingReview.length} waiting)</h3>
+            <ul>
+              {chat.review.map((r) => (
+                <li key={r.id} className={`chat__review-item chat__review-item--${r.state}`}>
+                  <div>
+                    <strong>{r.name}</strong>
+                    <span>
+                      {r.kind === "feature" ? "Calculation" : "Analysis"}
+                      {r.description ? `: ${r.description}` : ""}
+                    </span>
+                    {r.error && <span className="chat__review-error">{r.error}</span>}
+                  </div>
+                  {r.state === "accepted" || r.state === "rejected" ? (
+                    <span className="chat__review-done">{r.state === "accepted" ? "Accepted" : "Rejected"}</span>
+                  ) : (
+                    <span className="chat__change-buttons">
+                      <button type="button" className="btn btn--sm btn--secondary" onClick={() => chat.inspect(r)}>
+                        Details
+                      </button>
+                      <button type="button" className="btn btn--sm btn--primary" disabled={r.state === "working"} onClick={() => chat.decide(r.id, true)}>
+                        {r.state === "working" ? "…" : "Accept"}
+                      </button>
+                      <button type="button" className="btn btn--sm btn--secondary" disabled={r.state === "working"} onClick={() => chat.decide(r.id, false)}>
+                        Reject
+                      </button>
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {pendingReview.some((r) => r.state === "pending") && (
+              <div className="chat__plan-buttons">
+                <button type="button" className="btn btn--sm btn--primary" onClick={chat.acceptAll}>
+                  Accept all
+                </button>
+              </div>
+            )}
+          </section>
+        )}
         <div ref={endRef} />
       </div>
+
+      {chat.buildItems.length > 0 && (
+        <section className="chat__live" aria-label="Analyses being built">
+          <div className="chat__live-title">
+            Analyses ({chat.buildItems.filter((i) => i.state === "done").length} of {chat.buildItems.length})
+          </div>
+          <ul>
+            {chat.buildItems.map((item) => (
+              <li key={item.id} className={`chat__live-item chat__live-item--${item.state}`} title={item.error}>
+                <span className="chat__live-state" aria-hidden="true">
+                  {item.state === "running" ? <Spinner /> : item.state === "done" ? "✓" : item.state === "failed" ? "!" : "·"}
+                </span>
+                <span className="chat__live-name">{item.name}</span>
+                <span className="chat__live-label">
+                  {item.state === "queued" ? "waiting" : item.state === "running" ? "building" : item.state === "done" ? "ready" : "failed"}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <button type="button" className="btn btn--sm btn--secondary" onClick={() => navigate("/analysis")}>
+            Open the analyses
+          </button>
+        </section>
+      )}
 
       {build.status !== "idle" && (
         <div className={`chat__progress chat__progress--${build.status}`} role="status">
@@ -247,6 +329,31 @@ export default function ChatPanel() {
             ))}
           </ul>
         </details>
+      )}
+
+      {chat.hasSession && !busy && (showCalculations || showAnalyses) && (
+        <div className="chat__quick chat__quick--add" aria-label="Add to the report">
+          {showCalculations && (
+            <button type="button" className="chat__chip" onClick={() => chat.suggestWithAi("feature")}>
+              ✨ Suggest calculations (AI)
+            </button>
+          )}
+          {showAnalyses && (
+            <button type="button" className="chat__chip" onClick={() => chat.suggestWithAi("analysis")}>
+              ✨ Suggest analyses (AI)
+            </button>
+          )}
+          {showCalculations && (
+            <button type="button" className="chat__chip" onClick={() => startOwn("Add a calculation: ")}>
+              + My own calculation
+            </button>
+          )}
+          {showAnalyses && (
+            <button type="button" className="chat__chip" onClick={() => startOwn("Add an analysis: ")}>
+              + My own analysis
+            </button>
+          )}
+        </div>
       )}
 
       {chat.quickReplies.length > 0 && !busy && (
