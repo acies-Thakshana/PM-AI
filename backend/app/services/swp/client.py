@@ -48,6 +48,16 @@ def _program(program_id: str | None) -> str:
 
 
 _lock = threading.Lock()          # one call at a time keeps us under the 20 calls/min limit
+_RATE_LIMIT_RETRIES = 3
+
+
+def _retry_after(response) -> float:
+    """Seconds the API asks us to wait after a 429 (default 20)."""
+    try:
+        return min(max(float(response.headers.get("Retry-After", 20)), 1.0), 60.0)
+    except (TypeError, ValueError):
+        return 20.0
+
 _token: dict = {"value": None, "expires": 0.0}
 
 
@@ -59,13 +69,25 @@ def _call(method: str, path: str, key: str, token: str | None = None, **kwargs) 
     if token:
         headers["Authorization"] = f"Bearer {token}"
     with _lock:
-        try:
-            r = requests.request(method, config.SWP_BASE_URL + path, headers=headers, timeout=60, **kwargs)
-        except requests.RequestException as exc:
-            raise SwpError(f"Could not reach the SWP API: {exc}") from exc
-        log.info("SWP %s %s -> %s", method, path.split("?")[0], r.status_code)
-        progress.tick()
-        time.sleep(config.SWP_CALL_DELAY_SECONDS)
+        for attempt in range(_RATE_LIMIT_RETRIES + 1):
+            started = time.monotonic()
+            try:
+                r = requests.request(method, config.SWP_BASE_URL + path, headers=headers, timeout=60, **kwargs)
+            except requests.RequestException as exc:
+                raise SwpError(f"Could not reach the SWP API: {exc}") from exc
+            log.info("SWP %s %s -> %s", method, path.split("?")[0], r.status_code)
+            # The limit is calls per minute, so the gap runs from the START of one call to the start of the next:
+            # the time the call itself took already counts toward it.
+            pause = max(config.SWP_CALL_DELAY_SECONDS - (time.monotonic() - started), 0)
+            if r.status_code == 429 and attempt < _RATE_LIMIT_RETRIES:
+                # Too many calls: wait out the window (the API's own hint when it gives one) and ask again.
+                pause = max(pause, _retry_after(r))
+                log.warning("SWP rate limit hit; waiting %.0fs", pause)
+                time.sleep(pause)
+                continue
+            progress.tick()
+            time.sleep(pause)
+            break
     if r.status_code != 200:
         raise SwpError(f"SWP API {method} {path.split('?')[0]} failed ({r.status_code}): {r.text[:300]}")
     return r.json()

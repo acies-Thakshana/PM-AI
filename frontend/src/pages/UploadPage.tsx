@@ -1,11 +1,9 @@
-import { Spinner } from "../components/ThinkingLoader";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "../components/Header";
-import { IconChevronLeft } from "../components/icons";
-import SourceSelect from "../components/SourceSelect";
 import FileUploadCard from "../components/FileUploadCard";
-import StepIndicator from "../components/StepIndicator";
+import ChatComposer from "../components/ChatComposer";
+import type { ChatAttachment } from "../components/ChatComposer";
+import ChatMessage from "../components/ChatMessage";
 import ClientBriefInput from "../components/ClientBriefInput";
 import SwpConfigPanel from "../components/SwpConfigPanel";
 import { UPLOAD_SLOTS, AUDITED_SLOTS, isAudited } from "../constants/uploadSlots";
@@ -21,6 +19,9 @@ import { uploadOnly } from "../api/audit";
 import { finalizeBrief } from "../api/brief";
 import { hasBrief } from "../context/plannerSkipped";
 import type { DataSource } from "../context/plannerSkipped";
+import "../components/ChatMessage.css";
+import "../components/StageChat.css";
+import { PlannerThread, usePlannerChat } from "./PlannerPage";
 import "./UploadPage.css";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -37,6 +38,8 @@ const SAMPLE_FILES: { id: UploadSlotId; filename: string; mimeType: string }[] =
 
 // The API mode brings the trip data in itself; the two JSON profiles are files in both modes.
 const PROFILE_SLOTS = UPLOAD_SLOTS.filter((s) => !isAudited(s.id));
+// The trip files, used when the data comes from uploads instead of the SWP API.
+const TRIP_SLOTS = UPLOAD_SLOTS.filter((s) => isAudited(s.id));
 
 interface UploadPageProps {
   files: FilesState;
@@ -53,7 +56,8 @@ interface UploadPageProps {
   onLoadComplete: (sessionId: string, label: File, signature: string) => void;
   onSelect: (id: UploadSlotId, file: File) => void;
   onRemove: (id: UploadSlotId) => void;
-  onClearAll: () => void;
+  /** The audit session of the program in play: the Planner runs on it as soon as there is one. */
+  sessionId: string | null;
   onBriefChange: (state: BriefState) => void;
   onUploadComplete: (sessionIds: Partial<Record<UploadSlotId, string>>, briefSignature: string) => void;
   /** The sessions already created from the files now selected (cleared whenever a file changes). */
@@ -75,7 +79,7 @@ export default function UploadPage({
   onLoadComplete,
   onSelect,
   onRemove,
-  onClearAll,
+  sessionId,
   onBriefChange,
   onUploadComplete,
   uploadedSessionIds,
@@ -83,13 +87,33 @@ export default function UploadPage({
 }: UploadPageProps) {
   const navigate = useNavigate();
   const [errors, setErrors] = useState<ErrorsState>({});
-  const [highlighted, setHighlighted] = useState<UploadSlotId | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [briefError, setBriefError] = useState<string | undefined>();
   const [samplesLoading, setSamplesLoading] = useState(false);
   const [progressId, setProgressId] = useState<string | null>(null);
-  const cardRefs: Partial<Record<UploadSlotId, HTMLDivElement | null>> = {};
+  const briefRef = useRef<HTMLDivElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
+  // Where the fetched trips are shown: their own message, once there are trips.
+  const [resultsHost, setResultsHost] = useState<HTMLDivElement | null>(null);
+  // The PM's replies in this conversation before planning starts, and what the assistant answered.
+  interface Turn {
+    user: string;
+    reply?: string;
+    editor?: boolean;
+  }
+  const [turns, setTurns] = useState<Turn[]>([]);
+  const [showEditor, setShowEditor] = useState(false);
+  const [editorHost, setEditorHost] = useState<HTMLDivElement | null>(null);
+
+  // With a client brief, the Planner starts in this same conversation as soon as the data is loaded.
+  const planning = !!sessionId && hasBrief(brief);
+  const planner = usePlannerChat(planning ? sessionId : null, files);
+
+  // When the Planner starts, the conversation moves down to it.
+  useEffect(() => {
+    if (planning) endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [planning]);
 
   const apiMode = dataSource === "api";
   // Only trips fetched for the program id now typed count.
@@ -128,7 +152,7 @@ export default function UploadPage({
   const checkBrief = (): boolean => {
     const missing = !brief.rawText.trim();
     setBriefError(missing ? "Client brief is required." : undefined);
-    if (missing) window.scrollTo({ top: 0, behavior: "smooth" });
+    if (missing) briefRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     return !missing;
   };
 
@@ -140,7 +164,7 @@ export default function UploadPage({
     // planning) all over again.
     const signature = JSON.stringify([brief.rawText, brief.finalText, config.programId, config.sensors, ids, edits]);
     if (uploadedSessionIds.sensiwatch && signature === uploadedBriefSignature) {
-      navigate(hasBrief(brief) ? "/planner" : "/audit");
+      if (!hasBrief(brief)) navigate("/audit");
       return;
     }
     setUploading(true);
@@ -159,7 +183,7 @@ export default function UploadPage({
       const label = new File([], loaded.filename);
       await finalizeBrief(brief, { ...files, sensiwatch: label }, [loaded.session_id]);
       onLoadComplete(loaded.session_id, label, signature);
-      navigate(hasBrief(brief) ? "/planner" : "/audit");
+      if (!hasBrief(brief)) navigate("/audit");
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Could not load the trips. Is the backend running?");
     } finally {
@@ -182,7 +206,7 @@ export default function UploadPage({
     const haveSessions = AUDITED_SLOTS.some((id) => uploadedSessionIds[id]);
     const allUploaded = AUDITED_SLOTS.every((id) => !files[id] || uploadedSessionIds[id]);
     if (haveSessions && allUploaded && briefSignature === uploadedBriefSignature) {
-      navigate(hasBrief(brief) ? "/planner" : "/audit");
+      if (!hasBrief(brief)) navigate("/audit");
       return;
     }
 
@@ -201,7 +225,7 @@ export default function UploadPage({
 
       onUploadComplete(sessionIds, briefSignature);
       // No client brief = nothing for the Planner to plan: go straight to the data Audit.
-      navigate(hasBrief(brief) ? "/planner" : "/audit");
+      if (!hasBrief(brief)) navigate("/audit");
     } catch (err: unknown) {
       setUploadError(err instanceof Error ? err.message : "Upload failed. Is the backend running?");
     } finally {
@@ -209,147 +233,235 @@ export default function UploadPage({
     }
   };
 
-  const handleContinue = apiMode ? handleContinueApi : handleContinueUpload;
-  const continueLabel = apiMode ? "Load Arrived Trips & Continue" : "Upload & Continue";
-  const continueDisabled = uploading || (apiMode && !apiReady);
+  const scrollDown = () => window.setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }), 60);
 
-  // A full page load (not a router navigation) so the app starts completely fresh on the Get Started page.
-  const handleBack = () => window.location.assign("/");
-
-  const handleJumpTo = (id: UploadSlotId) => {
-    cardRefs[id]?.scrollIntoView({ behavior: "smooth", block: "center" });
-    setHighlighted(id);
-    setTimeout(() => setHighlighted((prev) => (prev === id ? null : prev)), 1600);
+  // "Load the arrived trips" as a chat reply: it shows as the PM's message, then the assistant gets on with it.
+  const requestLoad = (said?: string) => {
+    setTurns((prev) => [...prev, { user: said ?? `Load the ${chosen.length} arrived trip${chosen.length === 1 ? "" : "s"}` }]);
+    scrollDown();
+    void handleContinueApi();
   };
 
-  const selectedCount = Object.values(files).filter(Boolean).length;
-  const slots = apiMode ? PROFILE_SLOTS : UPLOAD_SLOTS;
+  const requestEdit = (said?: string) => {
+    if (showEditor) return;
+    setShowEditor(true);
+    setTurns((prev) => [
+      ...prev,
+      {
+        user: said ?? "Let me review and edit the trips",
+        reply: "Here they are. Mark an in-transit trip as arrived to include it (this changes the app only, not SWP), or paste trip IDs to load just some.",
+        editor: true,
+      },
+    ]);
+    scrollDown();
+  };
 
-  const buttons = (
-    <div className="upload-page__buttons">
-      {!apiMode && (
-        <button
-          type="button"
-          className="btn btn--secondary"
-          onClick={handleAddAllSamples}
-          disabled={uploading || samplesLoading}
-          title="Fills every slot with a bundled example file, so you can skip hunting one down each time you try the app."
-        >
-          {samplesLoading ? <><Spinner />Loading samples…</> : "Add all samples"}
-        </button>
-      )}
-      <button type="button" className="btn btn--secondary" onClick={onClearAll} disabled={uploading}>
-        Clear All
-      </button>
-      <button type="button" className="btn btn--primary" onClick={handleContinue} disabled={continueDisabled}>
-        {uploading ? <><Spinner />{apiMode ? "Loading…" : "Uploading…"}</> : continueLabel}
-      </button>
-    </div>
+  // Before planning, the message box takes a short "load" or "show me the trips" as a reply to the assistant;
+  // anything else goes into the client brief (the Planner reads it from there). Once the Planner has started, it asks
+  // the Planner for different or more suggestions.
+  const handleSend = (text: string) => {
+    if (planning) {
+      void planner.handleRequestMore(text);
+      return;
+    }
+    const short = text.trim().split(/\s+/).length <= 8;
+    if (short && apiMode && tripsForProgram && /\b(load|continue|proceed|go ahead)\b/i.test(text)) {
+      requestLoad(text);
+      return;
+    }
+    if (short && apiMode && tripsForProgram && /\b(edit|review|show|list)\b/i.test(text) && /\btrips?\b/i.test(text)) {
+      requestEdit(text);
+      return;
+    }
+    const joined = brief.rawText.trim() ? `${brief.rawText.trim()}\n\n${text}` : text;
+    setBriefError(undefined);
+    onBriefChange({ ...brief, rawText: joined, finalText: joined, isEnglish: true });
+    setTurns((prev) => [...prev, { user: text, reply: "Added to the client brief. I will read it when I plan." }]);
+    scrollDown();
+  };
+
+  const handleContinue = apiMode ? handleContinueApi : handleContinueUpload;
+  const continueDisabled = uploading || (apiMode && !apiReady);
+
+  const attachments: ChatAttachment[] = PROFILE_SLOTS.map((slot) => ({
+    id: slot.id,
+    label: slot.title,
+    accept: slot.accept,
+    fileName: files[slot.id]?.name,
+  }));
+
+  const renderSlot = (slot: (typeof UPLOAD_SLOTS)[number]) => (
+    <FileUploadCard
+      key={slot.id}
+      config={slot}
+      file={files[slot.id]}
+      error={errors[slot.id]}
+      onSelect={(file) => handleSelect(slot.id, file)}
+      onRemove={() => onRemove(slot.id)}
+    />
   );
 
   return (
-    <div className="upload-page">
-      <Header subtitle="Data Configuration" />
-      <main className="upload-page__main">
-        <StepIndicator current={1} />
+    <div className="upload-page chat-page">
+      <div className="chat-page__scroll">
+        <div className="chat-page__thread">
+          <ChatMessage>
+            <p>
+              Hi, I&apos;m your program manager assistant. Tell me about the program and I will pull the trips, suggest
+              what to build, and take you through the audit.
+            </p>
+            <div className="chat-card" ref={briefRef}>
+              <div className="chat-card__head">
+                Program setup
+                <span>{apiMode ? "SWP API" : "Uploaded files"}</span>
+              </div>
+              <div className="chat-card__body">
+                <div>
+                  <span className="chat-card__label">
+                    Client brief <span className="cb__badge-required">Required</span>
+                  </span>
+                  <ClientBriefInput
+                    value={brief}
+                    error={briefError}
+                    onChange={(state) => {
+                      setBriefError(undefined);
+                      onBriefChange(state);
+                    }}
+                  />
+                </div>
 
-        <ClientBriefInput
-          value={brief}
-          error={briefError}
-          onChange={(state) => {
-            setBriefError(undefined);
-            onBriefChange(state);
-          }}
-        />
+                <div>
+                  <span className="chat-card__label">Source data</span>
+                  <div className="source-toggle" role="tablist" aria-label="Where the trip data comes from">
+                    {(["api", "upload"] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        role="tab"
+                        aria-selected={dataSource === mode}
+                        className={`source-toggle__option${dataSource === mode ? " source-toggle__option--active" : ""}`}
+                        onClick={() => onSourceChange(mode)}
+                        disabled={uploading}
+                      >
+                        {mode === "api" ? "SWP API" : "Upload files"}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="upload-page__lede">
+                    {apiMode
+                      ? "Every trip of the program is fetched first. Then choose the departure dates and the sensors. Nothing is written back to SWP."
+                      : "Upload the SensiWatch export to begin. The ColdStream export is optional. Both files go through the data audit."}
+                  </p>
+                </div>
 
-        <div className="upload-page__intro">
-          <h1 className="upload-page__heading">Source Data</h1>
-          <div className="source-toggle" role="tablist" aria-label="Where the trip data comes from">
-            {(["api", "upload"] as const).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                role="tab"
-                aria-selected={dataSource === mode}
-                className={`source-toggle__option${dataSource === mode ? " source-toggle__option--active" : ""}`}
-                onClick={() => onSourceChange(mode)}
-                disabled={uploading}
-              >
-                {mode === "api" ? "Configure (SWP API)" : "Upload files"}
-              </button>
-            ))}
-          </div>
-          <p className="upload-page__lede">
-            {apiMode
-              ? "Trip data is pulled from the SWP API. All trips of the program are fetched first; choose the departure dates, the sensors and the trips to bring in. Nothing is written back to SWP."
-              : "Provide the SensiWatch export and a client brief to begin. ColdStream data, the Customer KPI Profile, and the Analysis Profile are optional but improve triage and reporting accuracy. SensiWatch and ColdStream files go through the data audit."}
-          </p>
-        </div>
+                {apiMode ? (
+                  <SwpConfigPanel
+                    config={config}
+                    onConfigChange={onConfigChange}
+                    trips={trips}
+                    onTripsChange={onTripsChange}
+                    edits={edits}
+                    onEditsChange={onEditsChange}
+                    disabled={uploading}
+                    resultsHost={resultsHost}
+                    editorHost={editorHost}
+                    showEditor={showEditor}
+                  />
+                ) : (
+                  <div className="upload-page__grid">{TRIP_SLOTS.map(renderSlot)}</div>
+                )}
+              </div>
+            </div>
+          </ChatMessage>
 
-        {!apiMode && (
-          <div className="upload-page__search-row">
-            <SourceSelect files={files} onSelect={handleJumpTo} />
-          </div>
-        )}
+          {apiMode && tripsForProgram && (
+            <ChatMessage>
+              <div className="chat-msg__host" ref={setResultsHost} />
+            </ChatMessage>
+          )}
 
-        {uploadError && <div className="upload-page__error">{uploadError}</div>}
-        {uploading && apiMode && <ApiProgress progressId={progressId} fallback="Loading the arrived trips…" />}
-
-        {apiMode && (
-          <SwpConfigPanel
-            config={config}
-            onConfigChange={onConfigChange}
-            trips={trips}
-            onTripsChange={onTripsChange}
-            edits={edits}
-            onEditsChange={onEditsChange}
-            disabled={uploading}
-          />
-        )}
-
-        <div className="upload-page__actions">
-          <div className="upload-page__left">
-            <button type="button" className="btn btn--secondary" onClick={handleBack} disabled={uploading}>
-              <IconChevronLeft /> Back
-            </button>
-            <span className="upload-page__count">
-              {apiMode ? `${chosen.length} arrived trip(s) selected` : `${selectedCount} of ${UPLOAD_SLOTS.length} files selected`}
-            </span>
-          </div>
-          {buttons}
-        </div>
-
-        {apiMode && <h2 className="upload-page__subheading">Optional profiles</h2>}
-
-        <div className="upload-page__grid">
-          {slots.map((slot) => (
-            <div
-              key={slot.id}
-              ref={(el) => {
-                cardRefs[slot.id] = el;
-              }}
-            >
-              <FileUploadCard
-                config={slot}
-                file={files[slot.id]}
-                error={errors[slot.id]}
-                highlighted={highlighted === slot.id}
-                onSelect={(file) => handleSelect(slot.id, file)}
-                onRemove={() => onRemove(slot.id)}
-              />
+          {turns.map((turn, i) => (
+            <div key={i} className="chat-page__turn">
+              <ChatMessage from="user">{turn.user}</ChatMessage>
+              {turn.reply && (
+                <ChatMessage>
+                  <p>{turn.reply}</p>
+                  {turn.editor && <div className="chat-msg__host" ref={setEditorHost} />}
+                </ChatMessage>
+              )}
             </div>
           ))}
-        </div>
 
-        <div className="upload-page__actions upload-page__actions--bottom">
-          <button type="button" className="btn btn--secondary" onClick={handleBack} disabled={uploading}>
-            <IconChevronLeft /> Back
-          </button>
-          <button type="button" className="btn btn--primary" onClick={handleContinue} disabled={continueDisabled}>
-            {uploading ? <><Spinner />{apiMode ? "Loading…" : "Uploading…"}</> : continueLabel}
-          </button>
+          {uploading && apiMode && (
+            <ChatMessage>
+              <ApiProgress progressId={progressId} fallback="Loading the arrived trips…" />
+            </ChatMessage>
+          )}
+
+          {uploadError && (
+            <ChatMessage>
+              <div className="upload-page__error">{uploadError}</div>
+            </ChatMessage>
+          )}
+
+          {planning && <PlannerThread planner={planner} />}
+
+          <div ref={endRef} />
         </div>
-      </main>
+      </div>
+
+      <div className="chat-page__dock">
+        <div className="chat-page__dock-inner">
+          <div className="stage-chips">
+            {planning && planner.error && !planner.result && (
+              <button type="button" className="stage-chip stage-chip--main" onClick={planner.retry}>
+                Try again
+              </button>
+            )}
+            {planning && planner.result && (
+              <>
+                <button type="button" className="stage-chip stage-chip--main" disabled={planner.saving} onClick={() => void planner.handleProceed()}>
+                  Continue to Audit
+                </button>
+                <button type="button" className="stage-chip" disabled={planner.moreLoading} onClick={() => void planner.handleRequestMore()}>
+                  Suggest more of each
+                </button>
+              </>
+            )}
+            {!planning && apiMode && tripsForProgram && (
+              <>
+                <button type="button" className="stage-chip stage-chip--main" disabled={continueDisabled} onClick={() => requestLoad()}>
+                  Load {chosen.length} arrived trip{chosen.length === 1 ? "" : "s"}
+                </button>
+                {!showEditor && (
+                  <button type="button" className="stage-chip" disabled={uploading} onClick={() => requestEdit()}>
+                    Review and edit the trips
+                  </button>
+                )}
+              </>
+            )}
+            {!planning && !apiMode && (
+              <>
+                <button type="button" className="stage-chip stage-chip--main" disabled={continueDisabled} onClick={() => handleContinue()}>
+                  Upload and continue
+                </button>
+                <button type="button" className="stage-chip" disabled={uploading || samplesLoading} onClick={() => void handleAddAllSamples()}>
+                  {samplesLoading ? "Loading samples…" : "Add all sample files"}
+                </button>
+              </>
+            )}
+          </div>
+          <ChatComposer
+            placeholder={planning ? "Ask for different or more suggestions…" : "Add to the client brief, or attach a profile with the paperclip…"}
+            label={planning ? "Message to the Planner" : "Add to the client brief"}
+            onSend={handleSend}
+            disabled={uploading || (planning && (!planner.result || planner.moreLoading))}
+            attachments={attachments}
+            onAttach={(id, file) => handleSelect(id as UploadSlotId, file)}
+            onDetach={(id) => onRemove(id as UploadSlotId)}
+          />
+        </div>
+      </div>
     </div>
   );
 }

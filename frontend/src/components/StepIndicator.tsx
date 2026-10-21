@@ -1,5 +1,6 @@
 import { useContext } from "react";
 import { useNavigate } from "react-router-dom";
+import { InShellContext } from "../context/inShell";
 import { PlannerSkippedContext } from "../context/plannerSkipped";
 import "./StepIndicator.css";
 
@@ -19,6 +20,8 @@ const STEPS = [
 export default function StepIndicator({ current }: StepIndicatorProps) {
   const navigate = useNavigate();
   const plannerSkipped = useContext(PlannerSkippedContext);
+  // The app shell lists the stages in its sidebar.
+  if (useContext(InShellContext)) return null;
 
   return (
     <ol className="step-indicator" aria-label="Progress">

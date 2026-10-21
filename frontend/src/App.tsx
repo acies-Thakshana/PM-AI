@@ -2,9 +2,9 @@ import { DataSourceContext, PlannerSkippedContext, hasBrief } from "./context/pl
 import type { DataSource } from "./context/plannerSkipped";
 import { useRef, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import AppShell from "./components/AppShell";
 import WelcomePage from "./pages/WelcomePage";
 import UploadPage from "./pages/UploadPage";
-import PlannerPage from "./pages/PlannerPage";
 import AuditPage from "./pages/AuditPage";
 import FeaturesPage from "./pages/FeaturesPage";
 import AnalysisPage from "./pages/AnalysisPage";
@@ -249,6 +249,7 @@ function App() {
       <PlannerSkippedContext.Provider value={plannerSkipped}>
       <Routes>
         <Route path="/" element={<WelcomePage />} />
+        <Route element={<AppShell onNewProgram={handleClearAll} sessionId={plannerSessionId} />}>
         <Route
           path="/upload"
           element={
@@ -266,7 +267,7 @@ function App() {
               onLoadComplete={handleLoadComplete}
               onSelect={handleSelect}
               onRemove={handleRemove}
-              onClearAll={handleClearAll}
+              sessionId={plannerSessionId}
               onBriefChange={setBrief}
               onUploadComplete={handleUploadComplete}
               uploadedSessionIds={uploadedSessionIds}
@@ -274,10 +275,7 @@ function App() {
             />
           }
         />
-        <Route
-          path="/planner"
-          element={<PlannerPage sessionId={plannerSessionId} files={files} />}
-        />
+        <Route path="/planner" element={<Navigate to="/upload" replace />} />
         <Route
           path="/audit"
           element={
@@ -301,6 +299,7 @@ function App() {
         <Route path="/features" element={<FeaturesPage files={files} auditReports={auditReports} />} />
         <Route path="/analysis" element={<AnalysisPage files={files} auditReports={auditReports} />} />
         <Route path="/report" element={<ReportPage files={files} auditReports={auditReports} />} />
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </PlannerSkippedContext.Provider>

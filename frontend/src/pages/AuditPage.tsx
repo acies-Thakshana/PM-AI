@@ -1,23 +1,20 @@
 import ThinkingLoader from "../components/ThinkingLoader";
 import { LOADING } from "../utils/loadingMessages";
-import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "../components/Header";
-import StepIndicator from "../components/StepIndicator";
-import PageHeader from "../components/PageHeader";
-import PageNav from "../components/PageNav";
 import AuditReport from "../components/AuditReport";
 import type { Tab } from "../components/AuditReport";
-import AuditSummaryPanel from "../components/AuditSummaryPanel";
-import OutlierCorrectionStep from "../components/OutlierCorrectionStep";
-import Collapsible from "../components/Collapsible";
-import TripInspectTable from "../components/TripInspectTable";
+import AuditChat from "../components/AuditChat";
+import type { AuditBlock, AuditLogEntry } from "../components/AuditChat";
+import ChatMessage from "../components/ChatMessage";
 import TripInspectModal from "../components/TripInspectModal";
 import type { SwpTimesResult } from "../api/swp";
 import { DataSourceContext } from "../context/plannerSkipped";
-import { IconShieldSearch, IconDownload } from "../components/icons";
+import { IconDownload } from "../components/icons";
 import { downloadCleansedFile } from "../api/audit";
 import { resetDownstreamState, useStoredState } from "../state/sessionStore";
+import { useStageChrome } from "../context/stageChrome";
+import type { StageReply } from "../context/stageChrome";
 import { AUDITED_SLOTS, UPLOAD_SLOTS } from "../constants/uploadSlots";
 import type { UploadSlotId } from "../types/upload";
 import type { AuditErrorsState, AuditLoadingState, AuditReportsState, FilesState, ResolvingState, UploadedSessionIdsState } from "../App";
@@ -74,7 +71,6 @@ export default function AuditPage({
   // Held in the shared store (not local state) so leaving this page and coming
   // back keeps the PM where they were instead of replaying the outlier step.
   const [activeTabs, setActiveTabs] = useStoredState<Partial<Record<UploadSlotId, Tab>>>("audit.activeTabs", {});
-  const cardRefs = useRef<Partial<Record<UploadSlotId, HTMLElement | null>>>({});
 
   // The SensiWatch card shows three persistent tabs -- "Outliers Check" (duration/
   // temperature outlier review), "Standard Check" (the usual Standard Checks /
@@ -82,14 +78,13 @@ export default function AuditPage({
   // Summary stay disabled until the outlier review has been resolved or explicitly
   // skipped for the CURRENT session. The unlock is remembered against that session
   // id, so a new or re-uploaded file (new id) starts back at the outlier step.
-  const [storedWizardTab, setWizardActiveTab] = useStoredState<"outliers" | "standard" | "summary" | null>(
+  const [, setWizardActiveTab] = useStoredState<"outliers" | "standard" | "summary" | null>(
     "audit.wizardTab",
     null
   );
   const [unlockedForSession, setUnlockedForSession] = useStoredState<string | null>("audit.sensiwatchUnlockedFor", null);
   const sensiwatchSessionId = uploadedSessionIds[WIZARD_SLOT];
   const sensiwatchStandardUnlocked = !!sensiwatchSessionId && unlockedForSession === sensiwatchSessionId;
-  const wizardActiveTab = storedWizardTab ?? "outliers";
 
   // An audit runs once per upload: never when a report already exists (it
   // holds the PM's resolved decisions), one is in flight, or it already failed.
@@ -125,225 +120,129 @@ export default function AuditPage({
   const canContinue =
     !!uploadedSessionIds.sensiwatch && sensiwatchStandardUnlocked && !anyLoading && !anyPending;
 
+  // The conversation: what the PM has said so far, and the quick replies on offer at this moment.
+  const report = auditReports[WIZARD_SLOT];
+  const hasWizard = !!sensiwatchSessionId;
+  const [log, setLog] = useStoredState<AuditLogEntry[]>("audit.log", []);
+  const said = (block: AuditBlock) => log.some((e) => e.block === block);
+  const say = (user: string, block: AuditBlock) => setLog((prev) => [...prev, { user, block }]);
+
+  const replies: StageReply[] = [];
   if (!hasAnyFile) {
-    return (
-      <div className="audit-page">
-        <Header subtitle="Data Audit" />
-        <main className="audit-page__main">
-          <StepIndicator current={3} />
-          <div className="audit-page__empty">
-            <p>No files have been uploaded yet.</p>
-            <button type="button" className="btn btn--primary" onClick={() => navigate("/upload")}>
-              Go to Upload
-            </button>
-          </div>
-        </main>
-      </div>
-    );
+    replies.push({ label: "Go to Configure", main: true, onClick: () => navigate("/upload") });
+  } else if (hasWizard) {
+    if (!sensiwatchStandardUnlocked) {
+      replies.push({
+        label: "Keep them as they are",
+        main: true,
+        onClick: () => {
+          say("Keep them as they are", "keep");
+          advanceSensiwatchToStandard();
+        },
+      });
+      if (!said("review")) replies.push({ label: "Review the flagged trips", onClick: () => say("Let me review the flagged trips", "review") });
+    } else {
+      if (auditErrors[WIZARD_SLOT] && !report) replies.push({ label: "Try again", main: true, onClick: () => onRunAudit(WIZARD_SLOT) });
+      replies.push({ label: "Continue to Features", main: true, disabled: !canContinue, onClick: () => navigate("/features") });
+      if (report && !said("summary")) replies.push({ label: "What changed?", onClick: () => say("What changed in my data?", "summary") });
+      if (report) {
+        replies.push({
+          label: "Download the cleaned data",
+          onClick: () => {
+            say("Download the cleaned data", "download");
+            downloadCleansedFile(report.session_id).catch((err) => window.alert(err instanceof Error ? err.message : "Download failed."));
+          },
+        });
+      }
+    }
+    if (apiSource && !said("trips")) replies.push({ label: "Show all trips", onClick: () => say("Show me all the trips", "trips") });
   }
+  useStageChrome({ replies });
+
+  const otherSlots = auditedSlotsWithFiles.filter((id) => id !== WIZARD_SLOT);
 
   return (
-    <div className="audit-page">
-      <Header subtitle="Data Audit" />
-      <main className="audit-page__main">
-        <StepIndicator current={3} />
+    <>
+      {!hasAnyFile && (
+        <ChatMessage>
+          <p>No files have been uploaded yet. Set up a program in Configure first, and I will check it here.</p>
+        </ChatMessage>
+      )}
 
-        <PageNav position="top" onBack={() => navigate("/planner")}>
-          <button type="button" className="btn btn--primary" disabled={!canContinue} onClick={() => navigate("/features")}>
-            Proceed to Features
-          </button>
-        </PageNav>
-
-        <PageHeader
-          icon={<IconShieldSearch />}
-          title="Data Audit"
-          subtitle="Automated data quality checks have been run on your data below. Review each finding and confirm any outstanding decisions before continuing."
+      {hasWizard && (
+        <AuditChat
+          sessionId={sensiwatchSessionId!}
+          apiSource={apiSource}
+          dataVersion={dataVersion}
+          unlocked={sensiwatchStandardUnlocked}
+          report={report}
+          loading={!!auditLoading[WIZARD_SLOT]}
+          error={auditErrors[WIZARD_SLOT]}
+          resolvingIssueId={resolvingIssueId[WIZARD_SLOT] ?? null}
+          log={log}
+          onUnlock={() => advanceSensiwatchToStandard()}
+          onResolve={(issueId, decisionId, selectedItems) => onResolveIssue(WIZARD_SLOT, issueId, decisionId, selectedItems)}
+          onRevert={(issueId) => onRevertIssue(WIZARD_SLOT, issueId)}
+          onCorrectedFile={handleCorrectedFile}
+          reuploading={reuploadingSensiwatch}
+          reuploadError={reuploadError}
+          onInspectKey={(key) => setInspect({ key })}
+          onInspectNumber={(number) => setInspect({ number })}
+          onTimesSaved={handleTimesSaved}
+          canContinue={canContinue}
         />
+      )}
 
-        {auditedSlotsWithFiles.map((id) => {
-          const slot = UPLOAD_SLOTS.find((s) => s.id === id)!;
-          const report = auditReports[id];
-          const activeTab = activeTabs[id] ?? "quality";
-          return (
-            <section className="audit-page__card" key={id} ref={(el) => { cardRefs.current[id] = el; }}>
-              <div className="audit-page__card-head">
-                <div className="audit-page__card-head-left">
-                  <h2 className="audit-page__slot-title">{id === WIZARD_SLOT && apiSource ? "SensiWatch Trips (API)" : slot.title}</h2>
-                  <span className="audit-page__pill">DATA AUDIT SUMMARY</span>
-                  {report && (
-                    <span
-                      className={`audit-page__status audit-page__status--${
-                        report.status === "reviewed" ? "reviewed" : "pending"
-                      }`}
-                    >
-                      {report.status === "reviewed"
-                        ? "Reviewed"
-                        : `${report.issues.filter((i) => i.requires_decision && i.status === "pending").length} decision(s) needed`}
-                    </span>
-                  )}
-                </div>
-                <span className="audit-page__filename">{files[id]!.name}</span>
-              </div>
-
-              {id === WIZARD_SLOT ? (
-                <>
-                  {apiSource && (
-                    <Collapsible label="trips (mean temperature, segment days, inspect)" defaultOpen>
-                      <TripInspectTable
-                        key={`${uploadedSessionIds[id]}:${dataVersion}`}
-                        sessionId={uploadedSessionIds[id]!}
-                        onInspect={(key) => setInspect({ key })}
-                        onTimesSaved={handleTimesSaved}
-                      />
-                    </Collapsible>
-                  )}
-                  <div className="audit-page__wizard-tabs" role="tablist">
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={wizardActiveTab === "outliers"}
-                      className={`audit-page__wizard-tab ${
-                        wizardActiveTab === "outliers" ? "audit-page__wizard-tab--active" : ""
-                      }`}
-                      onClick={() => setWizardActiveTab("outliers")}
-                    >
-                      Outliers Check
-                    </button>
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={wizardActiveTab === "standard"}
-                      className={`audit-page__wizard-tab ${
-                        wizardActiveTab === "standard" ? "audit-page__wizard-tab--active" : ""
-                      }`}
-                      disabled={!sensiwatchStandardUnlocked}
-                      title={
-                        sensiwatchStandardUnlocked
-                          ? undefined
-                          : "Resolve or skip the outliers check first"
-                      }
-                      onClick={() => sensiwatchStandardUnlocked && setWizardActiveTab("standard")}
-                    >
-                      Standard Check
-                    </button>
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={wizardActiveTab === "summary"}
-                      className={`audit-page__wizard-tab ${
-                        wizardActiveTab === "summary" ? "audit-page__wizard-tab--active" : ""
-                      }`}
-                      disabled={!report}
-                      title={report ? undefined : "Resolve or skip the outliers check first"}
-                      onClick={() => report && setWizardActiveTab("summary")}
-                    >
-                      Summary
-                    </button>
-                  </div>
-
-                  {wizardActiveTab === "outliers" ? (
-                    <OutlierCorrectionStep
-                      key={`${uploadedSessionIds[id]}:${dataVersion}`}
-                      onInspect={apiSource ? (number) => setInspect({ number }) : undefined}
-                      sessionId={uploadedSessionIds[id]!}
-                      onFileCorrected={handleCorrectedFile}
-                      onProceed={() => advanceSensiwatchToStandard()}
-                      apiData={apiSource}
-                      uploading={reuploadingSensiwatch}
-                      uploadError={reuploadError}
+      {otherSlots.map((id) => {
+        const slot = UPLOAD_SLOTS.find((s) => s.id === id)!;
+        const slotReport = auditReports[id];
+        return (
+          <ChatMessage key={id}>
+            <p>Your {slot.title} was checked too.</p>
+            <div className="chat-card">
+              <div className="chat-card__head">{slot.title}</div>
+              <div className="chat-card__body">
+                {auditLoading[id] && <ThinkingLoader messages={LOADING.audit} hint="Data quality checks are running on this file." intervalMs={3500} showElapsed />}
+                {auditErrors[id] && <p className="audit-page__audit-error">{auditErrors[id]}</p>}
+                {slotReport && (
+                  <>
+                    <AuditReport
+                      report={slotReport}
+                      onResolve={(issueId, decisionId, selectedItems) => onResolveIssue(id, issueId, decisionId, selectedItems)}
+                      onRevert={(issueId) => onRevertIssue(id, issueId)}
+                      resolvingIssueId={resolvingIssueId[id] ?? null}
+                      activeTab={activeTabs[id] ?? "quality"}
+                      onTabChange={(tab) => setActiveTabs((prev) => ({ ...prev, [id]: tab }))}
                     />
-                  ) : wizardActiveTab === "summary" ? (
-                    report && <AuditSummaryPanel report={report} />
-                  ) : (
-                    <>
-                      {auditLoading[id] && (
-                        <ThinkingLoader messages={LOADING.audit} hint="Data quality checks are running on this file." intervalMs={3500} showElapsed />
-                      )}
+                    <a
+                      className="audit-page__download-link"
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        downloadCleansedFile(slotReport.session_id).catch((err) => window.alert(err instanceof Error ? err.message : "Download failed."));
+                      }}
+                    >
+                      <IconDownload />
+                      Download cleansed file
+                    </a>
+                  </>
+                )}
+              </div>
+            </div>
+          </ChatMessage>
+        );
+      })}
 
-                      {auditErrors[id] && <p className="audit-page__audit-error">{auditErrors[id]}</p>}
-
-                      {report && (
-                        <>
-                          <AuditReport
-                            report={report}
-                            onResolve={(issueId, decisionId, selectedItems) =>
-                              onResolveIssue(id, issueId, decisionId, selectedItems)
-                            }
-                            onRevert={(issueId) => onRevertIssue(id, issueId)}
-                            resolvingIssueId={resolvingIssueId[id] ?? null}
-                            activeTab={activeTab}
-                            onTabChange={(tab) => setActiveTabs((prev) => ({ ...prev, [id]: tab }))}
-                            hideOutlierTabs
-                            hideSummaryTab
-                          />
-                          <div className="audit-page__row-actions">
-                            <a className="audit-page__download-link" href="#"
- onClick={(e) => { e.preventDefault(); downloadCleansedFile(report.session_id).catch((err) => window.alert(err instanceof Error ? err.message : "Download failed.")); }}>
-                              <IconDownload />
-                              Download cleansed file
-                            </a>
-                          </div>
-                        </>
-                      )}
-                    </>
-                  )}
-                </>
-              ) : (
-                <>
-                  {auditLoading[id] && (
-                    <ThinkingLoader messages={LOADING.audit} hint="Data quality checks are running on this file." intervalMs={3500} showElapsed />
-                  )}
-
-                  {auditErrors[id] && <p className="audit-page__audit-error">{auditErrors[id]}</p>}
-
-                  {report && (
-                    <>
-                      <AuditReport
-                        report={report}
-                        onResolve={(issueId, decisionId, selectedItems) =>
-                          onResolveIssue(id, issueId, decisionId, selectedItems)
-                        }
-                        onRevert={(issueId) => onRevertIssue(id, issueId)}
-                        resolvingIssueId={resolvingIssueId[id] ?? null}
-                        activeTab={activeTab}
-                        onTabChange={(tab) => setActiveTabs((prev) => ({ ...prev, [id]: tab }))}
-                      />
-                      <div className="audit-page__row-actions">
-                        <a className="audit-page__download-link" href="#"
- onClick={(e) => { e.preventDefault(); downloadCleansedFile(report.session_id).catch((err) => window.alert(err instanceof Error ? err.message : "Download failed.")); }}>
-                          <IconDownload />
-                          Download cleansed file
-                        </a>
-                      </div>
-                    </>
-                  )}
-                </>
-              )}
-            </section>
-          );
-        })}
-
-        {inspect && uploadedSessionIds[WIZARD_SLOT] && (
-          <TripInspectModal
-            sessionId={uploadedSessionIds[WIZARD_SLOT]!}
-            tripKey={inspect.key}
-            tripNumber={inspect.number}
-            dataVersion={dataVersion}
-            onClose={() => setInspect(null)}
-            onTimesSaved={handleTimesSaved}
-          />
-        )}
-
-        <PageNav position="bottom" onBack={() => navigate("/planner")}>
-          <button type="button" className="btn btn--primary" disabled={!canContinue} onClick={() => navigate("/features")}>
-            Proceed to Features
-          </button>
-        </PageNav>
-
-        {!canContinue && !anyLoading && (
-          <p className="audit-page__hint">Resolve the outstanding data audit questions above before continuing.</p>
-        )}
-      </main>
-    </div>
+      {inspect && sensiwatchSessionId && (
+        <TripInspectModal
+          sessionId={sensiwatchSessionId}
+          tripKey={inspect.key}
+          tripNumber={inspect.number}
+          dataVersion={dataVersion}
+          onClose={() => setInspect(null)}
+          onTimesSaved={handleTimesSaved}
+        />
+      )}
+    </>
   );
 }

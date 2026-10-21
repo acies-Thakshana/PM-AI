@@ -1,0 +1,492 @@
+<title>Program Manager AI Workspace</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: Claude-style shell. Sidebar lists the five stages; one centered conversation column per stage; every table, chart and form lives inline in the conversation. */
+:root{
+  --blue:#152c73; --blue-dark:#0d1c4d; --sky:#1891f6; --tint:#eaf1fb;
+  --bg:#fbfcfe; --side:#f2f5fa; --surface:#fff; --subtle:#f6f8fc; --border:#e1e6f0; --border-strong:#cdd5e5;
+  --text:#1b2333; --muted:#5b6478; --faint:#8791a6;
+  --ok:#1a8f5e; --ok-bg:#e8f7f0; --bad:#c62828; --bad-bg:#fdecec;
+  --amber:#b45309; --amber-bg:#fef3c7; --amber-solid:#f59e0b; --purple:#6f42c1; --purple-bg:#f1ebfa;
+  --user:#eef2f9; --on-blue:#fff; --shadow:0 1px 2px rgba(21,44,115,.05),0 8px 28px rgba(21,44,115,.08);
+  --sans:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+  --mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --blue:#8fb0f5; --blue-dark:#c9d8fb; --sky:#4aa8ff; --tint:#1b2644;
+  --bg:#0f131c; --side:#141925; --surface:#181e2b; --subtle:#1c2332; --border:#283045; --border-strong:#38425b;
+  --text:#e6eaf3; --muted:#9aa4ba; --faint:#6f7a92;
+  --ok:#4cc38a; --ok-bg:#12302a; --bad:#ff7b7b; --bad-bg:#3a1b1e;
+  --amber:#f5b15a; --amber-bg:#3a2d12; --amber-solid:#f5b15a; --purple:#b69cf0; --purple-bg:#2a2140;
+  --user:#1f2940; --on-blue:#0f131c; --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 28px rgba(0,0,0,.35);color-scheme:dark}}
+:root[data-theme="dark"]{
+  --blue:#8fb0f5; --blue-dark:#c9d8fb; --sky:#4aa8ff; --tint:#1b2644;
+  --bg:#0f131c; --side:#141925; --surface:#181e2b; --subtle:#1c2332; --border:#283045; --border-strong:#38425b;
+  --text:#e6eaf3; --muted:#9aa4ba; --faint:#6f7a92;
+  --ok:#4cc38a; --ok-bg:#12302a; --bad:#ff7b7b; --bad-bg:#3a1b1e;
+  --amber:#f5b15a; --amber-bg:#3a2d12; --amber-solid:#f5b15a; --purple:#b69cf0; --purple-bg:#2a2140;
+  --user:#1f2940; --on-blue:#0f131c; --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 28px rgba(0,0,0,.35);color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 var(--sans);overflow:hidden;
+  padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--sky);outline-offset:2px}
+h1,h2,h3,p{margin:0}
+
+.shell{display:flex;height:100%;height:100dvh;min-width:0}
+
+/* Sidebar */
+.side{background:var(--side);border-right:1px solid var(--border);display:flex;flex-direction:column;min-height:0;position:fixed;inset:0 auto 0 0;width:min(288px,86vw);z-index:40;transform:translateX(-102%);transition:transform .2s;padding-top:env(safe-area-inset-top,0px)}
+body.nav .side{transform:none;box-shadow:var(--shadow)}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:30;display:none}
+body.nav .scrim{display:block}
+.brand{display:flex;align-items:center;gap:10px;padding:14px 16px 8px}
+.logo{font:italic 700 14px/1 Georgia,serif;color:var(--blue);border:1.5px solid var(--blue);border-radius:50%;padding:6px 12px}
+.brand b{font-size:14px;color:var(--blue-dark)}
+.newp{margin:8px 12px 12px;display:flex;align-items:center;gap:8px;border:1px solid var(--border-strong);background:var(--surface);border-radius:10px;padding:8px 12px;font-weight:600;font-size:14px}
+.newp:hover{background:var(--tint)}
+.lbl{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);padding:8px 20px 4px}
+.stages{display:grid;gap:2px;padding:0 8px}
+.stage{display:flex;align-items:center;gap:10px;border:0;background:none;text-align:left;border-radius:9px;padding:8px 12px;font-size:14px;color:var(--text)}
+.stage:hover{background:color-mix(in srgb,var(--blue) 8%,transparent)}
+.stage[aria-current="page"]{background:var(--surface);box-shadow:0 0 0 1px var(--border-strong);font-weight:600}
+.dot{flex:none;width:20px;height:20px;border-radius:50%;border:1.5px solid var(--border-strong);display:grid;place-items:center;font-size:11px;color:var(--muted);background:var(--surface)}
+.stage.done .dot{background:var(--ok);border-color:var(--ok);color:#fff}
+.stage[aria-current="page"] .dot{border-color:var(--blue);color:var(--blue)}
+.stage small{margin-left:auto;color:var(--faint);font-size:12px;font-variant-numeric:tabular-nums}
+.recents{display:grid;padding:0 8px;overflow:auto;min-height:0}
+.recent{border:0;background:none;text-align:left;padding:6px 12px;border-radius:8px;color:var(--muted);font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.recent:hover{background:color-mix(in srgb,var(--blue) 8%,transparent)}
+.recent.cur{color:var(--text)}
+.me{margin-top:auto;border-top:1px solid var(--border);padding:12px 16px;display:flex;gap:10px;align-items:center;font-size:13px}
+.av{width:30px;height:30px;border-radius:50%;background:var(--blue);color:var(--on-blue);display:grid;place-items:center;font-weight:700;font-size:12px;flex:none}
+.me small{display:block;color:var(--faint);font-size:12px}
+
+/* Main */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+.bar{flex:none;display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border)}
+.bar h1{font-size:15px;font-weight:600}
+.pill{font-size:12px;color:var(--muted);border:1px solid var(--border);border-radius:999px;padding:1px 10px;background:var(--surface)}
+.bar .sp{flex:1}
+.icon{width:34px;height:34px;border-radius:9px;border:0;background:none;display:grid;place-items:center;color:var(--muted)}
+.icon:hover{background:var(--subtle)}
+.threads{flex:1;overflow-y:auto;min-height:0;scroll-behavior:smooth}
+.thread{max-width:780px;margin:0 auto;padding:28px 20px 12px;display:flex;flex-direction:column;gap:26px}
+.thread[hidden]{display:none}
+
+.m{display:flex;gap:14px;min-width:0}
+.m .ic{flex:none;width:30px;height:30px;border-radius:9px;background:var(--blue);color:var(--on-blue);display:grid;place-items:center;font-size:12px;font-weight:700;margin-top:2px}
+.m .c{flex:1;min-width:0;display:grid;gap:12px}
+.m .c>p{max-width:62ch}
+.m.u{justify-content:flex-end}
+.m.u .b{background:var(--user);border-radius:18px 18px 4px 18px;padding:9px 16px;max-width:80%}
+.fup{padding-left:44px}
+@media (max-width:640px){.fup{padding-left:0}}
+.sep{display:flex;align-items:center;gap:10px;color:var(--faint);font-size:12px}
+.sep::before,.sep::after{content:"";flex:1;height:1px;background:var(--border)}
+b{font-weight:600}
+
+.think{display:flex;gap:5px;padding:10px 0}
+.think i{width:7px;height:7px;border-radius:50%;background:var(--faint);animation:p 1s infinite}
+.think i:nth-child(2){animation-delay:.15s}.think i:nth-child(3){animation-delay:.3s}
+@keyframes p{0%,80%,100%{opacity:.25}40%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.think i{animation:none}.threads{scroll-behavior:auto}}
+
+/* Inline cards */
+.card{border:1px solid var(--border);background:var(--surface);border-radius:14px;overflow:hidden}
+.card>.h{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border);background:var(--subtle)}
+.card>.h b{font-size:14px}
+.card>.h .r{margin-left:auto;color:var(--muted);font-size:13px}
+.card>.p{padding:14px 16px;display:grid;gap:14px}
+.card>.f{display:flex;gap:8px;align-items:center;padding:10px 16px;border-top:1px solid var(--border);background:var(--subtle);flex-wrap:wrap}
+.f .r{margin-left:auto;color:var(--muted);font-size:13px}
+.btn{border:1px solid var(--border-strong);background:var(--surface);border-radius:9px;padding:6px 13px;font-size:14px}
+.btn:hover{background:var(--tint)}
+.btn.pri{background:var(--blue);border-color:var(--blue);color:var(--on-blue);font-weight:600}
+.btn.pri:hover{background:var(--blue-dark);color:var(--bg)}
+.btn.sm{padding:3px 10px;font-size:13px}
+.btn.ok{background:var(--ok-bg);border-color:var(--ok);color:var(--ok);font-weight:600}
+.btn.no{background:var(--bad-bg);border-color:var(--bad);color:var(--bad)}
+.btn:disabled{opacity:.45;cursor:default}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--border-strong);background:var(--surface);border-radius:999px;padding:4px 12px;font-size:13.5px}
+.chip:hover{background:var(--tint);border-color:var(--sky)}
+.chip[aria-pressed="true"]{background:var(--blue);border-color:var(--blue);color:var(--on-blue)}
+.tag{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;border-radius:6px;padding:1px 7px;white-space:nowrap}
+.tg-f{background:var(--purple-bg);color:var(--purple)}.tg-a{background:var(--tint);color:var(--blue)}
+.tg-n{background:var(--amber-bg);color:var(--amber)}.tg-h{background:var(--ok-bg);color:var(--ok)}
+.tg-bad{background:var(--bad-bg);color:var(--bad)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.stat{border:1px solid var(--border);border-radius:12px;padding:10px 14px;background:var(--surface)}
+.stat small{display:block;color:var(--muted);font-size:12px}
+.stat b{font-size:24px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.3}
+.stat em{font-style:normal;font-size:12px;color:var(--muted)}
+
+/* Form */
+.form{display:grid;gap:14px}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+label.fl{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+.in{border:1px solid var(--border-strong);border-radius:9px;padding:8px 11px;background:var(--surface);color:var(--text);width:100%;min-width:0}
+textarea.in{resize:vertical;min-height:84px}
+.seg{display:inline-flex;border:1px solid var(--border-strong);border-radius:9px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:none;padding:6px 14px;font-size:14px}
+.seg button[aria-pressed="true"]{background:var(--blue);color:var(--on-blue)}
+.checks{display:flex;gap:16px;flex-wrap:wrap;font-size:14px}
+.checks label{display:flex;gap:6px;align-items:center}
+.ex{font-size:12px;color:var(--faint)}
+
+/* Plan rows */
+.pl{display:grid}
+.pr{display:grid;grid-template-columns:1fr auto;gap:4px 14px;padding:12px 16px;border-top:1px solid var(--border);align-items:start}
+.pr:first-child{border-top:0}
+.pr h4{margin:0;font-size:14.5px;font-weight:600;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pr p{color:var(--muted);font-size:13.5px;grid-column:1}
+.pr .acts{grid-row:1/span 3;grid-column:2;display:flex;gap:6px}
+.pr.accepted{background:color-mix(in srgb,var(--ok) 6%,transparent)}
+.pr.rejected h4,.pr.rejected p{opacity:.5;text-decoration:line-through}
+.pr .dt{grid-column:1/-1;display:none;gap:8px;margin-top:6px}
+.pr.open .dt{display:grid}
+.lk{border:0;background:none;color:var(--sky);padding:0;font-size:13px;grid-column:1;text-align:left;justify-self:start}
+code{font:12px/1.5 var(--mono);background:var(--subtle);border:1px solid var(--border);border-radius:6px;padding:6px 9px;display:block;overflow-x:auto;white-space:pre}
+.cols{display:flex;gap:4px;flex-wrap:wrap}
+.cols span{font:11.5px var(--mono);background:var(--subtle);border:1px solid var(--border);border-radius:5px;padding:0 6px}
+
+/* Issues, tables, charts */
+.iss{display:grid;gap:4px 14px;grid-template-columns:1fr auto;align-items:center;padding:12px 16px;border-top:1px solid var(--border)}
+.iss:first-child{border-top:0}
+.iss p{color:var(--muted);font-size:13.5px}
+.iss.res{background:color-mix(in srgb,var(--ok) 6%,transparent)}
+.tw{overflow-x:auto;border:1px solid var(--border);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th{background:var(--subtle);text-align:left;font-weight:600;padding:7px 12px;white-space:nowrap;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+td{padding:7px 12px;border-top:1px solid var(--border);white-space:nowrap}
+td.n,th.n{text-align:right}
+.hot{color:var(--bad);font-weight:600}
+.chart{width:100%;height:auto;display:block}
+.chart text{fill:var(--muted);font:12px var(--sans)}
+.chart .v{fill:var(--text);font-weight:600}
+.cov{height:6px;background:var(--subtle);border:1px solid var(--border);border-radius:9px;overflow:hidden;width:90px}
+.cov i{display:block;height:100%;background:var(--ok)}
+
+.slides{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.slide{aspect-ratio:16/9;border:1px solid var(--border-strong);border-radius:10px;background:var(--surface);padding:12px;display:flex;flex-direction:column;gap:6px;position:relative;overflow:hidden;max-width:100%}
+.slide::before{content:"";position:absolute;inset:0 0 auto;height:4px;background:var(--blue)}
+.slide small{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.slide b{font-size:13px;line-height:1.25}
+.slide svg{flex:1;min-height:0}
+.ins{display:grid;gap:8px}
+.ins div[contenteditable]{border:1px solid var(--border);border-radius:9px;padding:8px 12px;background:var(--surface)}
+.ins div[contenteditable]:focus{outline:2px solid var(--sky)}
+
+/* Composer */
+.dock{flex:none;padding:6px 20px calc(14px + env(safe-area-inset-bottom,0px));background:linear-gradient(to bottom,transparent,var(--bg) 22%)}
+.dockin{max-width:780px;margin:0 auto}
+.sug{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px}
+.sug .chip{white-space:nowrap}
+.box{display:flex;align-items:flex-end;gap:8px;background:var(--surface);border:1px solid var(--border-strong);border-radius:18px;padding:8px 8px 8px 16px;box-shadow:var(--shadow)}
+.box:focus-within{border-color:var(--sky)}
+.box textarea{flex:1;border:0;outline:0;resize:none;background:transparent;min-height:26px;max-height:140px;padding:5px 0}
+.send{width:34px;height:34px;border-radius:10px;border:0;background:var(--blue);color:var(--on-blue);display:grid;place-items:center;flex:none}
+.send:disabled{opacity:.3;cursor:default}
+.foot{text-align:center;font-size:11.5px;color:var(--faint);margin-top:6px}
+.toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 16px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50}
+.toast.on{opacity:1}
+
+@media (min-width:900px){
+  .side{position:relative;inset:auto;transform:none;flex:none;width:272px;z-index:auto;box-shadow:none;padding-top:0}
+  body.collapsed .side{display:none}
+  body.nav .scrim{display:none}
+}
+@media (max-width:640px){
+  .bar{padding:8px 12px}.pill{display:none}
+  .thread{padding:20px 16px 8px}.dock{padding-inline:16px}
+  .m .ic{display:none}
+  .pr{grid-template-columns:1fr}.pr .acts{grid-row:auto;grid-column:1;margin-top:6px}
+}
+@media (prefers-reduced-motion:reduce){.side{transition:none}}
+</style>
+
+<div class="shell">
+  <aside class="side" id="side">
+    <div class="brand"><span class="logo">Carrier</span><b>Program Manager AI</b></div>
+    <button class="newp" id="newp"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>New program</button>
+    <div class="lbl">This program</div>
+    <nav class="stages" id="stages" aria-label="Stages"></nav>
+    <div class="lbl">Recent programs</div>
+    <div class="recents">
+      <button class="recent cur">Program 4821 · pharma lanes</button>
+      <button class="recent">Program 4710 · produce export</button>
+      <button class="recent">Program 4533 · vaccines Q2</button>
+    </div>
+    <div class="me"><span class="av">TT</span><div>Thakshana T.<small>Cold chain team</small></div></div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <section class="main">
+    <header class="bar">
+      <button class="icon burger" id="burger" aria-label="Open menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <h1 id="title">Configure</h1><span class="pill" id="sub">Program 4821</span>
+      <span class="sp"></span>
+      <button class="icon" id="theme" aria-label="Toggle theme"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+    </header>
+    <div class="threads" id="threads"></div>
+    <div class="dock"><div class="dockin">
+      <form class="box" id="form">
+        <textarea id="input" rows="1" placeholder="Message the assistant…" aria-label="Message"></textarea>
+        <button class="send" id="send" type="submit" aria-label="Send" disabled><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+      </form>
+      <div class="foot">Sample content shown. The assistant suggests; nothing is changed in SWP.</div>
+    </div></div>
+  </section>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const STAGES=[
+ {id:"configure",name:"Configure",sub:"Brief, data source and plan"},
+ {id:"audit",name:"Audit",sub:"Check the data before using it"},
+ {id:"features",name:"Features",sub:"Build the columns the analyses need"},
+ {id:"analysis",name:"Analysis",sub:"Charts, tables and drill-downs"},
+ {id:"report",name:"Report",sub:"Slides and insights"},
+];
+const S={cur:"configure",done:{},seeded:{},dec:{},issues:{dup:0,empty:0,out:0},metric:"min",fetched:false,busy:false};
+const PLAN=[
+ {id:1,k:"f",n:"Dwell time at origin",w:"Your brief asks where shipments lose time before departure. This is the hours between gate-in and trip start.",f:"departure_ts - gate_in_ts   (hours)",c:["gate_in_ts","departure_ts"],d:"n"},
+ {id:2,k:"f",n:"Time above 8 °C",w:"Answers the excursion question in the brief. Counts the minutes each trip spent above the limit.",f:"sum(dt where temp_c > 8)   (minutes)",c:["temp_c","timestamp"],d:"n"},
+ {id:3,k:"f",n:"Transit duration",w:"Already in your Customer KPI profile, so it is reused.",f:"arrival_ts - departure_ts   (hours)",c:["arrival_ts","departure_ts"],d:"h"},
+ {id:4,k:"a",n:"Excursions by lane",w:"Compares time above 8 °C across lanes to find the worst routes.",f:"group by lane → mean(time_above_8c), count(trips)",c:["origin","destination","time_above_8c"],d:"n"},
+ {id:5,k:"a",n:"Dwell vs. excursion",w:"Tests whether long waits at origin go with more excursions.",f:"corr(dwell_origin_h, time_above_8c)",c:["dwell_origin_h","time_above_8c"],d:"n"},
+ {id:6,k:"a",n:"Weekly on-time rate",w:"Share of trips arriving inside the promised window, by week.",f:"share(arrival_ts <= eta_ts) by week",c:["arrival_ts","eta_ts"],d:"h"},
+];
+const el=(h)=>{const t=document.createElement("template");t.innerHTML=h.trim();return t.content.firstChild};
+const th=(id)=>$("#t-"+id);
+
+/* ---------- shell ---------- */
+function nav(){
+  $("#stages").innerHTML=STAGES.map((s,i)=>`<button class="stage ${S.done[s.id]?"done":""}" data-go="${s.id}" ${S.cur===s.id?'aria-current="page"':""}><span class="dot">${S.done[s.id]?"✓":i+1}</span>${s.name}<small>${badge(s.id)}</small></button>`).join("");
+  const st=STAGES.find(s=>s.id===S.cur);$("#title").textContent=st.name;$("#sub").textContent="Program 4821 · "+st.sub;
+}
+function badge(id){
+  if(id==="configure")return S.fetched?"1,284":"";
+  if(id==="audit"){const n=Object.values(S.issues).filter(Boolean).length;return n?n+"/3":""}
+  return "";
+}
+function go(id){
+  S.cur=id;document.body.classList.remove("nav");
+  $$(".thread").forEach(t=>t.hidden=t.id!=="t-"+id);
+  nav();sug();if(!S.seeded[id]){S.seeded[id]=1;SEED[id]()}
+  $("#threads").scrollTop=0;
+  history.replaceState(null,"","#"+id);
+}
+function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove("on"),1800)}
+function scroll(){const t=$("#threads");t.scrollTop=t.scrollHeight}
+
+/* ---------- messages ---------- */
+function ai(stage,html,delay=0){
+  return new Promise(res=>{
+    const T=th(stage),w=el(`<div class="m"><div class="ic">AI</div><div class="c"><div class="think"><i></i><i></i><i></i></div></div></div>`);
+    T.appendChild(w);if(stage===S.cur)scroll();
+    setTimeout(()=>{w.querySelector(".c").innerHTML=html;fup(stage);res(w)},delay||700);
+  });
+}
+function user(stage,t){$$(".fup",th(stage)).forEach(x=>x.remove());const w=el(`<div class="m u"><div class="b"></div></div>`);w.firstChild.textContent=t;th(stage).appendChild(w);scroll()}
+function sep(stage,t){th(stage).appendChild(el(`<div class="sep">${t}</div>`));scroll()}
+
+/* ---------- charts (SVG, drawn to one scale) ---------- */
+function barChart(data,max,unit){
+  const W=640,L=150,R=48,rowH=34,H=data.length*rowH+30,sc=v=>L+(W-L-R)*v/max;
+  let g="";for(let t=0;t<=max;t+=max/4){g+=`<line x1="${sc(t)}" y1="6" x2="${sc(t)}" y2="${H-24}" stroke="var(--border)"/><text x="${sc(t)}" y="${H-8}" text-anchor="middle">${t}</text>`}
+  data.forEach((d,i)=>{const y=10+i*rowH;g+=`<text x="${L-10}" y="${y+14}" text-anchor="end">${d[0]}</text><rect x="${L}" y="${y}" width="${sc(d[1])-L}" height="20" rx="4" fill="${i===0?"var(--bad)":"var(--blue)"}" opacity="${i===0?1:.85}"/><text class="v" x="${sc(d[1])+6}" y="${y+15}">${d[1]}${unit}</text>`});
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Bar chart by lane">${g}</svg>`;
+}
+function lineChart(vals,lo,hi){
+  const W=640,H=200,L=40,R=24,T=14,B=28,n=vals.length,x=i=>L+(W-L-R)*i/(n-1),y=v=>T+(H-T-B)*(1-(v-lo)/(hi-lo));
+  let g="";for(let t=lo;t<=hi;t+=5)g+=`<line x1="${L}" y1="${y(t)}" x2="${W-R}" y2="${y(t)}" stroke="var(--border)"/><text x="${L-8}" y="${y(t)+4}" text-anchor="end">${t}%</text>`;
+  vals.forEach((v,i)=>g+=`<text x="${x(i)}" y="${H-8}" text-anchor="middle">W${i+1}</text>`);
+  const pts=vals.map((v,i)=>`${x(i)},${y(v)}`).join(" ");
+  g+=`<polygon points="${x(0)},${y(lo)} ${pts} ${x(n-1)},${y(lo)}" fill="var(--blue)" opacity=".1"/><polyline points="${pts}" fill="none" stroke="var(--blue)" stroke-width="2.4" stroke-linejoin="round"/>`;
+  g+=`<circle cx="${x(n-1)}" cy="${y(vals[n-1])}" r="5" fill="var(--blue)"/><text class="v" x="${x(n-1)}" y="${y(vals[n-1])-11}" text-anchor="end">${vals[n-1]}%</text>`;
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Weekly on-time rate">${g}</svg>`;
+}
+function boxplot(){
+  const W=640,H=130,L=20,R=20,lo=-5,hi=20,sc=v=>L+(W-L-R)*(v-lo)/(hi-lo),cy=54;
+  let g="";for(let t=-5;t<=20;t+=5)g+=`<line x1="${sc(t)}" y1="14" x2="${sc(t)}" y2="94" stroke="var(--border)"/><text x="${sc(t)}" y="${H-16}" text-anchor="middle">${t} °C</text>`;
+  g+=`<rect x="${sc(2)}" y="14" width="${sc(8)-sc(2)}" height="80" fill="var(--ok)" opacity=".1"/><text x="${sc(5)}" y="10" text-anchor="middle" style="fill:var(--ok)">2–8 °C range</text>`;
+  g+=`<line x1="${sc(1.2)}" y1="${cy}" x2="${sc(9.1)}" y2="${cy}" stroke="var(--blue)" stroke-width="2"/><rect x="${sc(3.6)}" y="${cy-16}" width="${sc(6.4)-sc(3.6)}" height="32" rx="4" fill="var(--blue)" opacity=".85"/><line x1="${sc(5)}" y1="${cy-16}" x2="${sc(5)}" y2="${cy+16}" stroke="var(--on-blue)" stroke-width="2.5"/>`;
+  [[-2.3,"−2.3"],[12.4,"12.4"],[14.1,"14.1"],[17.6,"17.6"]].forEach(([v,l])=>g+=`<circle cx="${sc(v)}" cy="${cy}" r="5" fill="var(--bad)"/><text class="v" x="${sc(v)}" y="${cy-12}" text-anchor="middle" style="fill:var(--bad)">${l}</text>`);
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Temperature box plot with outliers">${g}</svg>`;
+}
+function miniBars(){return `<svg viewBox="0 0 120 50" preserveAspectRatio="none"><rect x="4" y="6" width="94" height="7" rx="2" fill="var(--bad)"/><rect x="4" y="18" width="72" height="7" rx="2" fill="var(--blue)" opacity=".85"/><rect x="4" y="30" width="52" height="7" rx="2" fill="var(--blue)" opacity=".85"/><rect x="4" y="42" width="30" height="7" rx="2" fill="var(--blue)" opacity=".85"/></svg>`}
+function miniLine(){return `<svg viewBox="0 0 120 50" preserveAspectRatio="none"><polyline points="4,38 20,32 36,40 52,24 68,31 84,20 100,26 116,12" fill="none" stroke="var(--blue)" stroke-width="2"/></svg>`}
+
+/* ---------- Configure ---------- */
+function planRow(i){
+  const d=S.dec[i.id]||"";
+  return `<div class="pr ${d} ${i._o?"open":""}" data-pr="${i.id}">
+   <h4>${i.n} <span class="tag ${i.k==="f"?"tg-f":"tg-a"}">${i.k==="f"?"Feature":"Analysis"}</span><span class="tag ${i.d==="n"?"tg-n":"tg-h"}">${i.d==="n"?"New":"Already have"}</span></h4>
+   <div class="acts"><button class="btn sm ${d==="accepted"?"ok":""}" data-dec="accepted" data-id="${i.id}">${d==="accepted"?"✓ Accepted":"Accept"}</button><button class="btn sm ${d==="rejected"?"no":""}" data-dec="rejected" data-id="${i.id}">${d==="rejected"?"Rejected":"Reject"}</button></div>
+   <p>${i.w}</p><button class="lk" data-open="${i.id}">${i._o?"Hide details":"Show details"}</button>
+   <div class="dt"><div><div class="ex">Formula</div><code>${i.f}</code></div><div class="cols">${i.c.map(c=>`<span>${c}</span>`).join("")}</div></div></div>`;
+}
+function renderPlan(){
+  const box=$("#planbox");if(!box)return;
+  $("#plist").innerHTML=PLAN.map(planRow).join("");
+  const a=PLAN.filter(i=>S.dec[i.id]==="accepted").length,r=PLAN.filter(i=>S.dec[i.id]).length;
+  $("#pcount").textContent=`${r} of ${PLAN.length} reviewed · ${a} accepted`;
+  $("#pgo").disabled=!(r===PLAN.length&&a>0);
+}
+SEED={};
+SEED.configure=async()=>{
+  const T="configure";
+  await ai(T,`<p>Hi Thakshana. Tell me about the program and I will pull the trips, suggest what to build, and take you through the audit.</p>
+  <div class="card" id="formcard"><div class="h"><b>Program setup</b><span class="r ex">Example values shown</span></div>
+   <div class="p form">
+    <label class="fl">Client brief <span class="tag tg-bad" style="justify-self:start">Required</span>
+     <textarea class="in" id="brief">Pharma client shipping insulin pens from India to Europe. They want to know where cold chain breaks, which lanes have the most temperature excursions above 8 °C, and whether delays at origin are a cause.</textarea></label>
+    <div><div class="ex" style="margin-bottom:4px">Source data</div><div class="seg"><button aria-pressed="true" data-src="api">SWP API</button><button aria-pressed="false" data-src="up">Upload files</button></div></div>
+    <div class="row">
+     <label class="fl">Program ID<input class="in" id="pid" value="4821"></label>
+     <label class="fl">Departure from<input class="in" type="date" value="2026-07-01"></label>
+     <label class="fl">Departure to<input class="in" type="date" value="2026-09-30"></label>
+    </div>
+    <div class="checks"><label><input type="checkbox" checked> Temperature</label><label><input type="checkbox" checked> Light</label><label><input type="checkbox" checked> Humidity</label></div>
+   </div>
+   <div class="f"><button class="btn pri" id="fetch">Fetch trips</button><span class="r">Read-only. Nothing is written back to SWP.</span></div></div>`,500);
+};
+async function afterFetch(){
+  S.fetched=true;nav();const T="configure";
+  user(T,"Fetch trips for program 4821");
+  await ai(T,`<p>Fetched <b>2,310 trips</b> for Program 4821. I kept the <b>1,284</b> that have arrived, because in-transit trips have incomplete temperature records.</p>
+   <div class="stats"><div class="stat"><small>Total trips</small><b>2,310</b></div><div class="stat"><small>Arrived (used)</small><b>1,284</b><em> 55.6%</em></div><div class="stat"><small>In transit</small><b>1,026</b></div></div>`,900);
+  await ai(T,`<p>I read your brief against the data's columns. I will use <b>2 °C – 8 °C</b> as the cold-chain range unless you tell me otherwise. Here is what I suggest building. Review each one, and ask me here if you want something changed.</p>
+   <div class="card" id="planbox"><div class="h"><b>Suggested plan</b><span class="r" id="pcount"></span></div><div class="pl" id="plist"></div>
+   <div class="f"><button class="btn sm" data-all="accepted">Accept all</button><button class="btn sm" data-all="rejected">Reject all</button><span class="r"><button class="btn pri" id="pgo" disabled>Continue to Audit</button></span></div></div>`,1100);
+  renderPlan();
+}
+
+/* ---------- Audit ---------- */
+function issueRow(key,tag,title,desc,actions,res){
+  return `<div class="iss ${S.issues[key]?"res":""}" data-iss="${key}"><div><b>${title}</b> <span class="tag ${S.issues[key]?"tg-h":tag}">${S.issues[key]?"Resolved":"Needs review"}</span><p>${S.issues[key]?res:desc}</p></div><div class="chips">${S.issues[key]?`<button class="btn sm" data-undo="${key}">Undo</button>`:actions}</div></div>`;
+}
+function renderIssues(){
+  const b=$("#issbox");if(!b)return;
+  b.innerHTML=
+   issueRow("dup","tg-n","Duplicate rows","37 rows repeat the same trip and timestamp.",`<button class="btn sm" data-fix="dup">Remove duplicates</button><button class="btn sm" data-fix="dup">Keep</button>`,"37 duplicate rows removed.")+
+   issueRow("empty","tg-n","Empty columns","2 columns have no values: <code style=\"display:inline;padding:0 5px\">door_open_ts</code>, <code style=\"display:inline;padding:0 5px\">pallet_id</code>.",`<button class="btn sm" data-fix="empty">Drop both</button><button class="btn sm" data-fix="empty">Keep</button>`,"2 empty columns dropped.")+
+   issueRow("out","tg-bad","Temperature outliers","14 trips have readings outside −5 °C to 20 °C. Likely sensor faults.",`<button class="btn sm" data-fix="out">Exclude trips</button><button class="btn sm" data-fix="out">Cap at limits</button><button class="btn sm" data-fix="out">Keep</button>`,"14 trips excluded from the analysis.");
+  const n=Object.values(S.issues).filter(Boolean).length;
+  $("#icount").textContent=n+" of 3 resolved";$("#igo").disabled=n<3;
+}
+SEED.audit=async()=>{
+  const T="audit";
+  await ai(T,`<p>I checked all 1,284 trips before building anything on them. Three things need your call.</p>
+   <div class="stats"><div class="stat"><small>Rows checked</small><b>842,516</b></div><div class="stat"><small>Duplicates</small><b>37</b></div><div class="stat"><small>Empty columns</small><b>2</b></div><div class="stat"><small>Outlier trips</small><b>14</b></div></div>`,800);
+  await ai(T,`<p>The outliers are the main concern. Most trips stay inside the 2–8 °C range, but a few readings are far outside it, which usually means a faulty sensor and not a real excursion.</p>
+   <div class="card"><div class="h"><b>Temperature distribution</b><span class="r">All 1,284 trips</span></div><div class="p">${boxplot()}</div></div>
+   <div class="card"><div class="h"><b>Issues</b><span class="r" id="icount"></span></div><div id="issbox"></div><div class="f"><span class="r"><button class="btn pri" id="igo" disabled>Continue to Features</button></span></div></div>`,1000);
+  renderIssues();
+};
+
+/* ---------- Features ---------- */
+SEED.features=async()=>{
+  const T="features";
+  await ai(T,`<p>I built the three features from your plan on the audited data. Coverage shows how many trips had everything needed to compute each one.</p>
+   <div class="card"><div class="h"><b>Features</b><span class="r">3 built · 1 reused</span></div><div class="pl">
+    ${[["Dwell time at origin","hours","n",98],["Time above 8 °C","minutes","n",100],["Transit duration","hours","h",100]].map(f=>`<div class="pr"><h4>${f[0]} <span class="tag ${f[2]==="n"?"tg-n":"tg-h"}">${f[2]==="n"?"New":"Reused"}</span></h4><div class="acts"><div class="cov" title="${f[3]}% coverage"><i style="width:${f[3]}%"></i></div><span class="ex">${f[3]}%</span></div><p>Unit: ${f[1]}</p></div>`).join("")}
+   </div></div>`,900);
+  await ai(T,`<p>A quick look at the first rows. Trips with more than 120 minutes above 8 °C are highlighted.</p>
+   <div class="tw"><table><thead><tr><th>Trip</th><th>Lane</th><th class="n">Dwell (h)</th><th class="n">Above 8 °C (min)</th><th class="n">Transit (h)</th></tr></thead><tbody>
+   ${[["T-90412","Mumbai → Frankfurt",9.5,164,41.2],["T-90413","Chennai → Rotterdam",4.1,38,52.8],["T-90415","Hyderabad → Dubai",2.7,12,19.6],["T-90418","Mumbai → Frankfurt",11.2,203,44.9],["T-90421","Delhi → London",3.3,0,33.1],["T-90422","Bengaluru → Singapore",1.8,5,28.4]].map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td class="n">${r[2]}</td><td class="n ${r[3]>120?"hot":""}">${r[3]}</td><td class="n">${r[4]}</td></tr>`).join("")}
+   </tbody></table></div>
+   <div><button class="btn pri" data-go="analysis">Continue to Analysis</button></div>`,900);
+};
+
+/* ---------- Analysis ---------- */
+const LANES={min:[["Mumbai → Frankfurt",94],["Chennai → Rotterdam",71],["Hyderabad → Dubai",52],["Delhi → London",38],["Bengaluru → Singapore",21]],pct:[["Mumbai → Frankfurt",46],["Chennai → Rotterdam",34],["Hyderabad → Dubai",22],["Delhi → London",15],["Bengaluru → Singapore",9]]};
+function laneCard(){return `<div class="card"><div class="h"><b>Excursions by lane</b><div class="seg" style="margin-left:auto"><button data-metric="min" aria-pressed="${S.metric==="min"}">Minutes above 8 °C</button><button data-metric="pct" aria-pressed="${S.metric==="pct"}">% of trips</button></div></div><div class="p">${S.metric==="min"?barChart(LANES.min,100," min"):barChart(LANES.pct,60,"%")}</div></div>`}
+SEED.analysis=async()=>{
+  const T="analysis";
+  await ai(T,`<p>Short version: <b>Mumbai → Frankfurt</b> is the weak lane. Trips on it spend an average of 94 minutes above 8 °C, almost twice the program average of 55.</p>
+   <div id="lanecard">${laneCard()}</div>`,900);
+  await ai(T,`<p>Long waits at origin go with more excursions (correlation <b>0.62</b>), so dwell time looks like a real contributor and not only a sensor effect.</p>
+   <div class="card"><div class="h"><b>Weekly on-time rate</b><span class="r">Last 8 weeks</span></div><div class="p">${lineChart([86,88,84,90,87,91,89,93],80,100)}</div></div>
+   <div class="chips"><button class="chip" data-say="Drill into Mumbai → Frankfurt">Drill into Mumbai → Frankfurt</button><button class="chip" data-say="Show only weekend departures">Weekend departures only</button><button class="chip" data-go="report">Build the report</button></div>`,900);
+};
+
+/* ---------- Report ---------- */
+SEED.report=async()=>{
+  const T="report";
+  await ai(T,`<p>I drafted a 3-slide report from your accepted analyses. The charts in the file are native and editable in PowerPoint.</p>
+   <div class="slides">
+    <div class="slide"><small>Slide 1</small><b>Mumbai → Frankfurt has the most excursions</b>${miniBars()}</div>
+    <div class="slide"><small>Slide 2</small><b>Dwell at origin tracks excursions (r = 0.62)</b>${miniBars()}</div>
+    <div class="slide"><small>Slide 3</small><b>On-time rate reached 93% in week 8</b>${miniLine()}</div>
+   </div>`,900);
+  await ai(T,`<p>Edit the key messages below before downloading. Click a line to change it.</p>
+   <div class="ins">
+    <div contenteditable="true">Mumbai → Frankfurt averages 94 minutes above 8 °C, against a program average of 55.</div>
+    <div contenteditable="true">Trips that wait over 8 hours at origin are 2.3× more likely to have an excursion.</div>
+    <div contenteditable="true">On-time delivery improved from 86% to 93% over eight weeks.</div>
+   </div>
+   <div class="chips"><button class="btn pri" id="dl">Download PowerPoint</button><button class="btn" data-say="Make the tone more formal">Make the tone more formal</button></div>`,900);
+};
+
+/* ---------- Suggestions + chat ---------- */
+const SUG={configure:["Use 15–25 °C instead","Why these features?","Suggest more analyses"],audit:["Why are there outliers?","What does capping do?"],features:["Explain time above 8 °C","Add a feature for door-open time"],analysis:["Drill into Mumbai → Frankfurt","Compare weekdays","Which lane improved most?"],report:["Make it shorter","Add a recommendations slide"]};
+function sug(){}
+function fup(stage){const T=th(stage);$$(".fup",T).forEach(x=>x.remove());T.appendChild(el(`<div class="fup chips">${SUG[stage].map(t=>`<button class="chip" data-say="${t}">${t}</button>`).join("")}</div>`));if(stage===S.cur)scroll()}
+const REP=[
+ [/15|room|range|limit/i,"Done. I switched the excursion limit to <b>15–25 °C</b> and recalculated the two excursion items. Their descriptions in the plan now use the new range."],
+ [/why.*outlier|outlier/i,"Readings like −2.3 °C and 17.6 °C inside a 2–8 °C shipment usually come from a sensor that was not placed in the payload or lost contact. Excluding those 14 trips keeps them from skewing the lane averages."],
+ [/cap/i,"Capping replaces any reading outside −5 °C to 20 °C with the nearest limit. It keeps the trip but understates a real excursion, so I would exclude when a sensor fault is likely."],
+ [/more/i,"I can add <b>Excursions by day of week</b>, since your brief mentions weekend handover. I would put it after the lane chart."],
+ [/why/i,"Each suggestion maps to a sentence in your brief. “Where cold chain breaks” became time above 8 °C and excursions by lane. “Delays at origin” became dwell time."],
+ [/mumbai|drill/i,"On Mumbai → Frankfurt, 71% of excursions start during the 6–14 hour wait at origin, before departure. The transit leg itself is close to the program average."],
+ [/weekend|weekday/i,"Weekend departures spend 31% longer above 8 °C than weekday ones, mostly because dwell at origin rises from 4 to 9 hours."],
+ [/improv/i,"Delhi → London improved most, from 24% to 15% of trips with an excursion over the last 8 weeks."],
+ [/short|recommend|formal/i,"Done. I updated the draft, and you can see the change in the key messages above."],
+ [/door/i,"The data has no door-open timestamps, because that column was empty in the audit. I can add the feature once the client shares it."],
+];
+function say(t){
+  t=t.trim();if(!t||S.busy)return;S.busy=true;
+  user(S.cur,t);const r=REP.find(x=>x[0].test(t));
+  ai(S.cur,`<p>${r?r[1]:"I can do that. Tell me which item it applies to, and I will update it and keep your other choices."}</p>`,800).then(()=>S.busy=false);
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click",e=>{
+  const t=e.target.closest("button");if(!t)return;
+  const d=t.dataset;
+  if(d.go)return go(d.go);
+  if(d.say)return say(d.say);
+  if(d.src){$$("[data-src]").forEach(b=>b.setAttribute("aria-pressed",String(b===t)));return}
+  if(d.metric){S.metric=d.metric;$("#lanecard").innerHTML=laneCard();return}
+  if(d.dec){const id=+d.id;S.dec[id]=S.dec[id]===d.dec?undefined:d.dec;if(!S.dec[id])delete S.dec[id];return renderPlan()}
+  if(d.all){PLAN.forEach(i=>S.dec[i.id]=d.all);return renderPlan()}
+  if(d.open){const i=PLAN.find(x=>x.id==d.open);i._o=!i._o;return renderPlan()}
+  if(d.fix){S.issues[d.fix]=1;nav();renderIssues();
+    if(Object.values(S.issues).every(Boolean)){S.done.audit=1;nav();ai("audit",`<p>All three issues are resolved. <b>1,270 trips</b> are clean and ready for feature building.</p>`,600)}
+    return}
+  if(d.undo){S.issues[d.undo]=0;S.done.audit=0;nav();return renderIssues()}
+  if(t.id==="fetch"){t.disabled=true;t.textContent="Fetched";return afterFetch()}
+  if(t.id==="pgo"){S.done.configure=1;nav();return go("audit")}
+  if(t.id==="igo")return go("features");
+  if(t.id==="dl")return toast("Prototype: this would download the .pptx");
+  if(t.id==="newp")return toast("Prototype: starts a new program");
+});
+$("#burger").onclick=()=>matchMedia("(min-width:900px)").matches?document.body.classList.toggle("collapsed"):document.body.classList.toggle("nav");
+$("#scrim").onclick=()=>document.body.classList.remove("nav");
+$("#theme").onclick=()=>{const r=document.documentElement,dark=r.dataset.theme?r.dataset.theme==="dark":matchMedia("(prefers-color-scheme:dark)").matches;r.dataset.theme=dark?"light":"dark"};
+const inp=$("#input"),send=$("#send");
+inp.addEventListener("input",()=>{send.disabled=!inp.value.trim();inp.style.height="auto";inp.style.height=inp.scrollHeight+"px"});
+inp.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("#form").requestSubmit()}});
+$("#form").addEventListener("submit",e=>{e.preventDefault();const v=inp.value;inp.value="";inp.style.height="auto";send.disabled=true;say(v)});
+
+/* ---------- boot ---------- */
+$("#threads").innerHTML=STAGES.map(s=>`<div class="thread" id="t-${s.id}" hidden></div>`).join("");
+const h=location.hash.slice(1);go(STAGES.some(s=>s.id===h)?h:"configure");
+</script>

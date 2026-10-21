@@ -1,0 +1,258 @@
+/* Sidebar of stages beside one scrolling content area. Below 900px the sidebar is a drawer. */
+.app-shell {
+  display: flex;
+  height: 100%;
+  min-width: 0;
+  background: var(--color-bg);
+}
+
+.app-shell__side {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: min(288px, 86vw);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-subtle);
+  border-right: 1px solid var(--color-border);
+  transform: translateX(-102%);
+  transition: transform 0.2s ease;
+}
+
+.app-shell--open .app-shell__side {
+  transform: none;
+  box-shadow: var(--shadow-md);
+}
+
+.app-shell__scrim {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(13, 28, 77, 0.35);
+}
+
+.app-shell--open .app-shell__scrim {
+  display: block;
+}
+
+.app-shell__brand {
+  padding: 16px 18px 4px;
+}
+
+.app-shell__logo {
+  height: 30px;
+  width: auto;
+  display: block;
+}
+
+.app-shell__product {
+  padding: 4px 18px 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--carrier-blue-dark);
+}
+
+.app-shell__new {
+  margin: 0 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.app-shell__new:hover {
+  background: var(--carrier-blue-tint);
+}
+
+.app-shell__label {
+  padding: 4px 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.app-shell__stages {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 8px;
+}
+
+.app-shell__stage {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.app-shell__stage:hover {
+  background: var(--carrier-blue-tint);
+}
+
+.app-shell__stage.is-current {
+  background: var(--color-surface);
+  box-shadow: 0 0 0 1px var(--color-border);
+  font-weight: 600;
+}
+
+.app-shell__dot {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+}
+
+.app-shell__stage.is-current .app-shell__dot {
+  color: var(--carrier-blue);
+  border-color: var(--carrier-blue);
+}
+
+.app-shell__stage.is-done .app-shell__dot {
+  color: #fff;
+  background: var(--color-success);
+  border-color: var(--color-success);
+}
+
+.app-shell__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-shell__bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 20px;
+  background: var(--color-surface);
+  border-bottom: 2px solid var(--carrier-blue);
+}
+
+.app-shell__menu {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.app-shell__menu:hover {
+  background: var(--color-bg-subtle);
+}
+
+.app-shell__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--carrier-blue-dark);
+}
+
+.app-shell__sub {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.app-shell__content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+@media (min-width: 900px) {
+  .app-shell__side {
+    position: relative;
+    inset: auto;
+    flex: none;
+    width: 252px;
+    z-index: auto;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .app-shell--collapsed .app-shell__side {
+    display: none;
+  }
+
+  .app-shell--open .app-shell__scrim {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-shell__bar {
+    padding: 6px 12px;
+  }
+
+  .app-shell__sub {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell__side {
+    transition: none;
+  }
+}
+
+/* Stages that are not a conversation: the assistant's intro, then the page as its reply */
+.app-shell__stage-page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 28px 24px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.app-shell__stage-body {
+  margin-left: 44px;
+  min-width: 0;
+}
+
+/* The page's own shell, title and step bar are replaced by the app shell and the intro above */
+.app-shell__stage-body > div > main {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.app-shell__stage-body .page-header {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .app-shell__stage-page {
+    padding: 20px 16px 32px;
+  }
+
+  .app-shell__stage-body {
+    margin-left: 0;
+  }
+}

@@ -1,26 +1,14 @@
 import ThinkingLoader from "../components/ThinkingLoader";
-import { LOADING } from "../utils/loadingMessages";
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import Header from "../components/Header";
-import StepIndicator from "../components/StepIndicator";
-import PageHeader from "../components/PageHeader";
-import PageNav from "../components/PageNav";
-import StatTile from "../components/StatTile";
-import AnalysisChart from "../components/AnalysisChart";
+import ChatMessage from "../components/ChatMessage";
+import ReportChat from "../components/ReportChat";
+import type { ReportLogEntry, ReportSlideRow } from "../components/ReportChat";
+import { useStageChrome } from "../context/stageChrome";
+import type { StageReply } from "../context/stageChrome";
 import ReportEditorModal from "../components/ReportEditorModal";
 import type { CustomSlide, DeckState, SlideEdit } from "../utils/deck";
 import { useStoredRef, useStoredState } from "../state/sessionStore";
-import {
-  IconChevronDown,
-  IconClipboard,
-  IconDownload,
-  IconEye,
-  IconGripVertical,
-  IconLayers,
-  IconSparkle,
-} from "../components/icons";
 import {
   fetchAnalysisRepository,
   fetchReportSummary,
@@ -35,10 +23,9 @@ import {
 } from "../api/audit";
 import { buildReportTree, drilldownSubtitle, isStaleEntry } from "../utils/reportTree";
 import { REPORT_CHART_TYPES, type ReportChartType } from "../utils/reportChartTypes";
-import { AUDITED_SLOTS, UPLOAD_SLOTS } from "../constants/uploadSlots";
+import { AUDITED_SLOTS } from "../constants/uploadSlots";
 import type { UploadSlotId } from "../types/upload";
 import type { AuditReportsState, FilesState } from "../App";
-import "./ReportPage.css";
 
 interface ReportPageProps {
   files: FilesState;
@@ -79,9 +66,6 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
   const [repositories, setRepositories] = useStoredState<RepositoriesState>("report.repositories", {});
   const [loading, setLoading] = useStoredState<LoadingState>("report.loading", {});
   const refreshedThisVisit = useRef<Set<string>>(new Set());
-  // Where each source's Preview / Download buttons render: the top bar and the bottom bar of the page.
-  const [exportTop, setExportTop] = useState<HTMLDivElement | null>(null);
-  const [exportBottom, setExportBottom] = useState<HTMLDivElement | null>(null);
   const [editorSlot, setEditorSlot] = useState<UploadSlotId | null>(null);
   const [exporting, setExporting] = useState<LoadingState>({});
   // What the PM changed in the editor: slide text, cover text, and whether the summary was hand-written.
@@ -105,7 +89,6 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
   // until download time, when it's sent to the backend so the exported
   // .pptx matches this preview's order exactly.
   const [slideOrder, setSlideOrder] = useStoredState<Partial<Record<UploadSlotId, string[]>>>("report.slideOrder", {});
-  const [draggingId, setDraggingId] = useState<string | null>(null);
   // Charts start collapsed -- a slide is mostly checkbox/name/chart-type
   // until the PM asks to actually see the chart.
   const [expandedCharts, setExpandedCharts] = useStoredState<Record<string, boolean>>("report.expandedCharts", {});
@@ -292,388 +275,213 @@ export default function ReportPage({ files, auditReports }: ReportPageProps) {
 
   const toggleSelected = (entryId: string) => setSelected((prev) => ({ ...prev, [entryId]: !prev[entryId] }));
 
-  const handleDrop = (id: UploadSlotId, targetEntryId: string, parentOf: Map<string, string | null>) => {
-    // Reordering only happens among roots or among siblings -- a drill-down
-    // can never leave its parent, nor precede it.
-    if (!draggingId || draggingId === targetEntryId || parentOf.get(draggingId) !== parentOf.get(targetEntryId)) {
-      setDraggingId(null);
-      return;
-    }
-    setSlideOrder((prev) => {
-      const current = prev[id] ?? [];
-      if (!current.includes(draggingId) || !current.includes(targetEntryId)) return prev;
-      const withoutDragged = current.filter((eid) => eid !== draggingId);
-      const targetIdx = withoutDragged.indexOf(targetEntryId);
-      const next = [...withoutDragged.slice(0, targetIdx), draggingId, ...withoutDragged.slice(targetIdx)];
-      return { ...prev, [id]: next };
-    });
-    setDraggingId(null);
-  };
-
-  if (AUDITED_SLOTS.every((id) => !files[id])) {
-    return (
-      <div className="report-page">
-        <Header subtitle="Report" />
-        <main className="report-page__main">
-          <StepIndicator current={6} />
-          <div className="report-page__empty">
-            <p>No audited data yet.</p>
-            <button type="button" className="btn btn--primary" onClick={() => navigate("/upload")}>
-              Go to Upload
-            </button>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  if (auditedReady.length === 0) {
-    return (
-      <div className="report-page">
-        <Header subtitle="Report" />
-        <main className="report-page__main">
-          <StepIndicator current={6} />
-          <div className="report-page__empty">
-            <p>Finish resolving the data audit before a report can be generated.</p>
-            <button type="button" className="btn btn--primary" onClick={() => navigate("/audit")}>
-              Back to Audit
-            </button>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
+  const noFiles = AUDITED_SLOTS.every((id) => !files[id]);
   const stillChecking = Object.values(loading).some(Boolean);
   const slotsWithResults = auditedReady.filter((id) => (repositories[id] ?? []).some((e) => e.run_status === "done"));
+  // The conversation talks about the first source that has results.
+  const primary = slotsWithResults[0];
+  const [log, setLog] = useStoredState<ReportLogEntry[]>("report.log", []);
+  const say = (user: string, block: ReportLogEntry["block"]) => setLog((prev) => [...prev, { user, block }]);
 
-  if (slotsWithResults.length === 0) {
-    return (
-      <div className="report-page">
-        <Header subtitle="Report" />
-        <main className="report-page__main">
-          <StepIndicator current={6} />
-          <div className="report-page__empty">
-            <p>
-              {stillChecking
-                ? <ThinkingLoader variant="inline" messages={["Checking whether any analyses have been run…"]} />
-                : "No analyses have been run yet. Go run some on the Analysis page first, since the report is built from whichever of them finished successfully."}
-            </p>
-            <button type="button" className="btn btn--primary" onClick={() => navigate("/analysis")}>
-              Go to Analysis
-            </button>
-          </div>
-        </main>
-      </div>
-    );
+  // Everything about the primary source's deck, worked out once.
+  const doneEntriesRaw = primary ? (repositories[primary] ?? []).filter((e) => e.run_status === "done") : [];
+  const order = (primary && slideOrder[primary]) || [];
+  const byId = new Map((primary ? repositories[primary] ?? [] : []).map((e) => [e.id, e]));
+  const staleIds = new Set(doneEntriesRaw.filter((e) => isStaleEntry(e, byId)).map((e) => e.id));
+  const tree = buildReportTree(doneEntriesRaw, order);
+  const includedTree = buildReportTree(doneEntriesRaw.filter((e) => selected[e.id] && !staleIds.has(e.id)), order);
+  const slideNumbers = new Map(includedTree.map((n) => [n.entry.id, n.number]));
+  const selectedEntries = includedTree.map((n) => n.entry);
+  const selectedIds = selectedEntries.map((e) => e.id);
+
+  const deck: DeckState | undefined = primary
+    ? {
+        selected,
+        order,
+        edits,
+        cover: cover[primary] ?? {},
+        custom: customSlides[primary] ?? [],
+        bullets: bulletsFor(primary),
+        bulletsEdited: !!summaryEdited[primary],
+      }
+    : undefined;
+
+  const applyDeck = (next: DeckState) => {
+    if (!primary) return;
+    setSelected(next.selected);
+    setSlideOrder((prev) => ({ ...prev, [primary]: next.order }));
+    setEdits(next.edits);
+    setCover((prev) => ({ ...prev, [primary]: next.cover }));
+    setCustomSlides((prev) => ({ ...prev, [primary]: next.custom }));
+    setSummaryEdited((prev) => ({ ...prev, [primary]: next.bulletsEdited }));
+    // Only text the PM typed is stored; the generated summary stays as the generator wrote it.
+    if (next.bulletsEdited) setSummaryText((prev) => ({ ...prev, [primary]: next.bullets ?? [] }));
+  };
+
+  const download = async () => {
+    if (!primary) return;
+    const id = primary;
+    setExporting((prev) => ({ ...prev, [id]: true }));
+    setErrors((prev) => ({ ...prev, [id]: undefined }));
+    try {
+      // Text the PM typed is translated like the rest of the slide. Text already saved in the report
+      // language comes back unchanged, so this is safe to run every time.
+      let slideEdits = edits;
+      if (language !== "en") {
+        const typed = selectedEntries
+          .flatMap((e) => [edits[e.id]?.heading, edits[e.id]?.explanation, edits[e.id]?.caption])
+          .filter((t): t is string => !!t?.trim());
+        if (typed.length > 0) {
+          const map = await translateTexts(language, [...new Set(typed)]);
+          const tr = (t?: string) => (t ? (map[t] ?? t) : t);
+          slideEdits = Object.fromEntries(
+            Object.entries(edits).map(([k, v]) => [k, { heading: tr(v.heading), explanation: tr(v.explanation), caption: tr(v.caption) }])
+          );
+        }
+      }
+      const blob = await exportReport(auditReports[id]!.session_id, {
+        slides: selectedEntries.map((e) => ({
+          entry_id: e.id,
+          chart_type: defaultChartType(e),
+          heading: slideEdits[e.id]?.heading,
+          explanation: slideEdits[e.id]?.explanation,
+          caption: slideEdits[e.id]?.caption,
+        })),
+        language,
+        custom_slides: (customSlides[id] ?? []).map((c) => ({ heading: c.heading, bullets: c.bullets })),
+        cover_title: cover[id]?.title,
+        cover_subtitle: cover[id]?.subtitle,
+        // The summary exactly as shown (and possibly edited), so the file matches the preview.
+        summary_bullets: bulletsFor(id),
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "Program Manager AI Report.pptx";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setErrors((prev) => ({ ...prev, [id]: err instanceof AuditApiError ? err.message : "Could not build the report." }));
+    } finally {
+      setExporting((prev) => ({ ...prev, [id]: false }));
+    }
+  };
+
+  const replies: StageReply[] = [];
+  if (noFiles) {
+    replies.push({ label: "Go to Configure", main: true, onClick: () => navigate("/upload") });
+  } else if (auditedReady.length === 0) {
+    replies.push({ label: "Back to Audit", main: true, onClick: () => navigate("/audit") });
+  } else if (!primary) {
+    replies.push({ label: "Go to Analysis", main: true, onClick: () => navigate("/analysis") });
+  } else {
+    replies.push({
+      label: "Download the report",
+      main: true,
+      disabled: !!exporting[primary],
+      onClick: () => {
+        say("Download the report", "download");
+        if (selectedIds.length > 0) void download();
+      },
+    });
+    replies.push({
+      label: "Edit the slides",
+      onClick: () => {
+        say("I want to edit the slides", "edit");
+        setEditorSlot(primary);
+      },
+    });
+    replies.push({ label: "Change the language", onClick: () => say("Change the report language", "language") });
+    replies.push({
+      label: "Write the summary again",
+      disabled: !!summaryLoading[primary],
+      onClick: () => {
+        say("Write the summary again", "summary");
+        regenerateSummary(primary);
+      },
+    });
   }
+  useStageChrome({ replies });
+
+  const rows: ReportSlideRow[] = tree.map(({ entry, depth }) => {
+    const tr = primary ? translations[primary]?.[entry.id] : undefined;
+    const interpretation = edits[entry.id]?.explanation ?? tr?.interpretation ?? entry.interpretation;
+    const caption = edits[entry.id]?.caption;
+    return {
+      entry,
+      depth,
+      name: edits[entry.id]?.heading || (tr?.name ?? entry.name),
+      interpretation: interpretation ? shortenInterpretation(interpretation) : null,
+      subtitle: caption !== undefined ? caption : entry.chain ? drilldownSubtitle(entry.chain) : "",
+      number: slideNumbers.get(entry.id),
+      stale: staleIds.has(entry.id),
+      included: !staleIds.has(entry.id) && !!selected[entry.id],
+      chartOpen: !!expandedCharts[entry.id],
+    };
+  });
 
   return (
-    <div className="report-page">
-      <Header subtitle="Report" />
-      <main className="report-page__main">
-        <StepIndicator current={6} />
+    <>
+      {noFiles && (
+        <ChatMessage>
+          <p>There is no audited data yet. Set up a program in Configure first, and I will build a report from your analyses.</p>
+        </ChatMessage>
+      )}
+      {!noFiles && auditedReady.length === 0 && (
+        <ChatMessage>
+          <p>I can build the report once the data audit is finished. Go back and settle the open decisions, then come here.</p>
+        </ChatMessage>
+      )}
+      {!noFiles && auditedReady.length > 0 && !primary && (
+        <ChatMessage>
+          {stillChecking ? (
+            <ThinkingLoader variant="inline" messages={["Checking whether any analyses have finished…"]} />
+          ) : (
+            <p>No analyses have finished yet. Run some in Analysis first, because the report is built from the ones that finished successfully.</p>
+          )}
+        </ChatMessage>
+      )}
 
-        <PageNav position="top" onBack={() => navigate("/analysis")} />
-
-        <PageHeader
-          icon={<IconClipboard />}
-          title="Report"
-          subtitle="Pick which completed analyses go into the downloadable report, drag to reorder, preview each slide, then export it as a .pptx."
+      {primary && (
+        <ReportChat
+          analyses={doneEntriesRaw.length}
+          aiSuggested={doneEntriesRaw.filter((e) => e.source === "ai_suggested").length}
+          addedSlides={(customSlides[primary] ?? []).length}
+          bullets={bulletsFor(primary)}
+          summaryLoading={!!summaryLoading[primary]}
+          summaryError={summaryError[primary]}
+          onRetrySummary={() => runReportSummary(primary, selectedIds)}
+          rows={rows}
+          onToggle={toggleSelected}
+          onToggleChart={(entryId) => setExpandedCharts((prev) => ({ ...prev, [entryId]: !prev[entryId] }))}
+          languages={languages}
+          language={language}
+          onLanguage={setLanguage}
+          log={log}
+          exporting={!!exporting[primary]}
+          exportError={errors[primary]}
+          noSelection={selectedIds.length === 0}
         />
+      )}
 
-        <div className="report-page__toolbar">
-        <div className="report-page__language-picker">
-          <label htmlFor="report-language">Report language</label>
-          <select id="report-language" value={language} onChange={(e) => setLanguage(e.target.value)}>
-            {languages.map((l) => (
-              <option key={l.code} value={l.code}>
-                {l.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="report-page__export-host" ref={setExportTop} />
-        </div>
-
-        {slotsWithResults.map((id) => {
-          const slot = UPLOAD_SLOTS.find((s) => s.id === id)!;
-          const doneEntriesRaw = (repositories[id] ?? []).filter((e) => e.run_status === "done");
-          const order = slideOrder[id] ?? [];
-          const byId = new Map((repositories[id] ?? []).map((e) => [e.id, e]));
-          const staleIds = new Set(doneEntriesRaw.filter((e) => isStaleEntry(e, byId)).map((e) => e.id));
-          // Display tree: every done level, drill-downs indented under their parent.
-          const tree = buildReportTree(doneEntriesRaw, order);
-          const doneEntries = tree.map((n) => n.entry);
-          const parentOf = new Map(tree.map((n) => [n.entry.id, n.parentId]));
-          const aiSuggestedCount = doneEntries.filter((e) => e.source === "ai_suggested").length;
-          // What the export will contain: selected, non-stale levels, numbered
-          // over that subset exactly as the backend does.
-          const includedTree = buildReportTree(
-            doneEntriesRaw.filter((e) => selected[e.id] && !staleIds.has(e.id)),
-            order
-          );
-          const slideNumbers = new Map(includedTree.map((n) => [n.entry.id, n.number]));
-          const selectedEntries = includedTree.map((n) => n.entry);
-          const selectedIds = selectedEntries.map((e) => e.id);
-          const deck: DeckState = {
-            selected,
-            order,
-            edits,
-            cover: cover[id] ?? {},
-            custom: customSlides[id] ?? [],
-            bullets: bulletsFor(id),
-            bulletsEdited: !!summaryEdited[id],
-          };
-          const applyDeck = (next: DeckState) => {
-            setSelected(next.selected);
-            setSlideOrder((prev) => ({ ...prev, [id]: next.order }));
-            setEdits(next.edits);
-            setCover((prev) => ({ ...prev, [id]: next.cover }));
-            setCustomSlides((prev) => ({ ...prev, [id]: next.custom }));
-            setSummaryEdited((prev) => ({ ...prev, [id]: next.bulletsEdited }));
-            // Only text the PM typed is stored; the generated summary stays as the generator wrote it.
-            if (next.bulletsEdited) setSummaryText((prev) => ({ ...prev, [id]: next.bullets ?? [] }));
-          };
-          const download = async () => {
-            setExporting((prev) => ({ ...prev, [id]: true }));
-            setErrors((prev) => ({ ...prev, [id]: undefined }));
-            try {
-              // Text the PM typed is translated like the rest of the slide. Text already saved in the report
-              // language comes back unchanged, so this is safe to run every time.
-              let slideEdits = edits;
-              if (language !== "en") {
-                const typed = selectedEntries
-                  .flatMap((e) => [edits[e.id]?.heading, edits[e.id]?.explanation, edits[e.id]?.caption])
-                  .filter((t): t is string => !!t?.trim());
-                if (typed.length > 0) {
-                  const map = await translateTexts(language, [...new Set(typed)]);
-                  const tr = (t?: string) => (t ? (map[t] ?? t) : t);
-                  slideEdits = Object.fromEntries(
-                    Object.entries(edits).map(([k, v]) => [k, { heading: tr(v.heading), explanation: tr(v.explanation), caption: tr(v.caption) }])
-                  );
-                }
-              }
-              const blob = await exportReport(auditReports[id]!.session_id, {
-                slides: selectedEntries.map((e) => ({
-                  entry_id: e.id,
-                  chart_type: defaultChartType(e),
-                  heading: slideEdits[e.id]?.heading,
-                  explanation: slideEdits[e.id]?.explanation,
-                  caption: slideEdits[e.id]?.caption,
-                })),
-                language,
-                custom_slides: (customSlides[id] ?? []).map((c) => ({ heading: c.heading, bullets: c.bullets })),
-                cover_title: cover[id]?.title,
-                cover_subtitle: cover[id]?.subtitle,
-                // The summary exactly as shown (and possibly edited), so the file matches the preview.
-                summary_bullets: bulletsFor(id),
-              });
-              const url = URL.createObjectURL(blob);
-              const link = document.createElement("a");
-              link.href = url;
-              link.download = "Program Manager AI Report.pptx";
-              document.body.appendChild(link);
-              link.click();
-              link.remove();
-              URL.revokeObjectURL(url);
-            } catch (err) {
-              setErrors((prev) => ({ ...prev, [id]: err instanceof AuditApiError ? err.message : "Could not build the report." }));
-            } finally {
-              setExporting((prev) => ({ ...prev, [id]: false }));
-            }
-          };
-
-          return (
-            <section className="report-page__card" key={id}>
-              <div className="report-page__card-head">
-                <div className="report-page__card-head-left">
-                  <h2 className="report-page__slot-title">{slot.title}</h2>
-                  <span className="report-page__pill">REPORT READY</span>
-                </div>
-                <span className="report-page__filename">{files[id]!.name}</span>
-              </div>
-
-              {errors[id] && <p className="report-page__error">{errors[id]}</p>}
-
-              <div className="report-page__stat-row">
-                <StatTile icon={<IconLayers />} color="teal" value={doneEntries.length} label="Analyses" />
-                {aiSuggestedCount > 0 && (
-                  <StatTile icon={<IconSparkle />} color="purple" value={aiSuggestedCount} label="AI Suggested" />
-                )}
-              </div>
-
-              <div className="report-page__summary-card">
-                <h3 className="report-page__summary-title">
-                  <IconSparkle /> Final Summary
-                </h3>
-                {summaryError[id] ? (
-                  <div className="report-page__summary-error-row">
-                    <p className="report-page__summary-error">{summaryError[id]}</p>
-                    <button type="button" className="report-page__summary-retry" onClick={() => runReportSummary(id, selectedIds)}>
-                      Try again
-                    </button>
-                  </div>
-                ) : summaryLoading[id] && !bulletsFor(id) ? (
-                  <ThinkingLoader messages={LOADING.reportSummary} />
-                ) : bulletsFor(id) ? (
-                  <ul className="report-page__summary-bullets">
-                    {bulletsFor(id)!.map((bullet, i) => (
-                      <li key={i}>{bullet}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="report-page__summary-status">Select at least one analysis to generate the final summary.</p>
-                )}
-              </div>
-
-              <p className="report-page__included-title">This report will include:</p>
-              <ul className="report-page__included-list">
-                {tree.map(({ entry, depth }) => {
-                  const entryTranslation = translations[id]?.[entry.id];
-                  const displayName = edits[entry.id]?.heading || (entryTranslation?.name ?? entry.name);
-                  const displayInterpretation = edits[entry.id]?.explanation ?? entryTranslation?.interpretation ?? entry.interpretation;
-                  const editedCaption = edits[entry.id]?.caption;
-                  const displaySubtitle = editedCaption !== undefined ? editedCaption : entry.chain ? drilldownSubtitle(entry.chain) : "";
-                  const stale = staleIds.has(entry.id);
-                  const slideNumber = slideNumbers.get(entry.id);
-                  return (
-                    <li
-                      key={entry.id}
-                      className={`report-page__slide-thumb${depth > 0 ? " report-page__slide-thumb--child" : ""}${draggingId === entry.id ? " report-page__slide-thumb--dragging" : ""}${stale ? " report-page__slide-thumb--stale" : ""}`}
-                      style={depth > 0 ? { marginLeft: depth * 28 } : undefined}
-                      draggable
-                      onDragStart={() => setDraggingId(entry.id)}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        handleDrop(id, entry.id, parentOf);
-                      }}
-                      onDragEnd={() => setDraggingId(null)}
-                    >
-                      <div className="report-page__slide-thumb-head">
-                        <span className="report-page__drag-handle" aria-label="Drag to reorder">
-                          <IconGripVertical />
-                        </span>
-                        <input
-                          type="checkbox"
-                          checked={!stale && !!selected[entry.id]}
-                          disabled={stale}
-                          onChange={() => toggleSelected(entry.id)}
-                        />
-                        <span className={`report-page__slide-label${slideNumber ? "" : " report-page__slide-label--off"}`}>
-                          {slideNumber ? `Slide ${slideNumber}` : "Not included"}
-                        </span>
-                        <span className="report-page__entry-name">{displayName}</span>
-                        {stale && <span className="report-page__stale-badge">Stale</span>}
-                      </div>
-                      {displaySubtitle && <p className="report-page__slide-subtitle">{displaySubtitle}</p>}
-                      {stale && (
-                        <p className="report-page__stale-note">
-                          Stale - an earlier level's filter or ranking changed. Refresh it on the Analysis page to include it.
-                        </p>
-                      )}
-                      <button
-                        type="button"
-                        className="report-page__chart-toggle"
-                        aria-expanded={!!expandedCharts[entry.id]}
-                        onClick={() => setExpandedCharts((prev) => ({ ...prev, [entry.id]: !prev[entry.id] }))}
-                      >
-                        <span className={`report-page__chart-toggle-arrow${expandedCharts[entry.id] ? " report-page__chart-toggle-arrow--open" : ""}`}>
-                          <IconChevronDown />
-                        </span>
-                        {expandedCharts[entry.id] ? "Hide chart" : "Show chart"}
-                      </button>
-                      {expandedCharts[entry.id] && (
-                        <div className="report-page__slide-thumb-body">
-                          <AnalysisChart chartSpec={entry.chart_spec} chartType={entry.chart_type} resultTable={entry.result_table} />
-                        </div>
-                      )}
-                      {displayInterpretation && (
-                        <p className="report-page__slide-thumb-caption">{shortenInterpretation(displayInterpretation)}</p>
-                      )}
-                    </li>
-                  );
-                })}
-                {(customSlides[id] ?? []).map((c, i) => (
-                  <li key={c.id} className="report-page__slide-thumb">
-                    <div className="report-page__slide-thumb-head">
-                      <span className="report-page__slide-label report-page__slide-label--added">Added slide {i + 1}</span>
-                      <span className="report-page__entry-name">{c.heading || "Untitled"}</span>
-                    </div>
-                    {c.bullets.some((b) => b.trim()) && (
-                      <ul className="report-page__added-bullets">
-                        {c.bullets
-                          .filter((b) => b.trim())
-                          .map((b, j) => (
-                            <li key={j}>{b}</li>
-                          ))}
-                      </ul>
-                    )}
-                  </li>
-                ))}
-              </ul>
-
-              {(() => {
-                const exportRow = (
-                  <div className="report-page__export-row">
-                    {slotsWithResults.length > 1 && <span className="report-page__export-label">{slot.title}</span>}
-                    <button
-                      type="button"
-                      className="report-page__preview-btn"
-                      disabled={doneEntries.length === 0}
-                      onClick={() => setEditorSlot(id)}
-                    >
-                      <IconEye />
-                      Preview &amp; edit slides
-                    </button>
-                    <button
-                      type="button"
-                      className={`report-page__download-btn ${selectedIds.length === 0 || exporting[id] ? "report-page__download-btn--disabled" : ""}`}
-                      disabled={selectedIds.length === 0 || !!exporting[id]}
-                      onClick={download}
-                    >
-                      <IconDownload />
-                      {selectedIds.length === 0
-                        ? "Select at least one analysis"
-                        : exporting[id]
-                          ? "Building report…"
-                          : "Download Report"}
-                    </button>
-                  </div>
-                );
-                return (
-                  <>
-                    {exportTop && createPortal(exportRow, exportTop)}
-                    {exportBottom && createPortal(exportRow, exportBottom)}
-                  </>
-                );
-              })()}
-
-              {editorSlot === id && (
-                <ReportEditorModal
-                  entries={doneEntriesRaw}
-                  staleIds={staleIds}
-                  translations={translations[id]}
-                  language={language}
-                  onTranslate={(texts) => translateTexts(language, texts)}
-                  deck={deck}
-                  coverDefaults={{ title: "Cold Chain Analysis", subtitle: files[id]!.name.replace(/\.(xlsx|xlsm|xls|csv)$/i, "") }}
-                  summaryLoading={!!summaryLoading[id]}
-                  summaryError={summaryError[id]}
-                  onChange={applyDeck}
-                  onRegenerateSummary={() => regenerateSummary(id)}
-                  onClose={() => setEditorSlot(null)}
-                />
-              )}
-            </section>
-          );
-        })}
-
-        <PageNav position="bottom" onBack={() => navigate("/analysis")}>
-          <div className="report-page__export-host" ref={setExportBottom} />
-        </PageNav>
-      </main>
-    </div>
+      {primary && editorSlot === primary && deck && (
+        <ReportEditorModal
+          entries={doneEntriesRaw}
+          staleIds={staleIds}
+          translations={translations[primary]}
+          language={language}
+          onTranslate={(texts) => translateTexts(language, texts)}
+          deck={deck}
+          coverDefaults={{ title: "Cold Chain Analysis", subtitle: files[primary]!.name.replace(/\.(xlsx|xlsm|xls|csv)$/i, "") }}
+          summaryLoading={!!summaryLoading[primary]}
+          summaryError={summaryError[primary]}
+          onChange={applyDeck}
+          onRegenerateSummary={() => regenerateSummary(primary)}
+          onClose={() => setEditorSlot(null)}
+        />
+      )}
+    </>
   );
 }

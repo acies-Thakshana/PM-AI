@@ -65,8 +65,8 @@ SWP_USER = os.getenv("SWP_USER", "")
 SWP_PASS = os.getenv("SWP_PASS", "")
 SWP_CLIENT_ID = os.getenv("SWP_CLIENT_ID", "common_client_jwt")
 SWP_CLIENT_SECRET = os.getenv("SWP_CLIENT_SECRET", "secret")
-# The API allows 20 calls a minute: wait this long after every call.
-SWP_CALL_DELAY_SECONDS = float(os.getenv("SWP_CALL_DELAY_SECONDS", "2.5"))
+# The API allows 20 calls a minute: at least this long from the start of one call to the start of the next.
+SWP_CALL_DELAY_SECONDS = float(os.getenv("SWP_CALL_DELAY_SECONDS", "3.0"))
 # How long the fetched list of all trips is reused before it is fetched again.
 SWP_TRIPS_CACHE_SECONDS = int(os.getenv("SWP_TRIPS_CACHE_SECONDS", "600"))
 # Most trips one "Load" may put into an audit session (they are read from the store, not fetched).

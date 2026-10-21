@@ -1,22 +1,27 @@
-import ThinkingLoader, { Spinner } from "../components/ThinkingLoader";
+import ChatMessage from "../components/ChatMessage";
+import { friendlyAiError } from "../utils/aiError";
+import ThinkingLoader from "../components/ThinkingLoader";
 import { LOADING } from "../utils/loadingMessages";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "../components/Header";
-import StepIndicator from "../components/StepIndicator";
-import PageHeader from "../components/PageHeader";
-import PageNav from "../components/PageNav";
 import Collapsible from "../components/Collapsible";
-import { IconSparkle } from "../components/icons";
 import { fetchSuggestions, saveDecisions } from "../api/planner";
 import { uploadAnalysisDefinitions, uploadFeatureDefinitions } from "../api/audit";
 import type { FilesState } from "../App";
 import type { PlannerRecommendation, PlannerRecommendationType, PlannerSuggestResponse, PmDecisionValue } from "../api/planner";
 import PlanText from "../components/PlanText";
 import { useStoredRef } from "../state/sessionStore";
+import "../components/ChatMessage.css";
 import "./PlannerPage.css";
 
 type PlannerTab = "features" | "analyses";
+
+// What the PM asked for in the chat and what came back, shown under the suggestions.
+interface ChatTurn {
+  request: string;
+  added: number | null;
+  error?: string;
+}
 
 // New suggestions are only "analysis" | "feature" | "configuration". A legacy
 // "feature_and_analysis" recommendation (old saved sessions) still produces an
@@ -62,11 +67,6 @@ function buildFeatureColumnMap(recs: PlannerRecommendation[]): Map<string, strin
   return map;
 }
 
-interface PlannerPageProps {
-  sessionId: string | null;
-  files: FilesState;
-}
-
 type DecisionsMap = Record<number, PmDecisionValue>;
 
 // The Planner's suggestions, the PM's accept/reject choices and the open tab, kept per session so
@@ -75,10 +75,16 @@ type DecisionsMap = Record<number, PmDecisionValue>;
 interface PlannerCacheEntry {
   result: PlannerSuggestResponse;
   decisions: DecisionsMap;
-  activeTab: PlannerTab;
 }
 
-export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
+function friendlyError(err: unknown): string {
+  const text = err instanceof Error ? err.message : "";
+  const fallback = text.startsWith("Planner suggest failed") ? "The Planner could not draft suggestions this time. Try again in a moment." : text || "Planner failed.";
+  return friendlyAiError(text, fallback);
+}
+
+/** The Planner's state for one session: its suggestions, the PM's decisions and the requests made in the chat. */
+export function usePlannerChat(sessionId: string | null, files: FilesState) {
   const navigate = useNavigate();
   // Lives in the shared session store (like every other page's cross-navigation
   // state) instead of a module-level Map, so it also survives whatever Features/
@@ -92,15 +98,24 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PlannerSuggestResponse | null>(cached?.result ?? null);
   const [decisions, setDecisions] = useState<DecisionsMap>(cached?.decisions ?? {});
-  const [activeTab, setActiveTab] = useState<PlannerTab>(cached?.activeTab ?? "features");
+  const [turns, setTurns] = useState<ChatTurn[]>([]);
+  // Goes up when the PM asks to try again after a failure, which runs the first request once more.
+  const [attempt, setAttempt] = useState(0);
+  const endRef = useRef<HTMLDivElement>(null);
   const [moreLoading, setMoreLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const fetched = useRef(Boolean(cached));
 
   // Keep the cache in step with what is on screen.
   useEffect(() => {
-    if (sessionId && result) plannerCache.set(sessionId, { result, decisions, activeTab });
-  }, [sessionId, result, decisions, activeTab]);
+    if (sessionId && result) plannerCache.set(sessionId, { result, decisions });
+  }, [sessionId, result, decisions]);
+
+  // A new chat turn scrolls into view; the first suggestions, and accepting or rejecting a card, do not.
+  const messageCount = turns.length + (moreLoading ? 1 : 0);
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messageCount]);
 
   useEffect(() => {
     if (!sessionId || fetched.current) return;
@@ -129,14 +144,14 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
         res.recommendations.forEach((r, i) => {
           if (r.pm_decision && r.pm_decision !== "pending") saved[i] = r.pm_decision;
         });
-        if (!plannerCache.has(sessionId)) plannerCache.set(sessionId, { result: res, decisions: saved, activeTab: "features" });
+        if (!plannerCache.has(sessionId)) plannerCache.set(sessionId, { result: res, decisions: saved });
         if (mounted) {
           setResult(res);
           setDecisions((prev) => (Object.keys(prev).length ? prev : saved));
         }
       })
       .catch((err) => {
-        if (mounted) setError(err.message ?? "Planner failed.");
+        if (mounted) setError(friendlyError(err));
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -146,7 +161,13 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
       // Leaving mid-request: let the next visit run its own effect and join the same request.
       fetched.current = false;
     };
-  }, [sessionId]);
+  }, [sessionId, attempt]);
+
+  const retry = () => {
+    fetched.current = false;
+    setError(null);
+    setAttempt((a) => a + 1);
+  };
 
   const setDecision = (index: number, value: PmDecisionValue) => {
     setDecisions((prev) => ({
@@ -166,14 +187,19 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
     });
   };
 
-  const handleRequestMore = async () => {
-    if (!sessionId || !result) return;
+  // `request` is what the PM typed in the chat; without it the Planner adds 4 more of each kind.
+  const handleRequestMore = async (request?: string) => {
+    if (!sessionId || !result || moreLoading) return;
     setMoreLoading(true);
     setError(null);
     const existingNames = result.recommendations.map((r) => r.name).join(", ");
-    const context = `Generate 4 additional feature suggestions and 4 additional analysis suggestions. These must be DIFFERENT from the ones already shown: ${existingNames}. Do not repeat any of those.`;
+    const ask = request
+      ? `The PM asks: ${request}. Generate suggestions that answer this.`
+      : "Generate 4 additional feature suggestions and 4 additional analysis suggestions.";
+    const context = `${ask} These must be DIFFERENT from the ones already shown: ${existingNames}. Do not repeat any of those.`;
     try {
       const res = await fetchSuggestions(sessionId, context);
+      setTurns((prev) => [...prev, { request: request ?? "Suggest more features and analyses", added: res.recommendations.length }]);
       setResult((prev) => {
         if (!prev) return res;
         return {
@@ -182,7 +208,8 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
         };
       });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to get more suggestions.");
+      const message = err instanceof Error ? err.message : "Failed to get more suggestions.";
+      setTurns((prev) => [...prev, { request: request ?? "Suggest more features and analyses", added: null, error: message }]);
     } finally {
       setMoreLoading(false);
     }
@@ -206,164 +233,141 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
     }
   };
 
-  if (!sessionId) {
-    return (
-      <div className="planner-page">
-        <Header subtitle="AI Planner" />
-        <main className="planner-page__main">
-          <StepIndicator current={2} />
-          <div className="planner-page__loading">
-            No session found. Please go back and upload your files.
-          </div>
-        </main>
-      </div>
-    );
-  }
+  return {
+    sessionId,
+    loading,
+    error,
+    result,
+    decisions,
+    turns,
+    endRef,
+    moreLoading,
+    saving,
+    setDecision,
+    setAllInTab,
+    handleRequestMore,
+    handleProceed,
+    retry,
+  };
+}
 
+export type PlannerChat = ReturnType<typeof usePlannerChat>;
+
+/** The Planner's messages: what it read, the suggested features and analyses to accept or reject, and what the PM
+ * asked for afterwards. Shown inside the Configure conversation. */
+export function PlannerThread({ planner }: { planner: PlannerChat }) {
+  const { loading, error, result, decisions, turns, moreLoading } = planner;
   const recs = result?.recommendations ?? [];
   const featureColumnMap = buildFeatureColumnMap(recs);
+  const shown = recs.map((rec, i) => ({ rec, i })).filter(({ rec }) => hasFormula(rec));
+  const sections: { tab: PlannerTab; title: string; items: typeof shown }[] = [
+    { tab: "features", title: "Features", items: shown.filter(({ rec }) => getTabs(rec.type).includes("features")) },
+    { tab: "analyses", title: "Analyses", items: shown.filter(({ rec }) => getTabs(rec.type).includes("analyses")) },
+  ];
+  const reviewed = shown.filter(({ i }) => (decisions[i] ?? "pending") !== "pending").length;
+  const acceptedCount = shown.filter(({ i }) => decisions[i] === "accepted").length;
+  const featureCount = sections[0].items.length;
+  const analysisCount = sections[1].items.length;
 
   return (
-    <div className="planner-page">
-      <Header subtitle="AI Planner" />
-      <main className="planner-page__main">
-        <StepIndicator current={2} />
+    <>
+      <ChatMessage>
+        <p>
+          I read your client brief against your data&apos;s columns. I will suggest the features to build and the
+          analyses to run. Accept or reject each one, and ask me here if you want something different.
+        </p>
+      </ChatMessage>
 
-        <PageNav position="top" onBack={() => navigate("/upload")}>
-          <button
-            type="button"
-            className="btn btn--primary"
-            disabled={saving || loading || !result}
-            onClick={handleProceed}
-          >
-            {saving ? "Saving…" : "Proceed to Audit"}
-          </button>
-        </PageNav>
-
-        <PageHeader
-          icon={
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M2 17l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          }
-          title="AI Planner"
-          subtitle="The Planner has read your brief and the column details of your data. Review its suggested features and analyses below, then accept or reject each one before proceeding to the data audit."
-        />
-
-
-        {loading && (
+      {loading && (
+        <ChatMessage>
           <ThinkingLoader
             messages={LOADING.planner}
             hint="The Planner reads your brief against your data's column details. This usually takes 20 to 40 seconds."
             intervalMs={4000}
             showElapsed
           />
-        )}
+        </ChatMessage>
+      )}
 
-        {error && <div className="planner-page__error">{error}</div>}
+      {error && (
+        <ChatMessage>
+          <div className="planner-page__error">{error}</div>
+        </ChatMessage>
+      )}
 
-        {result && (
-          <>
-            <div className="planner-page__tabs">
-              <div className="planner-page__tabs-left">
-                {(["features", "analyses"] as PlannerTab[]).map((tab) => {
-                  const count = recs.filter((r) => getTabs(r.type).includes(tab) && hasFormula(r)).length;
-                  const acceptedCount = recs.filter((r, i) => getTabs(r.type).includes(tab) && hasFormula(r) && decisions[i] === "accepted").length;
-                  return (
-                    <button
-                      key={tab}
-                      type="button"
-                      className={`planner-page__tab${activeTab === tab ? " planner-page__tab--active is-active" : ""}`}
-                      onClick={() => setActiveTab(tab)}
-                    >
-                      {tab === "features" ? "Feature Suggestions" : "Analysis Suggestions"}
-                      <span className="count-pill">{count}</span>
-                      {acceptedCount > 0 && (
-                        <span className="planner-page__tab-accepted">{acceptedCount} accepted</span>
-                      )}
+      {result && (
+        <ChatMessage>
+          <p>
+            I have <b>{featureCount}</b> feature{featureCount === 1 ? "" : "s"} and <b>{analysisCount}</b>{" "}
+            analys{analysisCount === 1 ? "is" : "es"} for you to review.
+          </p>
+          {sections.map(({ tab, title, items }) => (
+            <section key={tab} className="planner-chat__section">
+              <div className="planner-chat__section-head">
+                <h2>
+                  {title} <span className="count-pill">{items.length}</span>
+                </h2>
+                {items.length > 0 && (
+                  <div className="planner-page__bulk-btns">
+                    <button type="button" className="btn btn--sm btn--secondary" onClick={() => planner.setAllInTab(tab, "accepted")}>
+                      Accept all
                     </button>
-                  );
-                })}
+                    <button type="button" className="btn btn--sm btn--secondary" onClick={() => planner.setAllInTab(tab, "rejected")}>
+                      Reject all
+                    </button>
+                  </div>
+                )}
               </div>
-              {recs.filter((r) => getTabs(r.type).includes(activeTab) && hasFormula(r)).length > 0 && (
-                <div className="planner-page__bulk-btns">
-                  <button
-                    type="button"
-                    className="btn btn--sm btn--primary"
-                    onClick={() => setAllInTab(activeTab, "accepted")}
-                  >
-                    Accept all
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn--sm btn--secondary"
-                    onClick={() => setAllInTab(activeTab, "rejected")}
-                  >
-                    Reject all
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="planner-page__list">
-              {recs
-                .map((rec, i) => ({ rec, i }))
-                .filter(({ rec }) => getTabs(rec.type).includes(activeTab) && hasFormula(rec))
-                .map(({ rec, i }) => (
+              <div className="planner-page__list">
+                {items.map(({ rec, i }) => (
                   <RecommendationCard
                     key={i}
                     rec={rec}
                     index={i}
                     decision={decisions[i] ?? "pending"}
-                    onDecide={setDecision}
+                    onDecide={planner.setDecision}
                     featureColumnMap={featureColumnMap}
                     dependencyWarning={dependencyWarningFor(rec, decisions[i] ?? "pending", recs, decisions)}
                   />
                 ))}
-              {recs.filter((r) => getTabs(r.type).includes(activeTab) && hasFormula(r)).length === 0 && (
-                <div className="planner-page__empty-tab">
-                  {activeTab === "features" && recs.some((r) => r.type === "analysis")
-                    ? "No new features needed - the analyses reuse existing features or customer KPIs, or use the existing columns directly. Check the Analysis tab for the details."
-                    : `No ${activeTab === "features" ? "feature" : "analysis"} suggestions yet.`}
-                </div>
-              )}
-            </div>
-
-            <div className="planner-page__more-section">
-              <div className="planner-page__more-label">Want more options?</div>
-              <p className="planner-page__more-hint">
-                Ask the Planner to generate 4 more features and 4 more analyses, different from what's already shown.
-              </p>
-              <button
-                type="button"
-                className="btn btn--ai"
-                onClick={handleRequestMore}
-                disabled={moreLoading || !result}
-              >
-                {moreLoading ? (
-                  <><Spinner />Generating more suggestions…</>
-                ) : (
-                  <><IconSparkle /> Generate more suggestions</>
+                {items.length === 0 && (
+                  <div className="planner-page__empty-tab">
+                    {tab === "features" && recs.some((r) => r.type === "analysis")
+                      ? "No new features needed. The analyses reuse existing features or customer KPIs, or use the existing columns directly."
+                      : `No ${tab === "features" ? "feature" : "analysis"} suggestions yet.`}
+                  </div>
                 )}
-              </button>
-            </div>
-          </>
-        )}
+              </div>
+            </section>
+          ))}
+          <div className="planner-chat__bar">
+            <span className="planner-chat__progress">
+              {reviewed} of {shown.length} reviewed · {acceptedCount} accepted
+            </span>
+          </div>
+        </ChatMessage>
+      )}
 
-        <PageNav position="bottom" onBack={() => navigate("/upload")}>
-          <button
-            type="button"
-            className="btn btn--primary"
-            disabled={saving || loading || !result}
-            onClick={handleProceed}
-          >
-            {saving ? "Saving…" : "Proceed to Audit"}
-          </button>
-        </PageNav>
-      </main>
-    </div>
+      {turns.map((turn, n) => (
+        <div key={n} className="chat-page__turn">
+          <ChatMessage from="user">{turn.request}</ChatMessage>
+          <ChatMessage>
+            {turn.error ? (
+              <div className="planner-page__error">{turn.error}</div>
+            ) : (
+              <p>Done. I added {turn.added} suggestion{turn.added === 1 ? "" : "s"} to the lists above.</p>
+            )}
+          </ChatMessage>
+        </div>
+      ))}
+
+      {moreLoading && (
+        <ChatMessage>
+          <ThinkingLoader messages={LOADING.planner} variant="inline" />
+        </ChatMessage>
+      )}
+      <div ref={planner.endRef} />
+    </>
   );
 }
 

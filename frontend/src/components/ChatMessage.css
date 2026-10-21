@@ -1,0 +1,459 @@
+/* The conversation layout shared by the stages: a scrolling thread and a dock that stays at the bottom. */
+.chat-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--color-bg);
+}
+
+.chat-page__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.chat-page__thread {
+  max-width: none;
+  margin: 0;
+  padding: 18px 20px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.chat-msg {
+  display: flex;
+  gap: 14px;
+  min-width: 0;
+}
+
+.chat-msg--user {
+  justify-content: flex-end;
+}
+
+.chat-msg__avatar {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  margin-top: 2px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--carrier-blue);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.chat-msg__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chat-msg__body > p {
+  margin: 0;
+  max-width: 64ch;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.chat-msg__bubble {
+  max-width: 80%;
+  padding: 9px 16px;
+  background: var(--carrier-blue-tint);
+  border-radius: 18px 18px 4px 18px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* Dock: the way forward and the message box, always in reach */
+.chat-page__dock {
+  flex: none;
+  padding: 8px 20px 16px;
+  background: linear-gradient(to bottom, transparent, var(--color-bg) 18%);
+}
+
+.chat-page__dock-inner {
+  max-width: none;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chat-page__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.chat-page__dock-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.chat-page__count {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.chat-page__hint {
+  margin: 0;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--color-text-muted);
+}
+
+.chat-composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 8px 8px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-md);
+}
+
+.chat-composer:focus-within {
+  border-color: var(--carrier-light-blue);
+}
+
+.chat-composer textarea {
+  flex: 1;
+  min-height: 26px;
+  max-height: 140px;
+  padding: 5px 0;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 15px;
+}
+
+.chat-composer__send {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  background: var(--carrier-blue);
+  color: #fff;
+  cursor: pointer;
+}
+
+.chat-composer__send:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* An inline card inside an assistant message: a header, a body and an optional footer */
+.chat-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.chat-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 18px;
+  background: var(--color-bg-subtle);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.chat-card__head span {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.chat-card__body {
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chat-card__label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+/* The existing brief and SWP panels sit inside the card without a card of their own */
+.chat-card .cb,
+.chat-card .swp-card {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+}
+
+.chat-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.chat-stat {
+  padding: 10px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+}
+
+.chat-stat small {
+  display: block;
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+}
+
+.chat-stat b {
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+.chat-stat em {
+  margin-left: 4px;
+  font-size: 12px;
+  font-style: normal;
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 640px) {
+  .chat-page__thread {
+    padding: 20px 16px 8px;
+  }
+
+  .chat-msg__avatar {
+    display: none;
+  }
+
+  .chat-page__dock {
+    padding-inline: 16px;
+  }
+}
+
+/* Controls inside a message keep their own width instead of stretching across the thread. */
+.chat-msg__body > .source-toggle {
+  align-self: flex-start;
+}
+
+.chat-page__turn {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* The card header already says where the data comes from */
+.chat-card .swp-card__title {
+  display: none;
+}
+
+/* The SWP form inside the setup card: ids and dates on one row, sensors under them, then Fetch */
+.chat-card .swp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+.chat-card .swp-card .swp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.chat-card .upload-page__lede {
+  margin: 6px 0 0;
+}
+
+.chat-card .swp-card .swp-field__hint {
+  font-size: 12px;
+}
+
+.chat-card .swp-fetch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.chat-msg__host {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* The brief box: a plain labelled text area, like the other fields in the card */
+.chat-card .cb .cb__header {
+  display: none;
+}
+
+.chat-card .cb .cb__textarea {
+  width: 100%;
+  min-height: 64px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: var(--color-surface);
+  font-size: 14px;
+  resize: vertical;
+}
+
+.chat-card .cb .cb__textarea:focus {
+  outline: none;
+  border-color: var(--carrier-light-blue);
+}
+
+/* Attaching the optional profiles from the message box */
+.chat-composer-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chat-composer__files {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.chat-composer__file {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px 2px 10px;
+  font-size: 12.5px;
+  background: var(--carrier-blue-tint);
+  border-radius: 999px;
+}
+
+.chat-composer__file button {
+  border: 0;
+  background: none;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.chat-composer__attach {
+  position: relative;
+  align-self: flex-end;
+}
+
+.chat-composer__clip {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.chat-composer__clip:hover:not(:disabled) {
+  background: var(--color-bg-subtle);
+}
+
+.chat-composer__menu {
+  position: absolute;
+  bottom: 42px;
+  left: 0;
+  min-width: 230px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  z-index: 5;
+}
+
+.chat-composer__menu button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-composer__menu button:hover {
+  background: var(--carrier-blue-tint);
+}
+
+.chat-composer__menu small {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.chat-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 18px;
+  background: var(--color-bg-subtle);
+  border-top: 1px solid var(--color-border);
+}
+
+/* Actions inside an assistant message read as quick replies: rounded pills, the main one filled */
+.chat-msg__body .btn,
+.chat-card__foot .btn {
+  padding: 5px 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+  border-radius: 999px;
+}
+
+.chat-msg__body .btn--secondary,
+.chat-card__foot .btn--secondary {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+.chat-msg__body .btn--secondary:hover:not(:disabled),
+.chat-card__foot .btn--secondary:hover:not(:disabled) {
+  background: var(--carrier-blue-tint);
+  border-color: var(--carrier-light-blue);
+}
+
+.chat-msg__body .btn--sm,
+.chat-card__foot .btn--sm {
+  padding: 4px 13px;
+  font-size: 13px;
+}

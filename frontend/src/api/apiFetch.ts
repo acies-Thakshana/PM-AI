@@ -19,6 +19,7 @@ async function send(path: string, init: RequestInit | undefined, forceRefresh: b
 // endpoint's own response (same status, headers and body), so callers cannot tell the difference.
 const LONG_STEPS: { method: string; path: RegExp }[] = [
   { method: "POST", path: /^\/api\/planner\/suggest$/ },
+  { method: "POST", path: /^\/api\/assistant\/ask$/ },
   // Pulling trips from the SWP API is rate limited (a couple of seconds per call), so it can take a while.
   { method: "GET", path: /^\/api\/swp\/trips$/ },
   { method: "POST", path: /^\/api\/swp\/load$/ },
@@ -35,7 +36,8 @@ const LONG_STEPS: { method: string; path: RegExp }[] = [
 
 const POLL_FIRST_MS = 1500;
 const POLL_EVERY_MS = 3000;
-const GIVE_UP_AFTER_MS = 15 * 60 * 1000;
+// A first fetch of a large program is rate limited (about 3 seconds per call), so it can run for most of an hour.
+const GIVE_UP_AFTER_MS = 60 * 60 * 1000;
 const MAX_POLL_NETWORK_ERRORS = 5;
 
 function isLongStep(path: string, init?: RequestInit): boolean {

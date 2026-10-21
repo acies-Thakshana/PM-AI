@@ -1,3 +1,5 @@
+import { useContext } from "react";
+import { InShellContext } from "../context/inShell";
 import "./Header.css";
 
 interface HeaderProps {
@@ -5,6 +7,8 @@ interface HeaderProps {
 }
 
 export default function Header({ subtitle = "Data Upload" }: HeaderProps) {
+  // The app shell has its own logo and stage list.
+  if (useContext(InShellContext)) return null;
   return (
     <header className="app-header">
       <div className="app-header__inner">

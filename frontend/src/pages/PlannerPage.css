@@ -1,76 +1,233 @@
+/* The Planner is a conversation: the thread scrolls, the dock with the message box stays at the bottom. */
 .planner-page {
-  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
   background: var(--color-bg);
 }
 
-.planner-page__main {
-  max-width: var(--page-width);
-  margin: 0 auto;
-  padding: 32px 24px 64px;
+.planner-chat__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
-/* Tabs */
-.planner-page__tabs {
+.planner-chat__thread {
+  max-width: none;
+  margin: 0;
+  padding: 18px 20px 12px;
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.planner-chat__msg {
+  display: flex;
+  gap: 14px;
+  min-width: 0;
+}
+
+.planner-chat__avatar {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  margin-top: 2px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--carrier-blue);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.planner-chat__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.planner-chat__body > p {
+  margin: 0;
+  max-width: 64ch;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.planner-chat__turn {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.planner-chat__user {
+  align-self: flex-end;
+  max-width: 80%;
+  padding: 9px 16px;
+  background: var(--carrier-blue-tint);
+  border-radius: 18px 18px 4px 18px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.planner-chat__section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.planner-chat__section-head {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 0;
-  border-bottom: 2px solid var(--color-border);
-  margin-bottom: 20px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.planner-page__tabs-left {
-  display: flex;
-  gap: 0;
-}
-
-.planner-page__tab {
+.planner-chat__section-head h2 {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 20px;
-  background: none;
-  border: none;
-  border-bottom: 2.5px solid transparent;
-  margin-bottom: -2px;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: color 0.12s, border-color 0.12s;
-}
-
-.planner-page__tab:hover {
-  color: var(--color-text);
-}
-
-.planner-page__tab--active {
-  color: var(--carrier-blue);
-  border-bottom-color: var(--carrier-blue);
-}
-
-.planner-page__tab-accepted {
-  font-size: 11.5px;
+  margin: 0;
+  font-size: 14px;
   font-weight: 700;
-  background: var(--color-success-bg, #e8f7ee);
-  border-radius: var(--radius-md);
-  padding: 1px 7px;
-  color: var(--color-success);
+  color: var(--carrier-blue-dark);
 }
 
 .planner-page__empty-tab {
-  text-align: center;
-  padding: 32px 0;
+  padding: 18px 0;
   color: var(--color-text-muted);
   font-size: 13.5px;
   font-style: italic;
 }
 
-/* Bulk-action buttons (inside tab row) */
 .planner-page__bulk-btns {
   display: flex;
   gap: 6px;
-  padding-bottom: 6px;
+}
+
+/* Dock: progress and the way forward, suggestion chip, then the message box */
+.planner-chat__dock {
+  flex: none;
+  padding: 6px 20px 16px;
+  background: linear-gradient(to bottom, transparent, var(--color-bg) 18%);
+}
+
+.planner-chat__dock-inner {
+  max-width: none;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.planner-chat__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.planner-chat__progress {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.planner-chat__bar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.planner-chat__chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.planner-chat__chip {
+  padding: 4px 12px;
+  font-size: 13px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.planner-chat__chip:hover:not(:disabled) {
+  background: var(--carrier-blue-tint);
+  border-color: var(--carrier-light-blue);
+}
+
+.planner-chat__chip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.planner-chat__box {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 8px 8px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-md);
+}
+
+.planner-chat__box:focus-within {
+  border-color: var(--carrier-light-blue);
+}
+
+.planner-chat__box textarea {
+  flex: 1;
+  min-height: 26px;
+  max-height: 140px;
+  padding: 5px 0;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 15px;
+}
+
+.planner-chat__send {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  background: var(--carrier-blue);
+  color: #fff;
+  cursor: pointer;
+}
+
+.planner-chat__send:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+@media (max-width: 640px) {
+  .planner-chat__thread {
+    padding: 20px 16px 8px;
+  }
+
+  .planner-chat__avatar {
+    display: none;
+  }
+
+  .planner-chat__dock {
+    padding-inline: 16px;
+  }
 }
 
 /* Rec cards */

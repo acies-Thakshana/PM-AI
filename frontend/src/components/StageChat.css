@@ -1,0 +1,95 @@
+/* The stage's working tools, as a card inside the assistant's message */
+.stage-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.stage-card__head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 18px;
+  background: var(--color-bg-subtle);
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.stage-card__toggle {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--carrier-light-blue);
+}
+
+.stage-card__body {
+  padding: 16px 18px;
+  min-width: 0;
+}
+
+/* The page's own shell and its Back / Next bars are replaced by the conversation and its bottom bar */
+.stage-card__body > div > main {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.stage-card__body .page-header,
+.stage-card__body .page-nav:not(:has(.report-page__export-host)) {
+  display: none;
+}
+
+.stage-card__body [class$="-page__empty"] {
+  margin: 0;
+}
+
+.stage-chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.stage-chip {
+  flex: none;
+  padding: 4px 12px;
+  font-size: 13px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.stage-chip:hover:not(:disabled) {
+  background: var(--carrier-blue-tint);
+  border-color: var(--carrier-light-blue);
+}
+
+.stage-chip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.stage-chip--main {
+  background: var(--carrier-blue);
+  border-color: var(--carrier-blue);
+  color: #fff;
+  font-weight: 600;
+}
+
+.stage-chip--main:hover:not(:disabled) {
+  background: var(--carrier-blue-dark);
+  border-color: var(--carrier-blue-dark);
+}
+
+.stage-chips:empty {
+  display: none;
+}
