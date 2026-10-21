@@ -16,6 +16,7 @@ import {
 } from "../utils/swpTrips";
 import type { SwpConfigState } from "../utils/swpTrips";
 import { Spinner } from "./ThinkingLoader";
+import { IconDownload, IconSnowflake } from "./icons";
 import "../pages/UploadPage.css";
 import "../pages/TripsPage.css";
 
@@ -110,32 +111,41 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
   return (
     <section className="swp-card">
       <div className="swp-card__head">
-        <h2 className="swp-card__title">SWP API</h2>
+        <span className="swp-card__badge" aria-hidden="true">
+          <IconSnowflake />
+        </span>
+        <div>
+          <h2 className="swp-card__title">SWP API</h2>
+          <p className="swp-card__sub">Pull a program's trips straight from SensiWatch. Nothing is written back.</p>
+        </div>
       </div>
 
       <div className="swp-form">
-        <label className="swp-field">
-          <span className="swp-field__label">Program ID</span>
-          <span className="swp-inline">
-            <input
-              className="swp-field__input"
-              type="text"
-              inputMode="numeric"
-              placeholder="Enter the program ID"
-              value={config.programId}
-              onChange={(e) => update({ programId: e.target.value, idsText: "" })}
-              disabled={disabled || fetching}
-            />
-            <button type="button" className="btn btn--secondary" onClick={() => fetchTrips(false)} disabled={disabled || fetching || !programId}>
-              {fetching ? <><Spinner />Fetching…</> : "Fetch all trips"}
-            </button>
-          </span>
-          <span className="swp-field__hint">Fetches every trip of the program. What was fetched before is reused, so only new or changed trips take time.</span>
-        </label>
+        <div className="swp-field">
+          <label className="swp-field__label" htmlFor="swp-program-id">
+            <span className="swp-step">1</span> Program ID
+          </label>
+          <input
+            id="swp-program-id"
+            className="swp-field__input"
+            type="text"
+            inputMode="numeric"
+            placeholder="e.g. 651"
+            value={config.programId}
+            onChange={(e) => update({ programId: e.target.value, idsText: "" })}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && programId && !disabled && !fetching) void fetchTrips(false);
+            }}
+            disabled={disabled || fetching}
+          />
+          <span className="swp-field__hint">The program whose trips you want to work with.</span>
+        </div>
 
         <div className="swp-field">
-          <span className="swp-field__label">Departure date (UTC)</span>
-          <span className="swp-inline">
+          <span className="swp-field__label">
+            <span className="swp-step">2</span> Departure date (UTC) <span className="swp-optional">Optional</span>
+          </span>
+          <span className="swp-dates">
             <input
               className="swp-field__input"
               type="date"
@@ -145,7 +155,9 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
               onChange={(e) => update({ dateFrom: e.target.value })}
               disabled={disabled}
             />
-            <span className="swp-field__hint">to</span>
+            <span className="swp-dates__to" aria-hidden="true">
+              to
+            </span>
             <input
               className="swp-field__input"
               type="date"
@@ -155,16 +167,24 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
               onChange={(e) => update({ dateTo: e.target.value })}
               disabled={disabled}
             />
+          </span>
+          <span className="swp-field__hint">
+            Only trips that left in this window are used.
             {dateFilterOn && (
-              <button type="button" className="swp-link" onClick={() => update({ dateFrom: "", dateTo: "" })}>
-                Clear
-              </button>
+              <>
+                {" "}
+                <button type="button" className="swp-link" onClick={() => update({ dateFrom: "", dateTo: "" })}>
+                  Clear dates
+                </button>
+              </>
             )}
           </span>
         </div>
 
         <div className="swp-field">
-          <span className="swp-field__label">Sensors to load</span>
+          <span className="swp-field__label">
+            <span className="swp-step">3</span> Sensors to load
+          </span>
           <span className="swp-inline" role="group" aria-label="Sensors">
             {SENSOR_OPTIONS.map((name) => (
               <label key={name} className="swp-check">
@@ -177,6 +197,25 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
             Temperature and Light go into the audit table; Humidity is only drawn in the Inspect graph. Pick Temperature or Light.
           </span>
         </div>
+      </div>
+
+      <div className="swp-fetchbar">
+        <p className="swp-fetchbar__hint">
+          Fetches every trip of the program. What was fetched before is reused, so only new or changed trips take time.
+        </p>
+        <button type="button" className="swp-fetch" onClick={() => fetchTrips(false)} disabled={disabled || fetching || !programId}>
+          {fetching ? (
+            <>
+              <Spinner />
+              Fetching…
+            </>
+          ) : (
+            <>
+              <IconDownload />
+              Fetch all trips
+            </>
+          )}
+        </button>
       </div>
 
       {fetching && <ApiProgress progressId={progressId} fallback="Fetching all trips from the SWP API (it is rate limited, so the first time can take a few minutes)…" />}

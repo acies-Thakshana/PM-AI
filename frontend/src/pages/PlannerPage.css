@@ -362,3 +362,22 @@
 .planner-page__bulk-btns .btn {
   min-width: 96px;
 }
+
+/* Shown until the assistant's questions are done (or skipped): the Planner waits for them. */
+.planner-page__gate {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 16px 0;
+  padding: 18px 20px;
+  border: 1px solid var(--carrier-blue-tint-2);
+  border-radius: 14px;
+  background: var(--carrier-blue-tint);
+  color: var(--carrier-blue);
+}
+.planner-page__gate p {
+  margin: 0 0 8px;
+  font-size: 13.5px;
+  color: var(--color-text-muted);
+}

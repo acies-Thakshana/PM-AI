@@ -65,39 +65,130 @@
   }
 }
 
+/* The action bar: a floating pill bar that stays at the bottom of the window while the PM scrolls. */
 .upload-page__actions {
+  position: sticky;
+  bottom: 16px;
+  z-index: 5;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px;
-  border-top: 1px solid var(--color-border);
-  padding-top: 20px;
+  gap: 12px 16px;
+  padding: 12px 14px 12px 16px;
   margin-bottom: 24px;
+  background: rgba(255, 255, 255, 0.82);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 20px;
+  box-shadow: 0 8px 28px rgba(16, 38, 84, 0.14), 0 0 0 1px rgba(16, 38, 84, 0.06);
 }
 
 .upload-page__left {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .upload-page__actions--bottom {
-  border-top: 1px solid var(--color-border);
   margin-top: 24px;
   margin-bottom: 8px;
 }
 
+/* How much is chosen: a small pill with a dot that turns green once something is. */
 .upload-page__count {
-  font-size: 13.5px;
-  color: var(--color-text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--carrier-blue-tint);
+  color: var(--carrier-blue);
+  font-size: 13px;
   font-weight: 600;
+}
+.upload-page__count::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2fb36d;
+  box-shadow: 0 0 0 3px rgba(47, 179, 109, 0.2);
+}
+.upload-page__count--empty {
+  background: #eef1f6;
+  color: var(--color-text-muted);
+}
+.upload-page__count--empty::before {
+  background: #aab4c5;
+  box-shadow: none;
 }
 
 .upload-page__buttons {
   display: flex;
-  gap: 12px;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The three buttons of the bar: Back and Clear All are quiet, the main one is the clear next step. */
+.upload-page__actions .btn {
+  border-radius: 999px;
+  padding: 10px 20px;
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease, color 0.15s ease;
+}
+.upload-page__actions .btn--secondary {
+  background: #fff;
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+.upload-page__actions .btn--secondary:hover:not(:disabled) {
+  border-color: var(--carrier-light-blue);
+  color: var(--carrier-blue);
+  background: var(--carrier-blue-tint);
+}
+.upload-page__buttons .btn--secondary {
+  background: transparent;
+  border-color: transparent;
+  color: var(--color-text-muted);
+  padding-inline: 14px;
+}
+.upload-page__actions .btn--primary {
+  padding: 11px 26px;
+  border: none;
+  background: linear-gradient(135deg, var(--carrier-blue), var(--carrier-light-blue));
+  box-shadow: 0 6px 16px rgba(0, 70, 150, 0.32);
+}
+.upload-page__actions .btn--primary::after {
+  content: "→";
+  font-size: 16px;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+.upload-page__actions .btn--primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--carrier-blue), var(--carrier-light-blue));
+  filter: brightness(1.08);
+  box-shadow: 0 8px 20px rgba(0, 70, 150, 0.4);
+}
+.upload-page__actions .btn--primary:hover:not(:disabled)::after {
+  transform: translateX(3px);
+}
+/* Not ready yet: a calm, pale button instead of a faded one. */
+.upload-page__actions .btn--primary:disabled {
+  background: #dfe5ef;
+  box-shadow: none;
+  color: #8793a8;
+  opacity: 1;
+}
+@media (max-width: 720px) {
+  .upload-page__actions {
+    border-radius: 16px;
+  }
+  .upload-page__buttons {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 
 
@@ -110,96 +201,188 @@
 }
 
 .swp-card {
+  container-type: inline-size;
   background: var(--color-surface, #fff);
   border: 1px solid var(--color-border);
   border-top: 3px solid var(--carrier-blue);
-  border-radius: 14px;
-  box-shadow: 0 1px 3px rgba(16, 38, 84, 0.06), 0 6px 18px rgba(16, 38, 84, 0.05);
-  padding: 22px 24px 20px;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(16, 38, 84, 0.06), 0 8px 24px rgba(16, 38, 84, 0.06);
+  padding: 22px 26px 22px;
   margin-bottom: 8px;
 }
 
 .swp-card__head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.swp-card__badge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, var(--carrier-blue), var(--carrier-light-blue));
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0, 70, 150, 0.28);
+}
+.swp-card__badge svg {
+  width: 22px;
+  height: 22px;
 }
 
 .swp-card__title {
   margin: 0;
-  font-size: 17px;
+  font-size: 18px;
   font-weight: var(--font-weight-title);
   color: var(--carrier-blue);
-  letter-spacing: 0.01em;
+  line-height: 1.2;
+}
+
+.swp-card__sub {
+  margin: 3px 0 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
 }
 
 .swp-card__note {
-  margin: 0 0 12px;
+  margin: 14px 0 12px;
   font-size: 13.5px;
   color: var(--color-text-muted);
   line-height: 1.5;
 }
 
+/* The three things to set, side by side with a thin line between them. */
 .swp-form {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 18px;
-}
-/* The sensors group is the widest, so it runs across both columns under the other two. */
-.swp-form > .swp-field:nth-child(3) {
-  grid-column: 1 / -1;
-}
-
-@media (max-width: 720px) {
-  .swp-form {
-    grid-template-columns: 1fr;
-  }
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1.05fr);
+  gap: 0;
 }
 
 .swp-field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 14px 16px;
-  background: #f8fafd;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
+  gap: 10px;
+  padding: 2px 24px;
+}
+.swp-field:first-child {
+  padding-left: 0;
+}
+.swp-field:last-child {
+  padding-right: 0;
+}
+.swp-field + .swp-field {
+  border-left: 1px solid var(--color-border);
+}
+
+@container (max-width: 880px) {
+  .swp-form {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    row-gap: 22px;
+  }
+  .swp-field:nth-child(2) {
+    padding-right: 0;
+  }
+  .swp-field:nth-child(3) {
+    grid-column: 1 / -1;
+    padding: 20px 0 0;
+    border-left: none;
+    border-top: 1px solid var(--color-border);
+  }
+}
+@container (max-width: 560px) {
+  .swp-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .swp-field,
+  .swp-field:nth-child(2),
+  .swp-field:nth-child(3) {
+    padding: 18px 0 0;
+    border-left: none;
+    border-top: 1px solid var(--color-border);
+  }
+  .swp-field:first-child {
+    padding-top: 0;
+    border-top: none;
+  }
 }
 
 .swp-field__label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+/* A small number in front of each label: the order to go through them. */
+.swp-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--carrier-blue-tint-2);
+  color: var(--carrier-blue);
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.05em;
+}
+
+.swp-optional {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef1f6;
+  color: var(--color-text-muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--carrier-blue);
 }
 
 .swp-field__input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 44px;
   font: inherit;
   font-size: 14px;
-  padding: 9px 12px;
+  padding: 0 14px;
   border: 1px solid var(--color-border);
-  border-radius: 10px;
+  border-radius: 12px;
   background: #fff;
   color: var(--color-text);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-
+.swp-field__input::placeholder {
+  color: #9aa6ba;
+}
 .swp-field__input:hover:not(:disabled) {
   border-color: var(--carrier-light-blue);
 }
-
 .swp-field__input:focus {
   outline: none;
   border-color: var(--carrier-light-blue);
-  box-shadow: 0 0 0 3px rgba(0, 120, 200, 0.15);
+  box-shadow: 0 0 0 4px rgba(0, 120, 200, 0.14);
 }
-
 .swp-field__input:disabled {
   background: #eef1f6;
+  color: var(--color-text-muted);
+}
+
+.swp-dates {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+.swp-dates__to {
+  font-size: 13px;
   color: var(--color-text-muted);
 }
 
@@ -207,6 +390,59 @@
   font-size: 12.5px;
   line-height: 1.45;
   color: var(--color-text-muted);
+}
+
+/* The fetch: the one action of this box, at the bottom. */
+.swp-fetchbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin-top: 22px;
+  padding: 14px 16px 14px 20px;
+  border-radius: 14px;
+  background: var(--carrier-blue-tint);
+  border: 1px solid var(--carrier-blue-tint-2);
+}
+.swp-fetchbar__hint {
+  flex: 1 1 260px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+.swp-fetch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 24px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--carrier-blue), var(--carrier-light-blue));
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 6px 16px rgba(0, 70, 150, 0.3);
+  cursor: pointer;
+  transition: filter 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.swp-fetch svg {
+  width: 16px;
+  height: 16px;
+}
+.swp-fetch:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 8px 20px rgba(0, 70, 150, 0.4);
+  transform: translateY(-1px);
+}
+.swp-fetch:disabled {
+  background: #dfe5ef;
+  color: #8793a8;
+  box-shadow: none;
+  cursor: not-allowed;
 }
 
 .swp-picker__head {

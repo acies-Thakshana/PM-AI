@@ -325,6 +325,8 @@ def turn(req: ChatTurnRequest):
 # --------------------------------------------------------------------------- interview record
 class InterviewIn(BaseModel):
     brief: str = ""
+    # Where `brief` came from: "chat" (the PM gave it in the chat: the Planner uses it) or "upload" (the Configure page).
+    brief_source: str = ""
     understanding: dict[str, str] = Field(default_factory=dict)
     assumptions: list[dict[str, str]] = Field(default_factory=list)
     transcript: list[ChatMessage] = Field(default_factory=list)
@@ -336,6 +338,7 @@ def save_interview(session_id: str, body: InterviewIn):
     record = {
         "saved_at": datetime.now(timezone.utc).isoformat(),
         "brief": body.brief,
+        "brief_source": body.brief_source if body.brief_source in ("chat", "upload") else "",
         "understanding": {k: _clean_text(v, 400) for k, v in body.understanding.items() if k in UNDERSTANDING_KEYS},
         "assumptions": [{"id": a.get("id", ""), "text": _clean_text(a.get("text"), 300)} for a in body.assumptions],
         "transcript": [m.model_dump() for m in body.transcript[-60:]],

@@ -88,6 +88,12 @@ class ToolsTest(unittest.TestCase):
         self.assertEqual(out["result_rows_total"], 2)
         self.assertEqual(out["needs_calculations"], [{"name": "Hours out of range", "state": "computed"}])
 
+    def test_get_analysis_lists_its_inputs(self):
+        entry = dict(ANALYSES[0], input_columns=["Carrier", "Alarms"], filters=[{"column": "Origin", "reason": "x"}, {"reason": "no column"}])
+        with mock.patch.object(tools.analysis_repository, "get_repository", return_value=[entry]):
+            out = tools.run_tool("get_analysis", {"id": "a1"}, CTX)
+        self.assertEqual(out["inputs"], {"columns": ["Carrier", "Alarms"], "filters": ["Origin"]})
+
     def test_get_analysis_caps_the_rows_shown(self):
         big = [dict(ANALYSES[0], result_table=[{"n": i} for i in range(100)])]
         with mock.patch.object(tools.analysis_repository, "get_repository", return_value=big):

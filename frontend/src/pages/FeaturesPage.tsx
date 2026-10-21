@@ -83,6 +83,12 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
   const [defsAttempted, setDefsAttempted] = useStoredState("features.defsAttempted", false);
 
   const [openFeature, setOpenFeature] = useState<{ slotId: UploadSlotId; featureId: string } | null>(null);
+  // Tells the assistant which calculation is open, so "explain this" means this one.
+  const [, setChatFocus] = useStoredState<string | null>("chat.focus", null);
+  useEffect(() => {
+    setChatFocus(openFeature?.featureId ?? null);
+    return () => setChatFocus(null);
+  }, [openFeature?.featureId]);
 
   const slotsReady = AUDITED_SLOTS.filter((id) => files[id] && auditReports[id]?.status === "reviewed");
   const hasKpiFile = !!files.customerKpis;

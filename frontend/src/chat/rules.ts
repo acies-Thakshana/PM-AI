@@ -82,16 +82,24 @@ export function dataGate(input: GateInput): Gate {
 
 // ------------------------------------------------------------------------------------------------ brief
 const squash = (text: string) => text.replace(/\s+/g, " ").trim().toLowerCase();
+const MIN_WORDS_TO_REPLACE_BRIEF = 8;
 
 /**
  * May the model's `set_brief` action store `text` as the client brief?
- * Only when there is no brief yet and the text is the PM's own words from the message just sent, so the
- * assistant can neither overwrite a brief nor store a rewrite of it.
+ * Only when the text is the PM's own words from the message just sent (never a rewrite). With a brief already on
+ * the Configure page it must be a real brief (at least a sentence), so an interview answer cannot replace it.
  */
 export function canSetBrief(text: string, lastUserMessage: string, currentBrief: string): boolean {
-  if (currentBrief.trim()) return false;
   const brief = squash(text);
-  return brief.length > 0 && squash(lastUserMessage).includes(brief);
+  if (!brief || !squash(lastUserMessage).includes(brief)) return false;
+  // A brief given in the chat wins over the one on the Configure page, but a short answer is never a new brief.
+  return !currentBrief.trim() || brief.split(" ").length >= MIN_WORDS_TO_REPLACE_BRIEF;
+}
+
+/** Is this message the client brief (a few sentences), rather than a short answer or a question? */
+export function looksLikeBrief(text: string): boolean {
+  const clean = text.trim();
+  return clean.split(/\s+/).length >= 12 && !clean.endsWith("?");
 }
 
 // ------------------------------------------------------------------------------------------ page links
@@ -143,4 +151,25 @@ export function explainFailure(raw: string | null | undefined): string {
   }
   if (/returned 429|rate limit/i.test(message)) return "the AI service is rate limiting requests. Wait a minute and try again";
   return shorten(message, 220);
+}
+
+// ------------------------------------------------------------------------------------------------ shortcuts
+/** What the PM asked for in words the app can read without asking the model (one AI call saved each time). */
+export type Shortcut =
+  | { type: "suggest"; kind: "feature" | "analysis" }
+  | { type: "own"; kind: "feature" | "analysis"; text: string };
+
+/**
+ * "Add an analysis: <what I want>" (the My-own chips) goes straight to the drafting agent with the PM's own words;
+ * "suggest / add another analysis" with nothing specific goes to the suggestion agent. Anything else is left to the
+ * model (null), which also decides what to do with a question.
+ */
+export function shortcutFor(text: string): Shortcut | null {
+  const own = text.match(/^add (?:an? )?(analysis|calculation|feature)\s*:\s*(\S[\s\S]*)$/i);
+  if (own) return { type: "own", kind: /analysis/i.test(own[1]) ? "analysis" : "feature", text: own[2].trim() };
+  if (text.includes(":") || text.trim().split(/\s+/).length > 14 || /\b(?:explain|why|how|what does|what is)\b/i.test(text)) return null;
+  const kind = /analys/i.test(text) ? "analysis" : /feature|calculation|kpi|metric/i.test(text) ? "feature" : null;
+  const generic = /\b(?:suggest|recommend|propose|another|more|other|suitable|something|anything|on (?:your|ur) own)\b/i.test(text);
+  const adding = /\b(?:add|suggest|recommend|propose|give|create|need|want)\b/i.test(text);
+  return kind && generic && adding ? { type: "suggest", kind } : null;
 }

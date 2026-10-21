@@ -30,7 +30,8 @@ import { announceChatChange, usePageChangeCount, useStoredRef, useStoredState } 
 import { persistDecisions } from "../api/planner";
 import type { PlannerSuggestResponse, PmDecisionValue } from "../api/planner";
 import { hasFormula, plannerDecisionsKey, plannerResultKey } from "../utils/plannerRecs";
-import { PAGE_PATH, canSetBrief, dataGate, explainFailure, pageLabel, pageLinksIn, shorten, stageOf } from "./rules";
+import { PAGE_PATH, canSetBrief, dataGate, explainFailure, looksLikeBrief, pageLabel, pageLinksIn, shortcutFor, shorten, stageOf } from "./rules";
+import { INTERVIEW_DONE_KEY } from "./signals";
 import type { ChatLink, Gate } from "./rules";
 
 // The chat assistant: one conversation that interviews the PM about the client brief and, once the PM presses
@@ -66,7 +67,7 @@ export interface ChatChange {
   label: string;
   entryId: string;
   sessionId: string;
-  state: "added" | "kept" | "undone";
+  state: "added" | "undone";
 }
 
 /** One analysis the assistant is building (or just added), shown live in the panel while it works. */
@@ -134,7 +135,6 @@ interface ChatValue {
   send: (text: string, opts?: { hidden?: boolean }) => void;
   editAssumption: (id: string, text: string) => void;
   removeAssumption: (id: string) => void;
-  keepChange: (id: string) => void;
   undoChange: (id: string) => void;
   reset: () => void;
 }
@@ -157,12 +157,33 @@ const GREETING: ChatMsg = {
   id: "greeting",
   role: "assistant",
   text:
-    "Hi! I'll ask a few quick questions about the client brief so the report fits what the client actually needs. " +
-    "Press \"Start\" to begin, or just tell me about the brief. " +
-    "Short on time? Say \"skip the questions\" and I'll use my best guess and show you every assumption.",
+    "Hi, I'm Polar, your Program Manager assistant. Paste the client brief here (or in the box on the page), then load your data. " +
+    "Once the data is in, I'll ask a few quick questions about the brief on the Planner page, with examples taken from your data.",
 };
 
 const SKIP_REPLY = "Skip the questions, use your best guess";
+
+const UNDERSTANDING_ROWS: [keyof Understanding, string][] = [
+  ["goal", "Goal"],
+  ["scope", "Scope"],
+  ["period", "Period"],
+  ["limits", "Limits"],
+  ["output", "Output"],
+  ["kpis", "Client KPIs"],
+];
+
+/** What the assistant took from the brief, said as a reply (empty when nothing is settled yet). */
+function understandingReply(u: Understanding): string {
+  const rows = UNDERSTANDING_ROWS.filter(([key]) => u[key]).map(([key, label]) => `• ${label}: ${u[key]}`);
+  return rows.length ? `Here is what I picked up from the brief:\n${rows.join("\n")}` : "";
+}
+
+/** A brief written from the PM's answers, for when the interview happened with no brief on the Configure page. */
+function briefFromAnswers(u: Understanding): string {
+  return UNDERSTANDING_ROWS.filter(([key]) => u[key])
+    .map(([key, label]) => `${label}: ${u[key]}`)
+    .join("\n");
+}
 
 let idCounter = 0;
 const nextId = () => `m${Date.now().toString(36)}${(idCounter++).toString(36)}`;
@@ -197,6 +218,10 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
   const [autoAccept, setAutoAcceptState] = useState<AutoAccept>({ planner: false, features: false, analysis: false });
   const [buildItems, setBuildItems] = useState<BuildItem[]>([]);
   const [repoReview, setReview] = useState<ReviewItem[]>([]);
+  // The analysis or calculation open on its page (set by the page): "this graph" in a question means this one.
+  const [chatFocus] = useStoredState<string | null>("chat.focus", null);
+  // The interview is over (confirmed or skipped): the Planner page waits for this before it plans.
+  const [interviewDone, setInterviewDone] = useStoredState<boolean>(INTERVIEW_DONE_KEY, false);
 
   // The Planner's suggestions and the PM's decisions on them live in the shared store: the PM decides here in
   // the chat, the Planner page shows the details.
@@ -246,16 +271,20 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
 
   // Latest values for the async code (a build outlives the render that started it).
   const pendingSuggestions = review.filter((r) => r.state === "pending").length;
-  const live = useRef({ brief, files, sessionId, auditReport, understanding, assumptions, phase, build, messages, pendingSuggestions, pathname: location.pathname });
-  live.current = { brief, files, sessionId, auditReport, understanding, assumptions, phase, build, messages, pendingSuggestions, pathname: location.pathname };
+  const live = useRef({ brief, files, sessionId, auditReport, understanding, assumptions, phase, build, messages, pendingSuggestions, chatFocus, pathname: location.pathname });
+  live.current = { brief, files, sessionId, auditReport, understanding, assumptions, phase, build, messages, pendingSuggestions, chatFocus, pathname: location.pathname };
 
   const building = useRef(false);
+  // The PM gave the brief in the chat: then it, not the one on the Configure page, is what the Planner plans from.
+  const chatBrief = useRef(false);
+  const interviewBegan = useRef(false);
 
   const briefText = () => (live.current.brief.rawText || live.current.brief.finalText || "").trim();
 
   /** What the interview settled so far, as saved with the session (the Planner reads it). */
   const interviewRecord = (): InterviewRecord => ({
     brief: briefText(),
+    brief_source: chatBrief.current ? "chat" : "upload",
     understanding: live.current.understanding,
     assumptions: live.current.assumptions,
     transcript: transcriptOf(live.current.messages),
@@ -512,6 +541,8 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
    * is missing) it is NOT marked as started, so the Analysis page runs it once the calculation is there.
    */
   const runAnalysis = async (sid: string, entryId: string, name: string): Promise<{ ok: true } | { ok: false; reason: string }> => {
+    // A single analysis (added or accepted on its own) starts a fresh list instead of joining the last build's.
+    setBuildItems((prev) => (prev.some((i) => i.state === "queued" || i.state === "running") ? prev : []));
     patchItem(entryId, { name, state: "running" });
     const blocked = await prepareAnalysis(sid, entryId).catch((err) => errorText(err, "it could not be prepared"));
     if (blocked) {
@@ -561,7 +592,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       if (!quiet) {
         say(
           outcome.ok
-            ? `I added the analysis "${name}" and ran it. Keep or undo? (See "What I changed" below.)`
+            ? `I added the analysis "${name}" and ran it. You can undo it under "What I changed".`
             : `I added "${name}", but ${outcome.reason}`,
           { error: !outcome.ok, links: [{ label: "Open this analysis", path: `/analysis?open=${entry.id}` }] }
         );
@@ -598,7 +629,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
         say(
           `I added "${name}" and computed it. In short: ${steps}` +
             (sample.length ? ` Sample values: ${sample.join(", ")}.` : "") +
-            ` The full steps are in the calculation that just opened. Keep or undo? (See "What I changed" below.)`,
+            ` The full steps are in the calculation that just opened. You can undo it under "What I changed".`,
           { links: [{ label: "Open this calculation", path: `/features?open=${entry.id}` }] }
         );
         navigate(`/features?open=${entry.id}`);
@@ -647,6 +678,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
         if (canSetBrief(action.text, lastUser, briefText())) {
           const next = { ...live.current.brief, rawText: action.text, finalText: action.text, isEnglish: true };
           live.current.brief = next;
+          chatBrief.current = true;
           onBriefChange(next);
         }
         break;
@@ -693,9 +725,33 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       setMessages(history);
       setQuickReplies([]);
       setNextQuestions([]);
+      // "Add another analysis", "Add an analysis: ...": the suggestion and drafting agents do it, no chat-model call.
+      // Before the data is loaded there is no interview: a pasted brief is just taken, and the PM is sent on to load.
+      if (!opts.hidden && stageOf(live.current.pathname) === "configure" && live.current.phase === "interview" && looksLikeBrief(text)) {
+        const next = { ...live.current.brief, rawText: text, finalText: text, isEnglish: true };
+        live.current.brief = next;
+        chatBrief.current = true;
+        onBriefChange(next);
+        say("Got the client brief. Load your data with the button below; I'll go through the brief with you on the Planner page, with examples from your data.");
+        return;
+      }
+      const shortcut = opts.hidden ? null : shortcutFor(text);
+      if (shortcut?.type === "suggest") {
+        void suggestWithAi(shortcut.kind);
+        return;
+      }
+      if (shortcut?.type === "own") {
+        const title = shortcut.text.split(/\s+/).slice(0, 7).join(" ").replace(/[.,;:]+$/, "");
+        setBusy(true);
+        void (shortcut.kind === "analysis" ? addAnalysisAction(title, shortcut.text) : addFeatureAction(title, shortcut.text)).finally(() => setBusy(false));
+        return;
+      }
       setBusy(true);
       const gate = gateNow();
       const state = {
+        open_item: live.current.chatFocus
+          ? { id: live.current.chatFocus, kind: stageOf(live.current.pathname) === "features" ? "calculation" : "analysis" }
+          : null,
         phase: live.current.phase,
         understanding: live.current.understanding,
         assumptions: live.current.assumptions,
@@ -712,6 +768,12 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       })
         .then(async (res) => {
           // A sentence that promises to open a page gets a button when the model sent no navigate action.
+          // The first time something is settled (from a brief typed here or on the Configure page), say what was understood.
+          const firstTime = !Object.values(live.current.understanding).some(Boolean);
+          if (firstTime && res.phase !== "ready") {
+            const summary = understandingReply(res.understanding);
+            if (summary) say(summary);
+          }
           const promised = res.actions.some((a) => a.type === "navigate") ? [] : pageLinksIn(res.reply);
           say(res.reply, promised.length ? { links: promised } : undefined);
           setPhase(res.phase);
@@ -721,10 +783,31 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
           setNextQuestions(res.next_questions);
           // The PM confirmed the read-back: keep the answers with the session so the Planner can read them.
           const sid = live.current.sessionId;
-          if (res.phase === "ready" && sid) {
+          if (res.phase === "ready") {
             live.current.understanding = res.understanding;
             live.current.assumptions = res.assumptions;
-            void persistInterview(sid);
+            // The PM answered the questions without any brief: their answers are the Planner's input.
+            if (!briefText()) {
+              const written = briefFromAnswers(res.understanding);
+              if (written) {
+                const next = { ...live.current.brief, rawText: written, finalText: written, isEnglish: true };
+                live.current.brief = next;
+                chatBrief.current = true;
+                onBriefChange(next);
+              }
+            }
+            if (sid) {
+              // The Planner plans from the saved answers, so it is only let go once they are saved. It is on the Planner
+              // page already, or the PM is taken there.
+              void persistInterview(sid).then(() => {
+                setInterviewDone(true);
+                if (stageOf(live.current.pathname) === "planner") return;
+                navigate("/planner");
+                say("Opened the Planner page: it plans from these answers.");
+              });
+            } else {
+              setInterviewDone(true);
+            }
           }
           for (const action of res.actions) await runAction(action);
         })
@@ -741,10 +824,20 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
   /** Opens the panel and, on a fresh conversation, has the assistant ask its first question. */
   const startInterview = useCallback(() => {
     setOpen(true);
-    const fresh = live.current.phase === "interview" && live.current.messages.length <= 1;
-    if (fresh) send(START_INTERVIEW_TURN, { hidden: true });
+    if (interviewBegan.current || live.current.phase !== "interview") return;
+    interviewBegan.current = true;
+    send(START_INTERVIEW_TURN, { hidden: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [send]);
+
+  // Arriving on the Planner page with the data loaded: the questions about the brief start now, with examples from
+  // the data. (The Planner waits for them, or for the PM to skip them.)
+  const alreadyPlanned = Boolean(plannerResult);
+  useEffect(() => {
+    if (stageOf(location.pathname) !== "planner" || !sessionId || interviewDone || alreadyPlanned) return;
+    startInterview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, sessionId, interviewDone, alreadyPlanned]);
 
   // The pending suggestions of both kinds, as cards the PM accepts or rejects in the chat.
   const loadReview = async (sid: string) => {
@@ -916,8 +1009,6 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoAccept, review, audit.reviewed]);
 
-  const keepChange = useCallback((id: string) => setChanges((prev) => prev.map((c) => (c.id === id ? { ...c, state: "kept" } : c))), []);
-
   const undoChange = useCallback(
     (id: string) => {
       const change = changesRef.current.find((c) => c.id === id);
@@ -933,6 +1024,9 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     [say]
   );
   const reset = useCallback(() => {
+    interviewBegan.current = false;
+    chatBrief.current = false;
+    setInterviewDone(false);
     setMessages([GREETING]);
     setPhase("interview");
     setUnderstanding(EMPTY_UNDERSTANDING);
@@ -964,7 +1058,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       assumptions,
       // "Skip the questions" belongs to the interview, which happens on the Configure page.
       quickReplies:
-        phase === "interview" && stageOf(location.pathname) === "configure" && !quickReplies.includes(SKIP_REPLY) && messages.length > 1
+        phase === "interview" && stageOf(location.pathname) === "planner" && !quickReplies.includes(SKIP_REPLY) && messages.length > 1
           ? [...quickReplies, SKIP_REPLY]
           : quickReplies,
       nextQuestions,
@@ -979,11 +1073,10 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       send,
       editAssumption,
       removeAssumption,
-      keepChange,
       undoChange,
       reset,
     }),
-    [review, audit, autoAccept, setAutoAccept, decide, acceptAll, inspect, buildItems, open, messages, busy, phase, understanding, assumptions, quickReplies, nextQuestions, build, changes, location.pathname, sessionId, startInterview, startBuild, persistInterview, suggestWithAi, openPage, send, editAssumption, removeAssumption, keepChange, undoChange, reset]
+    [review, audit, autoAccept, setAutoAccept, decide, acceptAll, inspect, buildItems, open, messages, busy, phase, understanding, assumptions, quickReplies, nextQuestions, build, changes, location.pathname, sessionId, startInterview, startBuild, persistInterview, suggestWithAi, openPage, send, editAssumption, removeAssumption, undoChange, reset]
   );
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

@@ -145,6 +145,11 @@ def get_analysis(ctx: ToolContext, id: str = "") -> dict:  # noqa: A002 - `id` i
         "run_status": entry.get("run_status", "not_run"),
         "how_it_was_calculated": _text(entry.get("plan_text") or entry.get("template_summary") or entry.get("formula")),
         "chart_type": entry.get("chart_type"),
+        # The inputs of the analysis: the columns it reads and the filters offered on its chart.
+        "inputs": {
+            "columns": entry.get("input_columns") or [],
+            "filters": [f.get("column") for f in entry.get("filters") or [] if isinstance(f, dict) and f.get("column")],
+        },
         "what_it_shows": _text(entry.get("interpretation")),
         "error": _text(entry.get("error"), 300) or None,
         "needs_calculations": [

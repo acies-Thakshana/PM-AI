@@ -15,6 +15,7 @@ import type { PlannerRecommendation, PlannerSuggestResponse, PmDecisionValue } f
 import PlanText from "../components/PlanText";
 import { useStoredRef, useStoredState } from "../state/sessionStore";
 import { getTabs, hasFormula, plannerDecisionsKey, plannerResultKey } from "../utils/plannerRecs";
+import { INTERVIEW_DONE_KEY } from "../chat/signals";
 import type { PlannerTab } from "../utils/plannerRecs";
 import "./PlannerPage.css";
 
@@ -80,6 +81,8 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
   const [moreLoading, setMoreLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const fetched = useRef(Boolean(cached));
+  // The assistant's questions come first: the Planner starts when they are done, or when the PM skips them here.
+  const [interviewDone, setInterviewDone] = useStoredState<boolean>(INTERVIEW_DONE_KEY, false);
 
   // Keep the cache in step with what is on screen.
   useEffect(() => {
@@ -87,7 +90,8 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
   }, [sessionId, result, decisions, activeTab]);
 
   useEffect(() => {
-    if (!sessionId || fetched.current) return;
+    // The Planner plans from the brief AND the assistant's questions, so it waits for them (or for "skip").
+    if (!sessionId || fetched.current || !(interviewDone || cached)) return;
     fetched.current = true;
     setLoading(true);
     setError(null);
@@ -130,7 +134,7 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
       // Leaving mid-request: let the next visit run its own effect and join the same request.
       fetched.current = false;
     };
-  }, [sessionId]);
+  }, [sessionId, interviewDone]);
 
   const handleRequestMore = async () => {
     if (!sessionId || !result) return;
@@ -234,6 +238,16 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
           subtitle="The Planner has read your brief and the column details of your data. Review its suggested features and analyses below, then accept or reject each one here, or in the assistant, before proceeding to the data audit."
         />
 
+
+        {!interviewDone && !result && !loading && (
+          <div className="planner-page__gate" role="status">
+            <strong>Polar is going through your brief first.</strong>
+            <p>Answer its questions in the chat so the suggestions fit what the client needs. The Planner starts as soon as you are done.</p>
+            <button type="button" className="btn btn--secondary" onClick={() => setInterviewDone(true)}>
+              Skip the questions and plan now
+            </button>
+          </div>
+        )}
 
         {loading && (
           <ThinkingLoader

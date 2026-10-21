@@ -130,6 +130,12 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
   const [overallError, setOverallError] = useState<ErrorsState>({});
 
   const [openEntry, setOpenEntry] = useState<{ slotId: UploadSlotId; entryId: string } | null>(null);
+  // Tells the assistant which analysis is open, so "explain this graph" means this one.
+  const [, setChatFocus] = useStoredState<string | null>("chat.focus", null);
+  useEffect(() => {
+    setChatFocus(openEntry?.entryId ?? null);
+    return () => setChatFocus(null);
+  }, [openEntry?.entryId]);
   // Bumped after each guided Confirm so the open modal switches to its Selected Drill-downs tab.
   const [openSelectedSignal, setOpenSelectedSignal] = useState(0);
 

@@ -86,6 +86,15 @@ def _interview_block(session_id: str) -> str:
     )
 
 
+def _chat_brief(session_id: str) -> str:
+    """The client brief the PM gave in the chat, when they did: it is the Planner's input instead of the one
+    entered on the Configure page. Empty otherwise (then the Configure brief is used)."""
+    rec = doc_store.get(session_id, "INTERVIEW")
+    if isinstance(rec, dict) and rec.get("brief_source") == "chat":
+        return str(rec.get("brief") or "").strip()
+    return ""
+
+
 def _build_user_prompt(
     final_brief: str,
     columns_block: str,
@@ -122,11 +131,12 @@ def suggest(session_id: str, additional_context: str = "") -> dict:
 
     if col_data is None:
         raise FileNotFoundError(f"COLUMNS (column metadata) not found for session {session_id}")
-    if meta_data is None:
+    chat_brief = _chat_brief(session_id)
+    if meta_data is None and not chat_brief:
         raise FileNotFoundError(f"BRIEF (client brief) not found for session {session_id}")
 
-    brief_block = meta_data.get("client_brief", {})
-    final_brief = (
+    brief_block = (meta_data or {}).get("client_brief", {})
+    final_brief = chat_brief or (
         brief_block.get("understanding_text")
         # briefs saved before the language fields were dropped
         or brief_block.get("translated_text")

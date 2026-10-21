@@ -1,5 +1,5 @@
 import { Spinner } from "../components/ThinkingLoader";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import { IconChevronLeft } from "../components/icons";
@@ -20,6 +20,9 @@ import type { SwpConfigState } from "../utils/swpTrips";
 import { uploadOnly } from "../api/audit";
 import { finalizeBrief } from "../api/brief";
 import { useChat } from "../chat/ChatProvider";
+import { CONFIGURE_LOAD_KEY, CONFIGURE_STATUS_KEY, NOT_READY } from "../chat/signals";
+import type { ConfigureStatus } from "../chat/signals";
+import { useStoredState } from "../state/sessionStore";
 import { hasBrief } from "../context/plannerSkipped";
 import type { DataSource } from "../context/plannerSkipped";
 import "./UploadPage.css";
@@ -225,6 +228,35 @@ export default function UploadPage({
   const continueLabel = apiMode ? "Load Arrived Trips & Continue" : "Upload & Continue";
   const continueDisabled = uploading || (apiMode && !apiReady);
 
+  // The assistant offers "Load & continue" in the chat: it needs to know whether that can be pressed (and what is
+  // missing when not), and its press comes back here as a counter that goes up.
+  const missing = !brief.rawText.trim()
+    ? "Add the client brief first."
+    : apiMode
+      ? !tripsForProgram
+        ? "Fetch the program's trips first."
+        : chosen.length === 0
+          ? "No arrived trips are selected yet."
+          : !apiReady
+            ? "Check the sensors and the number of trips."
+            : ""
+      : UPLOAD_SLOTS.some((s) => s.required && !files[s.id])
+        ? "Add the required files first."
+        : "";
+  const [, setConfigureStatus] = useStoredState<ConfigureStatus>(CONFIGURE_STATUS_KEY, NOT_READY);
+  useEffect(() => {
+    setConfigureStatus({ canContinue: !continueDisabled && !missing, label: uploading ? "Loading…" : continueLabel, hint: uploading ? "" : missing });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [continueDisabled, missing, uploading, continueLabel]);
+  const [loadRequest] = useStoredState<number>(CONFIGURE_LOAD_KEY, 0);
+  const seenLoadRequest = useRef(loadRequest);
+  useEffect(() => {
+    if (loadRequest === seenLoadRequest.current) return;
+    seenLoadRequest.current = loadRequest;
+    if (!continueDisabled && !missing) void handleContinue();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadRequest]);
+
   // A full page load (not a router navigation) so the app starts completely fresh on the Get Started page.
   const handleBack = () => window.location.assign("/");
 
@@ -319,18 +351,6 @@ export default function UploadPage({
           />
         )}
 
-        <div className="upload-page__actions">
-          <div className="upload-page__left">
-            <button type="button" className="btn btn--secondary" onClick={handleBack} disabled={uploading}>
-              <IconChevronLeft /> Back
-            </button>
-            <span className="upload-page__count">
-              {apiMode ? `${chosen.length} arrived trip(s) selected` : `${selectedCount} of ${UPLOAD_SLOTS.length} files selected`}
-            </span>
-          </div>
-          {buttons}
-        </div>
-
         {apiMode && <h2 className="upload-page__subheading">Optional profiles</h2>}
 
         <div className="upload-page__grid">
@@ -353,13 +373,17 @@ export default function UploadPage({
           ))}
         </div>
 
+        {/* The one action bar of the page: it stays at the bottom of the window while the PM scrolls. */}
         <div className="upload-page__actions upload-page__actions--bottom">
-          <button type="button" className="btn btn--secondary" onClick={handleBack} disabled={uploading}>
-            <IconChevronLeft /> Back
-          </button>
-          <button type="button" className="btn btn--primary" onClick={handleContinue} disabled={continueDisabled}>
-            {uploading ? <><Spinner />{apiMode ? "Loading…" : "Uploading…"}</> : continueLabel}
-          </button>
+          <div className="upload-page__left">
+            <button type="button" className="btn btn--secondary" onClick={handleBack} disabled={uploading}>
+              <IconChevronLeft /> Back
+            </button>
+            <span className={`upload-page__count${(apiMode ? chosen.length : selectedCount) === 0 ? " upload-page__count--empty" : ""}`}>
+              {apiMode ? `${chosen.length} arrived trip(s) selected` : `${selectedCount} of ${UPLOAD_SLOTS.length} files selected`}
+            </span>
+          </div>
+          {buttons}
         </div>
       </main>
     </div>

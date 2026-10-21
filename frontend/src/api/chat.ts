@@ -77,6 +77,8 @@ export async function chatTurn(body: ChatTurnRequest): Promise<ChatTurnResponse>
 
 export interface InterviewRecord {
   brief: string;
+  /** Where the brief came from: the chat (the Planner uses it) or the Configure page. */
+  brief_source?: "chat" | "upload";
   understanding: Understanding;
   assumptions: Assumption[];
   transcript: ChatTurnMessage[];
