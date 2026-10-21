@@ -1,7 +1,7 @@
 import ThinkingLoader, { Spinner } from "../components/ThinkingLoader";
 import { LOADING } from "../utils/loadingMessages";
 import { useEffect, useState } from "react";
-import { useStoredState } from "../state/sessionStore";
+import { announcePageChange, useChatChangeCount, useStoredState } from "../state/sessionStore";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Header from "../components/Header";
 import StepIndicator from "../components/StepIndicator";
@@ -21,6 +21,7 @@ import {
   applyFeatures,
   draftCustomFeature,
   downloadCleansedFile,
+  fetchFeatureReport,
   fetchFeatureRepository,
   fetchPreview,
   suggestFeatureEntries,
@@ -106,7 +107,25 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
   }, [hasKpiFile, files.customerKpis, defsAttempted, defsLoading]);
 
   const refreshRepository = (id: UploadSlotId, sessionId: string) =>
-    fetchFeatureRepository(sessionId).then((repo) => setRepositories((prev) => ({ ...prev, [id]: repo.entries })));
+    fetchFeatureRepository(sessionId).then((repo) => {
+      setRepositories((prev) => ({ ...prev, [id]: repo.entries }));
+      announcePageChange(); // the assistant shows the same suggestions: let it look again
+    });
+
+  // The computed features and the repository, read again from the server.
+  const reloadFeatures = (id: UploadSlotId, sessionId: string) =>
+    Promise.all([
+      fetchFeatureReport(sessionId).then((report) => setReports((prev) => ({ ...prev, [id]: report }))),
+      refreshRepository(id, sessionId),
+    ]);
+
+  // The assistant added or changed a calculation while this page is open: show it.
+  const chatChanges = useChatChangeCount();
+  useEffect(() => {
+    if (chatChanges === 0) return;
+    for (const id of slotsReady) reloadFeatures(id, auditReports[id]!.session_id).catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatChanges]);
 
   const computeAndRefresh = (id: UploadSlotId) => {
     const sessionId = auditReports[id]!.session_id;
@@ -169,9 +188,9 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
   const suggestParam = searchParams.get("suggest");
   useEffect(() => {
     if (!openParam || slotsReady.length === 0) return;
-    // Refetch first: the item may have just finished, and the cached copy would open without its result.
+    // Refetch first: the item may have just been added, and the cached copy would not have it.
     const id = slotsReady[0];
-    refreshRepository(id, auditReports[id]!.session_id)
+    reloadFeatures(id, auditReports[id]!.session_id)
       .then(() => {
         setOpenFeature({ slotId: id, featureId: openParam });
         setSearchParams({}, { replace: true });

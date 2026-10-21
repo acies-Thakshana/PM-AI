@@ -8,10 +8,10 @@ import PageHeader from "../components/PageHeader";
 import PageNav from "../components/PageNav";
 import Collapsible from "../components/Collapsible";
 import { IconSparkle } from "../components/icons";
-import { fetchSuggestions, saveDecisions } from "../api/planner";
+import { fetchSuggestions, persistDecisions } from "../api/planner";
 import { uploadAnalysisDefinitions, uploadFeatureDefinitions } from "../api/audit";
 import type { FilesState } from "../App";
-import type { PlannerRecommendation, PlannerRecommendationType, PlannerSuggestResponse, PmDecisionValue } from "../api/planner";
+import type { PlannerRecommendation, PlannerSuggestResponse, PmDecisionValue } from "../api/planner";
 import PlanText from "../components/PlanText";
 import { useStoredRef, useStoredState } from "../state/sessionStore";
 import { getTabs, hasFormula, plannerDecisionsKey, plannerResultKey } from "../utils/plannerRecs";
@@ -73,7 +73,7 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
   const cached = sessionId ? plannerCache.get(sessionId) : undefined;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Result and decisions live in the shared store: the assistant is where the PM accepts or rejects, this page shows the details.
+  // Result and decisions live in the shared store: the PM can accept or reject here or in the assistant, both see the same choices.
   const [result, setResult] = useStoredState<PlannerSuggestResponse | null>(plannerResultKey(sessionId), cached?.result ?? null);
   const [decisions, setDecisions] = useStoredState<DecisionsMap>(plannerDecisionsKey(sessionId), cached?.decisions ?? {});
   const [activeTab, setActiveTab] = useState<PlannerTab>(cached?.activeTab ?? "features");
@@ -154,16 +154,32 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
     }
   };
 
+  // Every change is saved at once, so what the assistant shows is the same whichever one decided.
+  const applyDecisions = (next: DecisionsMap) => {
+    setDecisions(next);
+    if (!sessionId || !result) return;
+    persistDecisions(sessionId, result.recommendations, next).catch((err: unknown) =>
+      setError(err instanceof Error ? err.message : "Could not save that decision.")
+    );
+  };
+
+  const setDecision = (index: number, value: PmDecisionValue) =>
+    applyDecisions({ ...decisions, [index]: decisions[index] === value ? "pending" : value });
+
+  const setAllInTab = (tab: PlannerTab, value: PmDecisionValue) => {
+    if (!result) return;
+    const next = { ...decisions };
+    result.recommendations.forEach((r, i) => {
+      if (getTabs(r.type).includes(tab) && hasFormula(r)) next[i] = value;
+    });
+    applyDecisions(next);
+  };
+
   const handleProceed = async () => {
     if (!sessionId || !result) return;
     setSaving(true);
     try {
-      const decisionList = result.recommendations.map((_, i) => ({
-        recommendation_index: i,
-        pm_decision: decisions[i] ?? "pending",
-        pm_notes: "",
-      }));
-      await saveDecisions(sessionId, decisionList);
+      await persistDecisions(sessionId, result.recommendations, decisions);
       navigate("/audit");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Could not save decisions.");
@@ -215,7 +231,7 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
             </svg>
           }
           title="AI Planner"
-          subtitle="The Planner has read your brief and the column details of your data. Review its suggested features and analyses below, then accept or reject each one in the assistant before proceeding to the data audit."
+          subtitle="The Planner has read your brief and the column details of your data. Review its suggested features and analyses below, then accept or reject each one here, or in the assistant, before proceeding to the data audit."
         />
 
 
@@ -253,6 +269,16 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
                   );
                 })}
               </div>
+              {recs.filter((r) => getTabs(r.type).includes(activeTab) && hasFormula(r)).length > 0 && (
+                <div className="planner-page__bulk-btns">
+                  <button type="button" className="btn btn--sm btn--primary" onClick={() => setAllInTab(activeTab, "accepted")}>
+                    Accept all
+                  </button>
+                  <button type="button" className="btn btn--sm btn--secondary" onClick={() => setAllInTab(activeTab, "rejected")}>
+                    Reject all
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="planner-page__list">
@@ -263,6 +289,8 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
                   <RecommendationCard
                     key={i}
                     rec={rec}
+                    index={i}
+                    onDecide={setDecision}
                     decision={decisions[i] ?? "pending"}
                     featureColumnMap={featureColumnMap}
                     dependencyWarning={dependencyWarningFor(rec, decisions[i] ?? "pending", recs, decisions)}
@@ -315,7 +343,9 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
 
 interface RecCardProps {
   rec: PlannerRecommendation;
+  index: number;
   decision: PmDecisionValue;
+  onDecide: (index: number, value: PmDecisionValue) => void;
   featureColumnMap: Map<string, string>;
   dependencyWarning?: string | null;
 }
@@ -402,7 +432,7 @@ function statusLabel(status: string): string {
   return "New";
 }
 
-function RecommendationCard({ rec, decision, featureColumnMap, dependencyWarning }: RecCardProps) {
+function RecommendationCard({ rec, index, decision, onDecide, featureColumnMap, dependencyWarning }: RecCardProps) {
   // Defensive fallbacks: an older cached suggestion, a dev-server hot-reload
   // that preserved stale state from before this schema changed, or an LLM
   // response that omitted an array field should never blank the whole page.
@@ -536,9 +566,24 @@ function RecommendationCard({ rec, decision, featureColumnMap, dependencyWarning
       )}
 
       <div className="planner-page__card-foot">
-        <span className={`planner-page__decision planner-page__decision--${decision}`}>
-          {decision === "accepted" ? "Accepted" : decision === "rejected" ? "Rejected" : "Waiting for your decision in the assistant"}
-        </span>
+        <div className="planner-page__actions">
+          <button
+            type="button"
+            className="btn btn--sm btn--primary"
+            aria-pressed={decision === "accepted"}
+            onClick={() => onDecide(index, "accepted")}
+          >
+            {decision === "accepted" ? "Accepted" : "Accept"}
+          </button>
+          <button
+            type="button"
+            className={`btn btn--sm btn--secondary${decision === "rejected" ? " btn--selected" : ""}`}
+            aria-pressed={decision === "rejected"}
+            onClick={() => onDecide(index, "rejected")}
+          >
+            {decision === "rejected" ? "Rejected" : "Reject"}
+          </button>
+        </div>
       </div>
     </div>
   );

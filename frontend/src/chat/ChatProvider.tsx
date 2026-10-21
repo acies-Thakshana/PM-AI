@@ -7,7 +7,7 @@ import {
   rejectEntry,
   saveInterview,
 } from "../api/chat";
-import type { Assumption, ChatAction, ChatPhase, ChatPlan, ChatTurnMessage, InterviewRecord, Understanding } from "../api/chat";
+import type { Assumption, ChatAction, ChatPhase, ChatTurnMessage, InterviewRecord, Understanding } from "../api/chat";
 import {
   acceptAnalysisEntry,
   acceptFeatureEntry,
@@ -26,25 +26,23 @@ import {
 import type { AnalysisRepositoryEntry, AuditReport } from "../api/audit";
 import type { FilesState } from "../App";
 import type { BriefState } from "../components/ClientBriefInput";
-import { useStoredRef, useStoredState } from "../state/sessionStore";
-import { saveDecisions } from "../api/planner";
+import { announceChatChange, usePageChangeCount, useStoredRef, useStoredState } from "../state/sessionStore";
+import { persistDecisions } from "../api/planner";
 import type { PlannerSuggestResponse, PmDecisionValue } from "../api/planner";
 import { hasFormula, plannerDecisionsKey, plannerResultKey } from "../utils/plannerRecs";
+import { PAGE_PATH, canSetBrief, dataGate, explainFailure, pageLabel, pageLinksIn, shorten, stageOf } from "./rules";
+import type { ChatLink, Gate } from "./rules";
 
-// The chat assistant: one conversation that first interviews the PM about the client brief and, once the
-// plan is approved, builds the report (planner -> audit -> calculations -> analyses) and then refines it
-// on request. The model only talks and proposes actions (see routers/chat.py); everything that changes data
-// happens here, through the same endpoints the pages use, so the pages show the result when opened.
+// The chat assistant: one conversation that interviews the PM about the client brief and, once the PM presses
+// "Build the report", computes and runs what was accepted, then refines the report on request. The chat does
+// not plan: the Planner page does, from the brief and the saved interview. The model only talks and proposes
+// actions (see routers/chat.py); everything that changes data happens here, through the same endpoints the
+// pages use, so the pages show the result when opened.
+//
+// The assistant never acts on its own: it changes data, stores a brief or moves the PM only when the PM
+// asked for it (see rules.ts for the stage, gate and brief rules).
 
-export interface ChatLink {
-  label: string;
-  path: string;
-}
-
-export interface ChatButton {
-  label: string;
-  onClick: () => void;
-}
+export type { ChatLink };
 
 export interface ChatMsg {
   id: string;
@@ -52,7 +50,6 @@ export interface ChatMsg {
   text: string;
   error?: boolean;
   links?: ChatLink[];
-  buttons?: ChatButton[];
 }
 
 export type BuildStatus = "idle" | "waiting_data" | "running" | "paused_audit" | "done" | "error";
@@ -80,9 +77,13 @@ export interface BuildItem {
   error?: string;
 }
 
-/** A suggested calculation or analysis waiting for the PM's accept or reject, decided in the chat. */
+export type ReviewStage = "planner" | "features" | "analysis";
+
+/** A suggestion waiting for the PM's accept or reject: decided here or on its page (both see the same record). */
 export interface ReviewItem {
   id: string;
+  /** The wizard page this suggestion belongs to: the chat shows it only while the PM is on that page. */
+  stage: ReviewStage;
   kind: "feature" | "analysis";
   name: string;
   description: string;
@@ -90,10 +91,22 @@ export interface ReviewItem {
   error?: string;
 }
 
+export interface AuditStatus {
+  reviewed: boolean;
+  /** Audit decisions still waiting for the PM, who decides them on the Audit page only. */
+  pending: number;
+}
+
+/** Per page: does the PM decide each suggestion ("user", the default) or are they accepted as they arrive? */
+export type AutoAccept = Record<ReviewStage, boolean>;
+
 interface ChatValue {
   review: ReviewItem[];
+  audit: AuditStatus;
+  autoAccept: AutoAccept;
+  setAutoAccept: (stage: ReviewStage, on: boolean) => void;
   decide: (id: string, accept: boolean) => void;
-  acceptAll: () => void;
+  acceptAll: (stage: ReviewStage) => void;
   inspect: (item: ReviewItem) => void;
   buildItems: BuildItem[];
   open: boolean;
@@ -103,22 +116,24 @@ interface ChatValue {
   phase: ChatPhase;
   understanding: Understanding;
   assumptions: Assumption[];
-  plan: ChatPlan | null;
   quickReplies: string[];
+  /** Follow-up questions the PM could ask next, after an answer about the report. */
+  nextQuestions: string[];
   build: BuildState;
   changes: ChatChange[];
   hasSession: boolean;
-  /** The PM approved a plan (the interview is done). */
-  planApproved: boolean;
   /** Opens the panel and begins the interview. */
   startInterview: () => void;
+  /** The PM pressed "Build the report": computes the accepted features and runs the accepted analyses. */
+  startBuild: () => void;
+  /** Saves the interview with the session so the Planner can read it. Never throws; does nothing without answers. */
+  persistInterview: (sessionId: string) => Promise<void>;
   suggestWithAi: (kind: "feature" | "analysis") => void;
-  send: (text: string) => void;
-  approvePlan: () => void;
-  cancelPlan: () => void;
+  /** Opens a page (or an item on it: "/analysis?open=<id>"); on the current page it refreshes it. */
+  openPage: (path: string) => void;
+  send: (text: string, opts?: { hidden?: boolean }) => void;
   editAssumption: (id: string, text: string) => void;
   removeAssumption: (id: string) => void;
-  removePlanItem: (kind: "analyses" | "features", index: number) => void;
   keepChange: (id: string) => void;
   undoChange: (id: string) => void;
   reset: () => void;
@@ -132,49 +147,25 @@ export function useChat(): ChatValue {
   return value;
 }
 
-const PAGE_PATH: Record<string, string> = {
-  upload: "/upload",
-  audit: "/audit",
-  features: "/features",
-  analysis: "/analysis",
-  report: "/report",
-};
+/** How much of a calculation's step-by-step text the chat repeats; the opened calculation shows all of it. */
+const FEATURE_SUMMARY_CHARS = 260;
+
+/** Sent to the model, never shown, when the PM presses "Build the report": it asks for the first question. */
+const START_INTERVIEW_TURN = "Begin the interview: ask your first question about the client brief.";
 
 const GREETING: ChatMsg = {
   id: "greeting",
   role: "assistant",
   text:
-    "Hi! Before I build the analyses, I'll ask a few quick questions about the client brief so the report fits what the client actually needs. " +
-    "Short on time? Say \"skip the questions\" and I'll use my best guess and show you every assumption. Or press \"Build the report\" to begin.",
+    "Hi! I'll ask a few quick questions about the client brief so the report fits what the client actually needs. " +
+    "Press \"Start\" to begin, or just tell me about the brief. " +
+    "Short on time? Say \"skip the questions\" and I'll use my best guess and show you every assumption.",
 };
 
 const SKIP_REPLY = "Skip the questions, use your best guess";
 
 let idCounter = 0;
 const nextId = () => `m${Date.now().toString(36)}${(idCounter++).toString(36)}`;
-
-// Words that make two names "the same thing" when most of them overlap ("Alarm rate by origin" vs "Alarms by Origin").
-function nameTokens(name: string): Set<string> {
-  return new Set(
-    name
-      .toLowerCase()
-      .replace(/[^a-z0-9 ]+/g, " ")
-      .split(/\s+/)
-      .map((w) => w.replace(/s$/, ""))
-      .filter((w) => w.length > 2 && !["the", "and", "per", "for", "with", "all"].includes(w))
-  );
-}
-
-function sameThing(a: string, b: string): boolean {
-  const ta = nameTokens(a);
-  const tb = nameTokens(b);
-  if (!ta.size || !tb.size) return false;
-  let shared = 0;
-  ta.forEach((t) => {
-    if (tb.has(t)) shared += 1;
-  });
-  return shared / Math.min(ta.size, tb.size) >= 0.6;
-}
 
 function errorText(err: unknown, fallback: string): string {
   return err instanceof Error && err.message ? err.message : fallback;
@@ -199,11 +190,11 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
   const [phase, setPhase] = useState<ChatPhase>("interview");
   const [understanding, setUnderstanding] = useState<Understanding>(EMPTY_UNDERSTANDING);
   const [assumptions, setAssumptions] = useState<Assumption[]>([]);
-  const [plan, setPlan] = useState<ChatPlan | null>(null);
   const [quickReplies, setQuickReplies] = useState<string[]>([]);
+  const [nextQuestions, setNextQuestions] = useState<string[]>([]);
   const [build, setBuild] = useState<BuildState>({ status: "idle", line: "" });
   const [changes, setChanges] = useState<ChatChange[]>([]);
-  const [planApproved, setPlanApproved] = useState(false);
+  const [autoAccept, setAutoAcceptState] = useState<AutoAccept>({ planner: false, features: false, analysis: false });
   const [buildItems, setBuildItems] = useState<BuildItem[]>([]);
   const [repoReview, setReview] = useState<ReviewItem[]>([]);
 
@@ -218,6 +209,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
           ? [
               {
                 id: `planner:${i}`,
+                stage: "planner" as const,
                 kind: (r.type === "analysis" || r.type === "feature_and_analysis" ? "analysis" : "feature") as ReviewItem["kind"],
                 name: r.name,
                 description: r.reason || r.description || "",
@@ -229,15 +221,21 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     [plannerResult, plannerDecisions]
   );
   const review = useMemo(() => [...plannerItems, ...repoReview], [plannerItems, repoReview]);
+  const audit = useMemo<AuditStatus>(
+    () => ({
+      reviewed: auditReport?.status === "reviewed",
+      pending: (auditReport?.issues ?? []).filter((i) => i.requires_decision && i.status === "pending").length,
+    }),
+    [auditReport]
+  );
 
   // The decisions are saved on the server each time, so they hold even after the Planner page was left.
   const savePlannerDecisions = (next: Record<number, PmDecisionValue>) => {
     const sid = live.current.sessionId;
     if (!sid || !plannerResult) return;
-    saveDecisions(
-      sid,
-      plannerResult.recommendations.map((_, i) => ({ recommendation_index: i, pm_decision: next[i] ?? "pending", pm_notes: "" }))
-    ).catch((err) => say(`I could not save that decision: ${errorText(err, "unknown error")}`, { error: true }));
+    persistDecisions(sid, plannerResult.recommendations, next).catch((err) =>
+      say(`I could not save that decision: ${errorText(err, "unknown error")}`, { error: true })
+    );
   };
 
   const patchItem = (id: string, patch: Partial<BuildItem>) =>
@@ -247,20 +245,58 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
   const analysisStarted = useStoredRef<{ current: Set<string> }>("analysis.autoStarted", () => ({ current: new Set<string>() }));
 
   // Latest values for the async code (a build outlives the render that started it).
-  const live = useRef({ brief, files, sessionId, auditReport, plan, understanding, assumptions, phase, build, messages, pathname: location.pathname });
-  live.current = { brief, files, sessionId, auditReport, plan, understanding, assumptions, phase, build, messages, pathname: location.pathname };
+  const pendingSuggestions = review.filter((r) => r.state === "pending").length;
+  const live = useRef({ brief, files, sessionId, auditReport, understanding, assumptions, phase, build, messages, pendingSuggestions, pathname: location.pathname });
+  live.current = { brief, files, sessionId, auditReport, understanding, assumptions, phase, build, messages, pendingSuggestions, pathname: location.pathname };
 
-  const interview = useRef<InterviewRecord | null>(null);
-  const savedFor = useRef<string | null>(null);
   const building = useRef(false);
 
   const briefText = () => (live.current.brief.rawText || live.current.brief.finalText || "").trim();
+
+  /** What the interview settled so far, as saved with the session (the Planner reads it). */
+  const interviewRecord = (): InterviewRecord => ({
+    brief: briefText(),
+    understanding: live.current.understanding,
+    assumptions: live.current.assumptions,
+    transcript: transcriptOf(live.current.messages),
+  });
+
+  const persistInterview = useCallback(async (sid: string): Promise<void> => {
+    const { understanding: u, assumptions: a } = live.current;
+    if (!Object.values(u).some(Boolean) && a.length === 0) return; // no interview happened: nothing to save
+    try {
+      await saveInterview(sid, interviewRecord());
+    } catch (err) {
+      // Saving is best effort: the Planner then plans from the brief alone.
+      console.warn("Could not save the interview:", errorText(err, "unknown error"));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const say = useCallback((text: string, extra?: Partial<ChatMsg>) => {
     setMessages((prev) => [...prev, { id: nextId(), role: "assistant", text, ...extra }]);
   }, []);
 
   const setLine = (status: BuildStatus, line: string) => setBuild({ status, line });
+
+  const gateNow = (): Gate => {
+    const report = live.current.auditReport;
+    return dataGate({
+      hasSession: Boolean(live.current.sessionId),
+      auditReviewed: report?.status === "reviewed",
+      pendingDecisions: (report?.issues ?? []).filter((i) => i.requires_decision && i.status === "pending").length,
+    });
+  };
+
+  /** The session features and analyses may be changed on, or null after telling the PM why not and where to go. */
+  const readySession = (): string | null => {
+    const gate = gateNow();
+    if (!gate.ok) {
+      say(gate.reason, { links: [gate.link] });
+      return null;
+    }
+    return live.current.sessionId;
+  };
 
   // While the assistant builds, the page follows it: the item that just finished opens (graph and all) and the
   // next one runs behind it. Only on the wizard pages, so a PM who went to look at something else is not pulled back.
@@ -302,21 +338,13 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
 
     const worker = async () => {
       for (let entry = queue.shift(); entry; entry = queue.shift()) {
-        analysisStarted.current.add(entry.id);
-        patchItem(entry.id, { name: entry.name, state: "running" });
-        try {
-          const result = await runAnalysisEntry(sid, entry.id);
-          if (result.run_status === "done") {
-            finished += 1;
-            patchItem(entry.id, { state: "done" });
-            follow(`/analysis?open=${entry.id}`);
-          } else {
-            failed.push({ name: entry.name, error: result.error ?? "no result" });
-            patchItem(entry.id, { state: "failed", error: result.error ?? "no result" });
-          }
-        } catch (err) {
-          failed.push({ name: entry.name, error: errorText(err, "could not run") });
-          patchItem(entry.id, { state: "failed", error: errorText(err, "could not run") });
+        const outcome = await runAnalysis(sid, entry.id, entry.name);
+        announceChatChange();
+        if (outcome.ok) {
+          finished += 1;
+          follow(`/analysis?open=${entry.id}`);
+        } else {
+          failed.push({ name: entry.name, error: outcome.reason });
         }
         setLine("running", `Building analyses: ${finished} of ${total} finished.`);
       }
@@ -350,34 +378,10 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     navigate("/report");
   };
 
-  /** Adds the approved plan's items that the Planner/Features/Analysis steps do not already have. */
-  const addPlanItems = async (sid: string): Promise<void> => {
-    const planned = interview.current?.plan;
-    if (!planned) return;
-    const [featureRepo, analysisRepo] = await Promise.all([fetchFeatureRepository(sid), fetchAnalysisRepository(sid)]);
-    const features = featureRepo.entries.filter((e) => e.status !== "rejected");
-    const analyses = analysisRepo.entries.filter((e) => e.status !== "rejected" && e.source !== "drilldown");
-    let failed = 0;
-
-    // Calculations first: the analyses may need them.
-    for (const item of planned.features) {
-      const found = features.find((e) => sameThing(e.name, item.name));
-      setLine("running", `Adding the calculation "${item.name}"…`);
-      if (found) {
-        if (found.status === "pending") await acceptFeatureEntry(sid, found.id).catch(() => (failed += 1));
-      } else if (!(await addFeatureAction(item.name, item.description, true))) failed += 1;
-    }
-    for (const item of planned.analyses) {
-      const found = analyses.find((e) => sameThing(e.name, item.name));
-      setLine("running", `Adding the analysis "${item.name}"…`);
-      if (found) {
-        if (found.status === "pending") await acceptAnalysisEntry(sid, found.id).catch(() => (failed += 1));
-      } else if (!(await addAnalysisAction(item.name, item.description, true))) failed += 1;
-    }
-    if (failed) say(`${failed} item${failed > 1 ? "s" : ""} of the plan could not be added; the review below says which.`);
-  };
-
-  /** The plan was approved after the audit: add what the plan needs, calculate, run the analyses, review. */
+  /**
+   * The PM pressed "Build the report". Whatever was accepted (on the Planner, Features or Analysis pages, or in
+   * the chat) is computed and run, one analysis at a time, and the report is reviewed.
+   */
   const runBuild = async () => {
     const sid = live.current.sessionId;
     if (!sid || building.current) return;
@@ -388,25 +392,29 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       const pending = (report?.issues ?? []).filter((i) => i.requires_decision && i.status === "pending").length;
       setLine("paused_audit", pending ? `Waiting for your ${pending} audit decision${pending > 1 ? "s" : ""}.` : "Waiting for the data audit to finish.");
       say(
-        "Your plan is saved. I'll start building as soon as the audit decisions are done" + (pending ? ` (${pending} still open).` : "."),
+        "I'll start building as soon as the audit decisions are done" + (pending ? ` (${pending} still open).` : "."),
         { links: [{ label: "Open the audit", path: "/audit" }] }
       );
       return;
     }
     building.current = true;
     try {
-      if (interview.current && savedFor.current !== sid) {
-        await saveInterview(sid, interview.current);
-        savedFor.current = sid;
+      const [featureRepo, analysisRepo] = await Promise.all([fetchFeatureRepository(sid), fetchAnalysisRepository(sid)]);
+      const firstFeature = featureRepo.entries.find((e) => e.status === "approved");
+      if (!firstFeature && analysesOf(analysisRepo.entries).length === 0) {
+        setLine("idle", "");
+        setPhase("ready");
+        say("There is nothing to build yet: accept some suggestions first, on the Planner page or here.", {
+          links: [{ label: "Open the Planner", path: "/planner" }],
+        });
+        return;
       }
-      await addPlanItems(sid);
       setLine("running", "Calculating the features…");
       try {
         await applyFeatures(sid);
       } catch (err) {
         say(`Some calculations could not be computed (${errorText(err, "unknown error")}). I'll build what I can.`);
       }
-      const firstFeature = (await fetchFeatureRepository(sid).catch(() => null))?.entries.find((e) => e.status === "approved");
       if (firstFeature) follow(`/features?open=${firstFeature.id}`);
       await finishBuild(sid);
     } catch (err) {
@@ -417,13 +425,13 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     }
   };
 
-  // The data arrived after the plan was approved: start the build.
+  // The PM pressed Build before the data was loaded: start as soon as it is.
   useEffect(() => {
     if (sessionId && build.status === "waiting_data") void runBuild();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, build.status]);
 
-  // The PM finished the audit decisions: the saved plan is built now.
+  // The PM finished the audit decisions they were waiting for: build now.
   useEffect(() => {
     if (build.status === "paused_audit" && auditReport?.status === "reviewed") {
       say("Audit reviewed. Building now.");
@@ -445,45 +453,24 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     lastSession.current = sessionId;
   }, [sessionId]);
 
-  // ---------------------------------------------------------------------------------------- plan
-  const approvePlan = useCallback(() => {
-    const current = live.current;
-    if (!current.plan) return;
-    interview.current = {
-      brief: briefText(),
-      understanding: current.understanding,
-      assumptions: current.assumptions,
-      plan: current.plan,
-      transcript: transcriptOf(current.messages),
-    };
-    savedFor.current = null;
-    setPlanApproved(true);
+  // ---------------------------------------------------------------------------------------- build
+  /** "Build the report": runs now, or as soon as the data is loaded and the audit decisions are made. */
+  const startBuild = useCallback(() => {
+    if (building.current) return;
     setPhase("build");
     setQuickReplies([]);
-    const counts = `${current.plan.analyses.length} analyses and ${current.plan.features.length} calculations`;
-    if (current.sessionId) {
-      say(`Plan approved: ${counts}. You can keep chatting or browse the pages while I work.`);
-      setLine("running", "Starting the build…");
+    if (live.current.sessionId) {
+      // Not audited yet: runBuild explains what it is waiting for and queues the build.
+      if (gateNow().ok) {
+        say("Building the report from what you accepted. You can keep chatting or browse the pages while I work.");
+        setLine("running", "Starting the build…");
+      }
       void runBuild();
     } else {
-      say(
-        `Plan approved: ${counts}. I need the data first: load the trips (or upload the files) on the Configure page and I'll start building as soon as it is in.`,
-        { links: [{ label: "Open Configure", path: "/upload" }] }
-      );
+      say("I'll build as soon as the data is loaded. Load it on the Configure page.", { links: [{ label: "Open Configure", path: "/upload" }] });
       setLine("waiting_data", "Waiting for the data to be loaded.");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const cancelPlan = useCallback(() => {
-    setPlan(null);
-    setPhase("interview");
-    setQuickReplies([]);
-    say("Plan cancelled. Nothing was built. Tell me what you'd like to change and I'll propose a new one.");
-  }, [say]);
-
-  const removePlanItem = useCallback((kind: "analyses" | "features", index: number) => {
-    setPlan((prev) => (prev ? { ...prev, [kind]: prev[kind].filter((_, i) => i !== index) } : prev));
   }, []);
 
   const editAssumption = useCallback((id: string, text: string) => {
@@ -496,12 +483,61 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
   // ------------------------------------------------------------------------------------- refine actions
   const addChange = (change: Omit<ChatChange, "id" | "state">) => setChanges((prev) => [...prev, { ...change, id: nextId(), state: "added" }]);
 
-  const addAnalysisAction = async (name: string, description: string, quiet = false): Promise<boolean> => {
-    const sid = live.current.sessionId;
-    if (!sid) {
-      say("I need data loaded before I can add an analysis. Let's go to the Configure page first.", { links: [{ label: "Open Configure", path: "/upload" }] });
-      return false;
+  /**
+   * An analysis only runs once the calculations it needs are accepted and computed (the Analysis page does the same).
+   * Prepares them; returns the reason when the analysis still cannot run, or null when it can.
+   */
+  const prepareAnalysis = async (sid: string, entryId: string): Promise<string | null> => {
+    const find = async () => (await fetchAnalysisRepository(sid)).entries.find((e) => e.id === entryId);
+    let entry = await find();
+    if (!entry) return "it is no longer in the report";
+    let needCompute = false;
+    for (const need of entry.required_features ?? []) {
+      if (need.feature_id && need.state === "not_approved") {
+        await selectRequiredFeature(sid, entryId, need.feature_id).catch(() => undefined);
+        needCompute = true;
+      } else if (need.state === "not_computed") {
+        needCompute = true;
+      }
     }
+    if (needCompute) {
+      await applyFeatures(sid).catch(() => undefined);
+      entry = await find();
+    }
+    return entry?.dependencies_satisfied === false ? entry.dependency_message ?? "a calculation it needs is not ready" : null;
+  };
+
+  /**
+   * Runs one analysis for the PM and keeps the live list honest. When it cannot run yet (a calculation it needs
+   * is missing) it is NOT marked as started, so the Analysis page runs it once the calculation is there.
+   */
+  const runAnalysis = async (sid: string, entryId: string, name: string): Promise<{ ok: true } | { ok: false; reason: string }> => {
+    patchItem(entryId, { name, state: "running" });
+    const blocked = await prepareAnalysis(sid, entryId).catch((err) => errorText(err, "it could not be prepared"));
+    if (blocked) {
+      patchItem(entryId, { state: "failed", error: blocked });
+      return { ok: false, reason: `it cannot run yet: ${blocked}. The Analysis page shows what to select.` };
+    }
+    analysisStarted.current.add(entryId); // the Analysis page must not start it a second time
+    try {
+      const result = await runAnalysisEntry(sid, entryId);
+      if (result.run_status === "done") {
+        patchItem(entryId, { state: "done" });
+        return { ok: true };
+      }
+      const reason = explainFailure(result.error);
+      patchItem(entryId, { state: "failed", error: reason });
+      return { ok: false, reason: `it did not run: ${reason}.` };
+    } catch (err) {
+      const reason = explainFailure(errorText(err, ""));
+      patchItem(entryId, { state: "failed", error: reason });
+      return { ok: false, reason: `it did not run: ${reason}.` };
+    }
+  };
+
+  const addAnalysisAction = async (name: string, description: string, quiet = false): Promise<boolean> => {
+    const sid = readySession();
+    if (!sid) return false;
     if (!quiet) say(`Adding "${name}": drafting it, then running it…`);
     try {
       const draft = await draftAnalysis(sid, { name, description });
@@ -519,31 +555,28 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
         chart_alternatives: options.filter((c) => c.chart_type !== draft.chart.chart_type),
         filters: draft.filters.map((f) => ({ column: f.column, reason: f.reason })),
       });
-      analysisStarted.current.add(entry.id);
-      patchItem(entry.id, { name, state: "running" });
-      const result = await runAnalysisEntry(sid, entry.id).catch((err) => {
-        say(`I added "${name}" but it could not be run yet (${errorText(err, "unknown error")}). You can retry it on the Analysis page.`, { error: true });
-        return null;
-      });
-      patchItem(entry.id, { state: result?.run_status === "done" ? "done" : "failed" });
       addChange({ kind: "analysis", label: name, entryId: entry.id, sessionId: sid });
-      if (!quiet && result?.run_status === "done") {
-        say(`I added the analysis "${name}" and ran it. Keep or undo? (See "What I changed" below.)`, { links: [{ label: "Open the analyses", path: "/analysis" }] });
+      const outcome = await runAnalysis(sid, entry.id, name);
+      announceChatChange(); // the Analysis page reads it again, so the new analysis is there when it opens
+      if (!quiet) {
+        say(
+          outcome.ok
+            ? `I added the analysis "${name}" and ran it. Keep or undo? (See "What I changed" below.)`
+            : `I added "${name}", but ${outcome.reason}`,
+          { error: !outcome.ok, links: [{ label: "Open this analysis", path: `/analysis?open=${entry.id}` }] }
+        );
+        navigate(`/analysis?open=${entry.id}`);
       }
-      if (!quiet) navigate(`/analysis?open=${entry.id}`);
       return true;
     } catch (err) {
-      say(`I could not add "${name}": ${errorText(err, "unknown error")}`, { error: true });
+      say(`I could not add "${name}": ${explainFailure(errorText(err, ""))}`, { error: true });
       return false;
     }
   };
 
   const addFeatureAction = async (name: string, description: string, quiet = false): Promise<boolean> => {
-    const sid = live.current.sessionId;
-    if (!sid) {
-      say("I need data loaded before I can add a calculation. Let's go to the Configure page first.", { links: [{ label: "Open Configure", path: "/upload" }] });
-      return false;
-    }
+    const sid = readySession();
+    if (!sid) return false;
     if (!quiet) say(`Adding the calculation "${name}"…`);
     try {
       const draft = await draftCustomFeature(sid, { name, description });
@@ -558,44 +591,22 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       });
       await applyFeatures(sid);
       addChange({ kind: "feature", label: name, entryId: entry.id, sessionId: sid });
+      announceChatChange(); // the Features page reads it again, so the new calculation is there when it opens
       const sample = draft.preview_rows.slice(0, 3).map((row) => String(row[draft.output_column] ?? "")).filter(Boolean);
-      if (!quiet) say(
-        `I added "${name}" and computed it. In plain words: ${draft.formula_steps.length ? draft.formula_steps.join(" ") : draft.formula}` +
-          (sample.length ? ` Sample values: ${sample.join(", ")}.` : "") +
-          ` Keep or undo? (See "What I changed" below.)`,
-        { links: [{ label: "Open the features", path: "/features" }] }
-      );
-      if (!quiet) navigate(`/features?open=${entry.id}`);
+      if (!quiet) {
+        const steps = shorten(draft.formula_steps.length ? draft.formula_steps.join(" ") : draft.formula, FEATURE_SUMMARY_CHARS);
+        say(
+          `I added "${name}" and computed it. In short: ${steps}` +
+            (sample.length ? ` Sample values: ${sample.join(", ")}.` : "") +
+            ` The full steps are in the calculation that just opened. Keep or undo? (See "What I changed" below.)`,
+          { links: [{ label: "Open this calculation", path: `/features?open=${entry.id}` }] }
+        );
+        navigate(`/features?open=${entry.id}`);
+      }
       return true;
     } catch (err) {
-      say(`I could not add "${name}": ${errorText(err, "unknown error")}`, { error: true });
+      say(`I could not add "${name}": ${explainFailure(errorText(err, ""))}`, { error: true });
       return false;
-    }
-  };
-
-  const explainAction = async (target: string) => {
-    const sid = live.current.sessionId;
-    if (!sid) {
-      say("There is no data loaded yet, so nothing has been calculated.");
-      return;
-    }
-    try {
-      const entries = analysesOf((await fetchAnalysisRepository(sid)).entries);
-      const entry = entries.find((e) => sameThing(e.name, target)) ?? (entries.length === 1 ? entries[0] : undefined);
-      if (!entry) {
-        say(`I could not find an analysis called "${target}". The ones I know: ${entries.map((e) => e.name).join(", ") || "none yet"}.`);
-        return;
-      }
-      const how = (entry.plan_text ?? entry.formula ?? "").trim();
-      say(
-        how
-          ? `Here is how "${entry.name}" was calculated:\n${how}${entry.interpretation ? `\n\nWhat it shows: ${entry.interpretation}` : ""}`
-          : `"${entry.name}" has not been run yet, so there is no calculation to explain.`,
-        { links: [{ label: "Open the analyses", path: "/analysis" }] }
-      );
-      navigate(`/analysis?open=${entry.id}`);
-    } catch (err) {
-      say(`I could not look that up: ${errorText(err, "unknown error")}`, { error: true });
     }
   };
 
@@ -607,28 +618,23 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     }
     try {
       const entries = analysesOf((await fetchAnalysisRepository(sid)).entries);
-      const planned = live.current.plan ?? interview.current?.plan ?? null;
-      const missing = (planned?.analyses ?? []).filter((p) => !entries.some((e) => sameThing(e.name, p.name)));
       const notDone = entries.filter((e) => e.run_status !== "done");
       const report = live.current.auditReport;
       const openIssues = (report?.issues ?? []).filter((i) => i.requires_decision && i.status === "pending");
+      const undecided = live.current.pendingSuggestions;
 
       const gaps: string[] = [];
-      if (missing.length) gaps.push(`missing from the report: ${missing.map((m) => m.name).join(", ")}`);
+      if (!entries.length) gaps.push("no analysis has been accepted yet");
       if (notDone.length) gaps.push(`not finished or failed: ${notDone.map((e) => e.name).join(", ")}`);
       if (openIssues.length) gaps.push(`${openIssues.length} audit issue${openIssues.length > 1 ? "s" : ""} still wait for a decision`);
-      if (!planned) gaps.push("there is no approved plan to check the brief against");
+      if (undecided) gaps.push(`${undecided} suggestion${undecided > 1 ? "s" : ""} still wait for your accept or reject`);
 
-      const caveat = " I can check coverage and that every analysis ran, but I cannot compare numbers between slides yet, so please give those a quick look on the Report page.";
+      const caveat = " I can check that every accepted analysis ran, but I cannot compare numbers between slides yet, so please give those a quick look on the Report page.";
       if (!gaps.length) {
-        say(`Everything planned from the brief is in the report and every analysis ran.${caveat}`, { links: [{ label: "Open the report", path: "/report" }] });
+        say(`Every accepted analysis ran and nothing is waiting for a decision.${caveat}`, { links: [{ label: "Open the report", path: "/report" }] });
         return;
       }
-      const buttons: ChatButton[] = missing.map((m) => ({ label: `Add "${m.name}"`, onClick: () => void addAnalysisAction(m.name, m.description) }));
-      say(`Not quite ready: ${gaps.join("; ")}.${caveat}`, {
-        buttons: buttons.length ? buttons : undefined,
-        links: [{ label: "Open the analyses", path: "/analysis" }],
-      });
+      say(`Not quite ready: ${gaps.join("; ")}.${caveat}`, { links: [{ label: "Open the analyses", path: "/analysis" }] });
     } catch (err) {
       say(`I could not check that: ${errorText(err, "unknown error")}`, { error: true });
     }
@@ -636,24 +642,29 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
 
   const runAction = async (action: ChatAction) => {
     switch (action.type) {
-      case "set_brief":
-        onBriefChange({ ...live.current.brief, rawText: action.text, finalText: action.text, isEnglish: true });
-        live.current.brief = { ...live.current.brief, rawText: action.text, finalText: action.text };
+      case "set_brief": {
+        const lastUser = [...live.current.messages].reverse().find((m) => m.role === "user")?.text ?? "";
+        if (canSetBrief(action.text, lastUser, briefText())) {
+          const next = { ...live.current.brief, rawText: action.text, finalText: action.text, isEnglish: true };
+          live.current.brief = next;
+          onBriefChange(next);
+        }
         break;
-      case "approve_plan":
-        if (live.current.plan && live.current.phase !== "build") approvePlan();
+      }
+      case "navigate": {
+        const path = PAGE_PATH[action.page];
+        if (path) {
+          // With an item id the page opens that analysis or calculation next to the explanation in the chat.
+          navigate(action.open ? `${path}?open=${encodeURIComponent(action.open)}` : path);
+          say(`Opened the ${pageLabel(path)} page.`);
+        }
         break;
-      case "navigate":
-        navigate(PAGE_PATH[action.page]);
-        break;
+      }
       case "add_analysis":
         await addAnalysisAction(action.name, action.description);
         break;
       case "add_feature":
         await addFeatureAction(action.name, action.description);
-        break;
-      case "explain":
-        await explainAction(action.target);
         break;
       case "check_ready":
         await checkReadyAction();
@@ -667,44 +678,54 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
   };
 
   // ----------------------------------------------------------------------------------------- talking
+  /**
+   * One turn with the model. `hidden` turns (the start of the interview) go to the model but are not shown
+   * as something the PM said. Nothing the PM types is ever stored as the brief here: the brief lives in the
+   * Configure field, or arrives through the model's set_brief action (see canSetBrief).
+   */
   const send = useCallback(
-    (raw: string) => {
+    (raw: string, opts: { hidden?: boolean } = {}) => {
       const text = raw.trim();
       if (!text || busy) return;
       const userMsg: ChatMsg = { id: nextId(), role: "user", text };
-      const history = [...live.current.messages, userMsg];
+      const history = opts.hidden ? live.current.messages : [...live.current.messages, userMsg];
       live.current.messages = history;
-      // The first thing said in an empty chat is the brief (the model may also store it with set_brief).
-      if (!briefText() && history.filter((m) => m.role === "user").length === 1 && text.split(/\s+/).length >= 5) {
-        const next = { ...live.current.brief, rawText: text, finalText: text, isEnglish: true };
-        live.current.brief = next;
-        onBriefChange(next);
-      }
       setMessages(history);
       setQuickReplies([]);
+      setNextQuestions([]);
       setBusy(true);
+      const gate = gateNow();
       const state = {
         phase: live.current.phase,
         understanding: live.current.understanding,
         assumptions: live.current.assumptions,
-        plan: live.current.plan,
         page: live.current.pathname,
+        stage: stageOf(live.current.pathname),
         build: live.current.build,
-        approved_plan_exists: Boolean(interview.current?.plan),
+        audit_reviewed: gate.ok,
       };
       chatTurn({
         session_id: live.current.sessionId,
         brief: briefText(),
-        messages: transcriptOf(history),
+        messages: transcriptOf(opts.hidden ? [...history, userMsg] : history),
         state,
       })
         .then(async (res) => {
-          say(res.reply);
+          // A sentence that promises to open a page gets a button when the model sent no navigate action.
+          const promised = res.actions.some((a) => a.type === "navigate") ? [] : pageLinksIn(res.reply);
+          say(res.reply, promised.length ? { links: promised } : undefined);
           setPhase(res.phase);
           setUnderstanding(res.understanding);
           setAssumptions(res.assumptions);
-          setPlan(res.plan);
           setQuickReplies(res.quick_replies);
+          setNextQuestions(res.next_questions);
+          // The PM confirmed the read-back: keep the answers with the session so the Planner can read them.
+          const sid = live.current.sessionId;
+          if (res.phase === "ready" && sid) {
+            live.current.understanding = res.understanding;
+            live.current.assumptions = res.assumptions;
+            void persistInterview(sid);
+          }
           for (const action of res.actions) await runAction(action);
         })
         .catch((err) => say(errorText(err, "I could not reach the assistant. Is the backend running?"), { error: true }))
@@ -717,10 +738,11 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
   const changesRef = useRef(changes);
   changesRef.current = changes;
 
+  /** Opens the panel and, on a fresh conversation, has the assistant ask its first question. */
   const startInterview = useCallback(() => {
     setOpen(true);
     const fresh = live.current.phase === "interview" && live.current.messages.length <= 1;
-    if (fresh) send("Build this report for me.");
+    if (fresh) send(START_INTERVIEW_TURN, { hidden: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [send]);
 
@@ -729,23 +751,22 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     const [features, analyses] = await Promise.all([fetchFeatureRepository(sid), fetchAnalysisRepository(sid)]);
     const pending = (e: { status: string; source: string }) => e.status === "pending" && e.source === "ai_suggested";
     const items: ReviewItem[] = [
-      ...features.entries.filter(pending).map((e) => ({ id: e.id, kind: "feature" as const, name: e.name, description: e.description, state: "pending" as const })),
-      ...analyses.entries.filter(pending).map((e) => ({ id: e.id, kind: "analysis" as const, name: e.name, description: e.description, state: "pending" as const })),
+      ...features.entries.filter(pending).map((e) => ({ id: e.id, stage: "features" as const, kind: "feature" as const, name: e.name, description: e.description, state: "pending" as const })),
+      ...analyses.entries.filter(pending).map((e) => ({ id: e.id, stage: "analysis" as const, kind: "analysis" as const, name: e.name, description: e.description, state: "pending" as const })),
     ];
-    setReview(items);
+    // What the server says is waiting, plus the decisions already made here (shown until the page changes).
+    setReview((prev) => {
+      const waiting = new Set(items.map((i) => i.id));
+      return [...items, ...prev.filter((p) => !waiting.has(p.id) && p.state !== "pending")];
+    });
     return items;
   };
 
   /** "Suggest with AI": the suggestion agent runs here, the suggestions come back as cards to accept or reject. */
   const suggestWithAi = useCallback(
     async (kind: "feature" | "analysis") => {
-      const sid = live.current.sessionId;
-      if (!sid) {
-        say("I need the data loaded first. Load the trips on the Configure page and finish the audit decisions, then I can suggest.", {
-          links: [{ label: "Open Configure", path: "/upload" }],
-        });
-        return;
-      }
+      const sid = readySession();
+      if (!sid) return;
       const noun = kind === "feature" ? "calculations" : "analyses";
       setBusy(true);
       say(`Asking the AI for ${noun} that fit the brief…`);
@@ -792,47 +813,59 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
         savePlannerDecisions(next);
         return;
       }
+      // Accepting a calculation or analysis computes it on the audited data.
+      if (!readySession()) return;
       setReviewState(id, "working");
       try {
         if (!accept) {
           await rejectEntry(item.kind, sid, id);
           setReviewState(id, "rejected");
+          announceChatChange();
           return;
         }
         if (item.kind === "feature") {
           await acceptFeatureEntry(sid, id);
           await applyFeatures(sid);
-        } else {
-          await acceptAnalysisEntry(sid, id);
-          analysisStarted.current.add(id);
-          patchItem(id, { name: item.name, state: "running" });
-          const result = await runAnalysisEntry(sid, id);
-          patchItem(id, { state: result.run_status === "done" ? "done" : "failed", error: result.error ?? undefined });
+          setReviewState(id, "accepted");
+          announceChatChange();
+          follow(`/features?open=${id}`);
+          return;
         }
-        setReviewState(id, "accepted");
+        await acceptAnalysisEntry(sid, id);
+        const outcome = await runAnalysis(sid, id, item.name);
+        setReviewState(id, outcome.ok ? "accepted" : "error", outcome.ok ? undefined : outcome.reason);
+        announceChatChange();
+        if (outcome.ok) follow(`/analysis?open=${id}`);
+        else say(`I accepted "${item.name}", but ${outcome.reason}`, { error: true, links: [{ label: "Open this analysis", path: `/analysis?open=${id}` }] });
       } catch (err) {
-        setReviewState(id, "error", errorText(err, "could not do that"));
+        setReviewState(id, "error", explainFailure(errorText(err, "")));
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [review, plannerDecisions, plannerResult]
   );
 
-  const acceptAll = useCallback(() => {
-    // One at a time: features first (analyses may need them), and each one computes before the next starts.
-    void (async () => {
-      const pendingPlanner = plannerItems.filter((r) => r.state === "pending");
-      if (pendingPlanner.length) {
-        const next = { ...plannerDecisions };
-        pendingPlanner.forEach((r) => (next[Number(r.id.slice(8))] = "accepted"));
-        setPlannerDecisions(next);
-        savePlannerDecisions(next);
-      }
-      const rest = repoReview.filter((r) => r.state === "pending");
-      for (const r of [...rest.filter((x) => x.kind === "feature"), ...rest.filter((x) => x.kind === "analysis")]) await decide(r.id, true);
-    })();
+  /** Accepts every pending suggestion of one page. Features and analyses compute one at a time, in order. */
+  const acceptAll = useCallback(
+    (stage: ReviewStage) => {
+      void (async () => {
+        if (stage === "planner") {
+          const pending = plannerItems.filter((r) => r.state === "pending");
+          if (!pending.length) return;
+          const next = { ...plannerDecisions };
+          pending.forEach((r) => (next[Number(r.id.slice(8))] = "accepted"));
+          setPlannerDecisions(next);
+          savePlannerDecisions(next);
+          return;
+        }
+        const pending = repoReview.filter((r) => r.stage === stage && r.state === "pending");
+        if (pending.length && !readySession()) return; // say why once, not once per item
+        for (const r of pending) await decide(r.id, true);
+      })();
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plannerItems, repoReview, plannerDecisions, plannerResult, decide]);
+    [plannerItems, repoReview, plannerDecisions, plannerResult, decide]
+  );
 
   const inspect = useCallback(
     (item: ReviewItem) =>
@@ -840,15 +873,48 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     [navigate]
   );
 
-  // Opening the assistant on a fresh conversation starts the questions at once (the six things it settles fill in
-  // as the PM answers), instead of waiting for "Build the report" to be pressed.
-  const autoStarted = useRef(false);
+  const setAutoAccept = useCallback(
+    (stage: ReviewStage, on: boolean) => setAutoAcceptState((prev) => ({ ...prev, [stage]: on })),
+    []
+  );
+
+  // Arriving on Features or Analysis, or a page changing something there (an accept, new suggestions): show what is
+  // waiting on that page.
+  const pageChanges = usePageChangeCount();
   useEffect(() => {
-    if (!open || autoStarted.current) return;
-    autoStarted.current = true;
-    if (live.current.phase === "interview" && live.current.messages.length <= 1) startInterview();
+    const here = stageOf(location.pathname);
+    if (sessionId && (here === "features" || here === "analysis")) void loadReview(sessionId).catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [location.pathname, sessionId, pageChanges]);
+
+  /**
+   * Opens a page for a link in the chat. Going to the page the PM is already on does nothing by itself, so that case
+   * makes the page read its data again (and, with an item id, the page opens that item).
+   */
+  const openPage = useCallback(
+    (path: string) => {
+      if (path.split("?")[0] === location.pathname) announceChatChange();
+      navigate(path);
+    },
+    [navigate, location.pathname]
+  );
+
+  // Auto mode: a page set to "accept automatically" accepts each batch of suggestions once, as it arrives. Features and
+  // analyses need the audited data, so they wait until the audit decisions are made.
+  const autoHandled = useRef(new Set<string>());
+  useEffect(() => {
+    for (const stage of ["planner", "features", "analysis"] as const) {
+      if (!autoAccept[stage]) continue;
+      const pending = review.filter((r) => r.stage === stage && r.state === "pending");
+      if (!pending.length || (stage !== "planner" && !audit.reviewed)) continue;
+      const batch = `${stage}:${pending.map((r) => r.id).join(",")}`;
+      if (autoHandled.current.has(batch)) continue;
+      autoHandled.current.add(batch);
+      say(`Accepting ${pending.length} suggestion${pending.length > 1 ? "s" : ""} automatically, as you asked for this page.`);
+      acceptAll(stage);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoAccept, review, audit.reviewed]);
 
   const keepChange = useCallback((id: string) => setChanges((prev) => prev.map((c) => (c.id === id ? { ...c, state: "kept" } : c))), []);
 
@@ -859,6 +925,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       rejectEntry(change.kind, change.sessionId, change.entryId)
         .then(() => {
           setChanges((prev) => prev.map((c) => (c.id === id ? { ...c, state: "undone" } : c)));
+          announceChatChange();
           say(`Undone: "${change.label}" is out of the report.`);
         })
         .catch((err) => say(errorText(err, "Could not undo that."), { error: true }));
@@ -866,24 +933,24 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     [say]
   );
   const reset = useCallback(() => {
-    interview.current = null;
-    savedFor.current = null;
     setMessages([GREETING]);
     setPhase("interview");
     setUnderstanding(EMPTY_UNDERSTANDING);
     setAssumptions([]);
-    setPlan(null);
     setQuickReplies([]);
+    setNextQuestions([]);
     setBuild({ status: "idle", line: "" });
     setChanges([]);
     setBuildItems([]);
     setReview([]);
-    setPlanApproved(false);
   }, []);
 
   const value = useMemo<ChatValue>(
     () => ({
       review,
+      audit,
+      autoAccept,
+      setAutoAccept,
       decide,
       acceptAll,
       inspect,
@@ -895,25 +962,28 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       phase,
       understanding,
       assumptions,
-      plan,
-      quickReplies: phase === "interview" && !quickReplies.includes(SKIP_REPLY) && messages.length > 1 ? [...quickReplies, SKIP_REPLY] : quickReplies,
+      // "Skip the questions" belongs to the interview, which happens on the Configure page.
+      quickReplies:
+        phase === "interview" && stageOf(location.pathname) === "configure" && !quickReplies.includes(SKIP_REPLY) && messages.length > 1
+          ? [...quickReplies, SKIP_REPLY]
+          : quickReplies,
+      nextQuestions,
       build,
       changes,
       hasSession: Boolean(sessionId),
-      planApproved,
       startInterview,
+      startBuild,
+      persistInterview,
       suggestWithAi,
+      openPage,
       send,
-      approvePlan,
-      cancelPlan,
       editAssumption,
       removeAssumption,
-      removePlanItem,
       keepChange,
       undoChange,
       reset,
     }),
-    [review, decide, acceptAll, inspect, buildItems, open, messages, busy, phase, understanding, assumptions, plan, quickReplies, build, changes, sessionId, planApproved, startInterview, suggestWithAi, send, approvePlan, cancelPlan, editAssumption, removeAssumption, removePlanItem, keepChange, undoChange, reset]
+    [review, audit, autoAccept, setAutoAccept, decide, acceptAll, inspect, buildItems, open, messages, busy, phase, understanding, assumptions, quickReplies, nextQuestions, build, changes, location.pathname, sessionId, startInterview, startBuild, persistInterview, suggestWithAi, openPage, send, editAssumption, removeAssumption, keepChange, undoChange, reset]
   );
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

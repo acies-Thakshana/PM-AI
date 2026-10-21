@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useChat } from "../chat/ChatProvider";
-import type { ChatMsg } from "../chat/ChatProvider";
+import type { ChatMsg, ReviewStage } from "../chat/ChatProvider";
+import { stageOf } from "../chat/rules";
 import { IconChatBot, IconSparkle } from "./icons";
 import { Spinner } from "./ThinkingLoader";
 import "./ChatPanel.css";
@@ -19,14 +20,9 @@ function Message({ msg, onOpen }: { msg: ChatMsg; onOpen: (path: string) => void
   return (
     <div className={`chat__msg chat__msg--${msg.role}${msg.error ? " chat__msg--error" : ""}`}>
       <div className="chat__bubble">{msg.text}</div>
-      {(msg.links?.length || msg.buttons?.length) && (
+      {!!msg.links?.length && (
         <div className="chat__msg-actions">
-          {msg.buttons?.map((b) => (
-            <button key={b.label} type="button" className="btn btn--sm btn--secondary" onClick={b.onClick}>
-              {b.label}
-            </button>
-          ))}
-          {msg.links?.map((l) => (
+          {msg.links.map((l) => (
             <button key={l.path} type="button" className="btn btn--sm btn--secondary" onClick={() => onOpen(l.path)}>
               {l.label}
             </button>
@@ -39,12 +35,11 @@ function Message({ msg, onOpen }: { msg: ChatMsg; onOpen: (path: string) => void
 
 export default function ChatPanel() {
   const chat = useChat();
-  const navigate = useNavigate();
   const location = useLocation();
   const [draft, setDraft] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
-  const { open, messages, busy, build, plan, phase } = chat;
+  const { open, messages, busy, build, phase } = chat;
 
   // The assistant is there from the first page; only unknown routes (which redirect) have none.
   const hidden = !["/", "/upload", "/planner", "/audit", "/features", "/analysis", "/report"].includes(location.pathname);
@@ -57,7 +52,7 @@ export default function ChatPanel() {
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages.length, busy, plan, open]);
+  }, [messages.length, busy, open]);
 
   if (hidden) return null;
 
@@ -82,17 +77,32 @@ export default function ChatPanel() {
     setDraft("");
   };
 
-  // The six things the interview settles are always listed, so the PM sees what is still open.
-  const filled = UNDERSTANDING_LABELS;
-  const showSummary = true;
-  const pendingReview = chat.review.filter((r) => r.state === "pending" || r.state === "working" || r.state === "error");
-  const canBuild = phase !== "build" && build.status !== "running" && build.status !== "waiting_data";
-  const openPath = (path: string) => navigate(path);
-  // The shortcuts belong to the page the PM is on: calculations on Features, analyses on Analysis, both where
-  // the report is planned or reviewed, none on the first two pages (no data yet).
-  const onPage = location.pathname;
-  const showCalculations = ["/planner", "/audit", "/features", "/report"].includes(onPage);
-  const showAnalyses = ["/planner", "/audit", "/analysis", "/report"].includes(onPage);
+  // While the interview runs, the six things it settles are open so the PM sees what is still unanswered;
+  // when the assistant reads the brief back, only the assumptions are open; afterwards both fold away.
+  const interviewing = phase === "interview";
+  const fresh = phase === "interview" && messages.length <= 1;
+  // One main button, by where the conversation is: begin the interview, build once it is confirmed, check at the end.
+  const buildBusy = build.status === "running" || build.status === "waiting_data" || build.status === "paused_audit";
+  const headerAction: { label: string; run: () => void } | null = fresh
+    ? { label: "Start", run: chat.startInterview }
+    : phase === "ready" && !buildBusy
+      ? { label: "Build the report", run: chat.startBuild }
+      : phase === "refine"
+        ? { label: "Check it", run: () => chat.send("Is this ready to send?") }
+        : null;
+  const openPath = chat.openPage;
+
+  // The assistant only shows what belongs to the page the PM is on, so nothing appears before its step.
+  const stage = stageOf(location.pathname);
+  const reviewStage: ReviewStage | null = stage === "planner" || stage === "features" || stage === "analysis" ? stage : null;
+  const stageReview = reviewStage ? chat.review.filter((r) => r.stage === reviewStage) : [];
+  const pendingReview = stageReview.filter((r) => r.state === "pending" || r.state === "working" || r.state === "error");
+  const showUnderstanding = stage === "configure" || Object.values(chat.understanding).some(Boolean);
+  const showBuildItems = chat.buildItems.length > 0 && (stage === "analysis" || stage === "report" || build.status === "running");
+  const showChanges = chat.changes.length > 0 && (stage === "features" || stage === "analysis" || stage === "report");
+  // Shortcuts to add something belong to its own page: calculations on Features, analyses on Analysis.
+  const showCalculations = stage === "features";
+  const showAnalyses = stage === "analysis";
   // "My own": the PM describes it in the chat; the assistant drafts it, adds it and opens it on its page.
   const startOwn = (prefix: string) => {
     setDraft(prefix);
@@ -106,14 +116,9 @@ export default function ChatPanel() {
           <IconSparkle /> Assistant
         </span>
         <div className="chat__header-actions">
-          {canBuild && phase !== "plan" && (
-            <button
-              type="button"
-              className="btn btn--sm btn--primary"
-              disabled={busy}
-              onClick={() => chat.send(phase === "refine" ? "Is this ready to send?" : "Build this report for me.")}
-            >
-              {phase === "refine" ? "Check it" : "Build the report"}
+          {headerAction && (
+            <button type="button" className="btn btn--sm btn--primary" disabled={busy} onClick={headerAction.run}>
+              {headerAction.label}
             </button>
           )}
           <button type="button" className="chat__icon-btn" title="Start over" aria-label="Start over" onClick={chat.reset} disabled={busy}>
@@ -125,47 +130,46 @@ export default function ChatPanel() {
         </div>
       </header>
 
-      {showSummary && (
-        <details className="chat__summary" open>
+      {showUnderstanding && (
+        <details className="chat__summary" key={`understanding-${interviewing}`} open={interviewing}>
           <summary>What I understand so far</summary>
-          {filled.length > 0 && (
-            <dl className="chat__understanding">
-              {filled.map(([key, label]) => (
-                <div key={key}>
-                  <dt>{label}</dt>
-                  <dd className={chat.understanding[key] ? undefined : "chat__open"}>{chat.understanding[key] || "Not asked yet"}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
-          {chat.assumptions.length > 0 && (
-            <div className="chat__assumptions">
-              <div className="chat__assumptions-title">Assumptions (not confirmed by the client)</div>
-              <ul>
-                {chat.assumptions.map((a) => (
-                  <li key={a.id}>
-                    {editing === a.id ? (
-                      <input
-                        autoFocus
-                        className="chat__assumption-input"
-                        value={a.text}
-                        onChange={(e) => chat.editAssumption(a.id, e.target.value)}
-                        onBlur={() => setEditing(null)}
-                        onKeyDown={(e) => e.key === "Enter" && setEditing(null)}
-                      />
-                    ) : (
-                      <button type="button" className="chat__assumption-text" title="Click to edit" onClick={() => setEditing(a.id)}>
-                        {a.text}
-                      </button>
-                    )}
-                    <button type="button" className="chat__icon-btn" aria-label="Remove this assumption" title="Remove" onClick={() => chat.removeAssumption(a.id)}>
-                      ×
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          <dl className="chat__understanding">
+            {UNDERSTANDING_LABELS.map(([key, label]) => (
+              <div key={key}>
+                <dt>{label}</dt>
+                <dd className={chat.understanding[key] ? undefined : "chat__open"}>{chat.understanding[key] || "Not asked yet"}</dd>
+              </div>
+            ))}
+          </dl>
+        </details>
+      )}
+
+      {chat.assumptions.length > 0 && (
+        <details className="chat__summary chat__assumptions" key={`assumptions-${phase === "readback"}`} open={phase === "readback"}>
+          <summary>Assumptions ({chat.assumptions.length}), not confirmed by the client</summary>
+          <ul>
+            {chat.assumptions.map((a) => (
+              <li key={a.id}>
+                {editing === a.id ? (
+                  <input
+                    autoFocus
+                    className="chat__assumption-input"
+                    value={a.text}
+                    onChange={(e) => chat.editAssumption(a.id, e.target.value)}
+                    onBlur={() => setEditing(null)}
+                    onKeyDown={(e) => e.key === "Enter" && setEditing(null)}
+                  />
+                ) : (
+                  <button type="button" className="chat__assumption-text" title="Click to edit" onClick={() => setEditing(a.id)}>
+                    {a.text}
+                  </button>
+                )}
+                <button type="button" className="chat__icon-btn" aria-label="Remove this assumption" title="Remove" onClick={() => chat.removeAssumption(a.id)}>
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
         </details>
       )}
 
@@ -181,54 +185,24 @@ export default function ChatPanel() {
           </div>
         )}
 
-        {plan && phase === "plan" && (
-          <section className="chat__plan" aria-label="Proposed plan">
-            <h3>Proposed plan</h3>
-            {(["analyses", "features"] as const).map((kind) =>
-              plan[kind].length > 0 ? (
-                <div key={kind} className="chat__plan-group">
-                  <div className="chat__plan-group-title">{kind === "analyses" ? `${plan[kind].length} analyses` : `${plan[kind].length} calculations`}</div>
-                  <ul>
-                    {plan[kind].map((item, i) => (
-                      <li key={`${item.name}-${i}`}>
-                        <div>
-                          <strong>{item.name}</strong>
-                          <span>{item.description}</span>
-                        </div>
-                        <button type="button" className="chat__icon-btn" aria-label={`Drop ${item.name}`} title="Drop this item" onClick={() => chat.removePlanItem(kind, i)}>
-                          ×
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null
-            )}
-            <div className="chat__plan-buttons">
-              <button type="button" className="btn btn--sm btn--primary" onClick={chat.approvePlan} disabled={busy || (!plan.analyses.length && !plan.features.length)}>
-                Approve
-              </button>
-              <button
-                type="button"
-                className="btn btn--sm btn--secondary"
-                onClick={() => {
-                  setDraft("Change the plan: ");
-                  document.getElementById("chat-input")?.focus();
-                }}
-              >
-                Change
-              </button>
-              <button type="button" className="btn btn--sm btn--secondary" onClick={chat.cancelPlan} disabled={busy}>
-                Cancel
-              </button>
-            </div>
+        {stage === "audit" && (
+          <section className="chat__plan chat__stage-note" aria-label="Data audit status">
+            <h3>Data audit</h3>
+            <p>
+              {chat.audit.reviewed
+                ? "Every audit decision is made. You can go on to Features."
+                : chat.audit.pending > 0
+                  ? `${chat.audit.pending} decision${chat.audit.pending > 1 ? "s" : ""} left. These are decided on this page; the assistant can't decide them for you.`
+                  : "The audit still has steps left. Finish its checks on this page."}
+            </p>
           </section>
         )}
-        {chat.review.length > 0 && (
+        {reviewStage && stageReview.length > 0 && (
           <section className="chat__plan chat__review" aria-label="Suggestions to review">
-            <h3>Review suggestions ({pendingReview.length} waiting)</h3>
+            <h3>Suggestions to review ({pendingReview.length} waiting)</h3>
+            <p className="chat__stage-hint">You can also accept or reject them on the page.</p>
             <ul>
-              {chat.review.map((r) => (
+              {stageReview.map((r) => (
                 <li key={r.id} className={`chat__review-item chat__review-item--${r.state}`}>
                   <div>
                     <strong>{r.name}</strong>
@@ -258,7 +232,7 @@ export default function ChatPanel() {
             </ul>
             {pendingReview.some((r) => r.state === "pending") && (
               <div className="chat__plan-buttons">
-                <button type="button" className="btn btn--sm btn--primary" onClick={chat.acceptAll}>
+                <button type="button" className="btn btn--sm btn--primary" onClick={() => chat.acceptAll(reviewStage)}>
                   Accept all
                 </button>
               </div>
@@ -268,25 +242,28 @@ export default function ChatPanel() {
         <div ref={endRef} />
       </div>
 
-      {chat.buildItems.length > 0 && (
+      {showBuildItems && (
         <section className="chat__live" aria-label="Analyses being built">
           <div className="chat__live-title">
             Analyses ({chat.buildItems.filter((i) => i.state === "done").length} of {chat.buildItems.length})
           </div>
           <ul>
             {chat.buildItems.map((item) => (
-              <li key={item.id} className={`chat__live-item chat__live-item--${item.state}`} title={item.error}>
+              <li key={item.id} className={`chat__live-item chat__live-item--${item.state}`}>
                 <span className="chat__live-state" aria-hidden="true">
                   {item.state === "running" ? <Spinner /> : item.state === "done" ? "✓" : item.state === "failed" ? "!" : "·"}
                 </span>
-                <span className="chat__live-name">{item.name}</span>
+                <button type="button" className="chat__live-name chat__live-open" title="Open this analysis" onClick={() => openPath(`/analysis?open=${item.id}`)}>
+                  {item.name}
+                </button>
                 <span className="chat__live-label">
                   {item.state === "queued" ? "waiting" : item.state === "running" ? "building" : item.state === "done" ? "ready" : "failed"}
                 </span>
+                {item.state === "failed" && item.error && <span className="chat__live-error">{item.error}</span>}
               </li>
             ))}
           </ul>
-          <button type="button" className="btn btn--sm btn--secondary" onClick={() => navigate("/analysis")}>
+          <button type="button" className="btn btn--sm btn--secondary" onClick={() => openPath("/analysis")}>
             Open the analyses
           </button>
         </section>
@@ -297,14 +274,14 @@ export default function ChatPanel() {
           {build.status === "running" && <Spinner />}
           <span>{build.line}</span>
           {build.status === "paused_audit" && (
-            <button type="button" className="btn btn--sm btn--secondary" onClick={() => navigate("/audit")}>
+            <button type="button" className="btn btn--sm btn--secondary" onClick={() => openPath("/audit")}>
               Open audit
             </button>
           )}
         </div>
       )}
 
-      {chat.changes.length > 0 && (
+      {showChanges && (
         <details className="chat__changes">
           <summary>What I changed ({chat.changes.length})</summary>
           <ul>
@@ -331,6 +308,13 @@ export default function ChatPanel() {
         </details>
       )}
 
+      {reviewStage && (
+        <label className="chat__auto">
+          <input type="checkbox" checked={chat.autoAccept[reviewStage]} onChange={(e) => chat.setAutoAccept(reviewStage, e.target.checked)} />
+          Accept suggestions automatically on this page
+        </label>
+      )}
+
       {chat.hasSession && !busy && (showCalculations || showAnalyses) && (
         <div className="chat__quick chat__quick--add" aria-label="Add to the report">
           {showCalculations && (
@@ -353,6 +337,17 @@ export default function ChatPanel() {
               + My own analysis
             </button>
           )}
+        </div>
+      )}
+
+      {chat.nextQuestions.length > 0 && !busy && (
+        <div className="chat__quick chat__quick--next" aria-label="Questions you could ask">
+          <span className="chat__quick-label">You could ask:</span>
+          {chat.nextQuestions.map((q) => (
+            <button key={q} type="button" className="chat__chip" onClick={() => chat.send(q)}>
+              {q}
+            </button>
+          ))}
         </div>
       )}
 

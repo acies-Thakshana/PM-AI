@@ -15,7 +15,6 @@ import TripInspectTable from "../components/TripInspectTable";
 import TripInspectModal from "../components/TripInspectModal";
 import type { SwpTimesResult } from "../api/swp";
 import { DataSourceContext } from "../context/plannerSkipped";
-import { useChat } from "../chat/ChatProvider";
 import { IconShieldSearch, IconDownload } from "../components/icons";
 import { downloadCleansedFile } from "../api/audit";
 import { resetDownstreamState, useStoredState } from "../state/sessionStore";
@@ -62,10 +61,8 @@ export default function AuditPage({
   onTripTimesEdited,
 }: AuditPageProps) {
   const navigate = useNavigate();
-  const chat = useChat();
-  // The interview comes before the features: Proceed opens the assistant until a plan is approved.
-  const proceed = () => (chat.planApproved ? navigate("/features") : chat.startInterview());
-  const proceedLabel = chat.planApproved ? "Proceed to Features" : "Continue with the assistant";
+  const proceed = () => navigate("/features");
+  const proceedLabel = "Proceed to Features";
   const apiSource = useContext(DataSourceContext) === "api";
   // The trip open in the Inspect window (by SWP key from the trips table, by Trip ID from the outlier tables), and
   // a counter that goes up whenever a trip's times were changed so what is built on them is read again.

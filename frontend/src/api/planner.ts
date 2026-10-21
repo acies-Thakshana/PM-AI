@@ -120,3 +120,18 @@ export async function saveDecisions(
   }
   return res.json();
 }
+
+/**
+ * Saves the PM's accept / reject choice for every recommendation. The Planner page and the assistant both
+ * decide on the same list, so both save the same way (anything undecided stays "pending").
+ */
+export function persistDecisions(
+  sessionId: string,
+  recommendations: PlannerRecommendation[],
+  decisions: Record<number, PmDecisionValue>
+): Promise<SaveDecisionsResponse> {
+  return saveDecisions(
+    sessionId,
+    recommendations.map((_, i) => ({ recommendation_index: i, pm_decision: decisions[i] ?? "pending", pm_notes: "" }))
+  );
+}

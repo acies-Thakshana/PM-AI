@@ -19,6 +19,7 @@ import { selectedTrips } from "../utils/swpTrips";
 import type { SwpConfigState } from "../utils/swpTrips";
 import { uploadOnly } from "../api/audit";
 import { finalizeBrief } from "../api/brief";
+import { useChat } from "../chat/ChatProvider";
 import { hasBrief } from "../context/plannerSkipped";
 import type { DataSource } from "../context/plannerSkipped";
 import "./UploadPage.css";
@@ -82,6 +83,7 @@ export default function UploadPage({
   uploadedBriefSignature,
 }: UploadPageProps) {
   const navigate = useNavigate();
+  const chat = useChat();
   const [errors, setErrors] = useState<ErrorsState>({});
   const [highlighted, setHighlighted] = useState<UploadSlotId | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -125,6 +127,17 @@ export default function UploadPage({
     }
   };
 
+  // With a brief the Planner is next. It reads the assistant's interview when it runs, so that is saved with the
+  // session first. Without a brief there is nothing to plan: straight to the data audit.
+  const goOn = async (plannerSessionId: string | undefined) => {
+    if (!hasBrief(brief)) {
+      navigate("/audit");
+      return;
+    }
+    if (plannerSessionId) await chat.persistInterview(plannerSessionId);
+    navigate("/planner");
+  };
+
   const checkBrief = (): boolean => {
     const missing = !brief.rawText.trim();
     setBriefError(missing ? "Client brief is required." : undefined);
@@ -140,7 +153,7 @@ export default function UploadPage({
     // planning) all over again.
     const signature = JSON.stringify([brief.rawText, brief.finalText, config.programId, config.sensors, ids, edits]);
     if (uploadedSessionIds.sensiwatch && signature === uploadedBriefSignature) {
-      navigate(hasBrief(brief) ? "/planner" : "/audit");
+      await goOn(uploadedSessionIds.sensiwatch);
       return;
     }
     setUploading(true);
@@ -159,7 +172,7 @@ export default function UploadPage({
       const label = new File([], loaded.filename);
       await finalizeBrief(brief, { ...files, sensiwatch: label }, [loaded.session_id]);
       onLoadComplete(loaded.session_id, label, signature);
-      navigate(hasBrief(brief) ? "/planner" : "/audit");
+      await goOn(loaded.session_id);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Could not load the trips. Is the backend running?");
     } finally {
@@ -182,7 +195,7 @@ export default function UploadPage({
     const haveSessions = AUDITED_SLOTS.some((id) => uploadedSessionIds[id]);
     const allUploaded = AUDITED_SLOTS.every((id) => !files[id] || uploadedSessionIds[id]);
     if (haveSessions && allUploaded && briefSignature === uploadedBriefSignature) {
-      navigate(hasBrief(brief) ? "/planner" : "/audit");
+      await goOn(uploadedSessionIds.sensiwatch);
       return;
     }
 
@@ -200,8 +213,7 @@ export default function UploadPage({
       if (sessionIdsList.length > 0) await finalizeBrief(brief, files, sessionIdsList);
 
       onUploadComplete(sessionIds, briefSignature);
-      // No client brief = nothing for the Planner to plan: go straight to the data Audit.
-      navigate(hasBrief(brief) ? "/planner" : "/audit");
+      await goOn(sessionIds.sensiwatch);
     } catch (err: unknown) {
       setUploadError(err instanceof Error ? err.message : "Upload failed. Is the backend running?");
     } finally {

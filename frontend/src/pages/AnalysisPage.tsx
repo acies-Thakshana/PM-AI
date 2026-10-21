@@ -1,7 +1,7 @@
 import ThinkingLoader, { Spinner } from "../components/ThinkingLoader";
 import { LOADING } from "../utils/loadingMessages";
 import { useEffect, useRef, useState } from "react";
-import { useStoredRef, useStoredState } from "../state/sessionStore";
+import { announcePageChange, useChatChangeCount, useStoredRef, useStoredState } from "../state/sessionStore";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Header from "../components/Header";
 import StepIndicator from "../components/StepIndicator";
@@ -195,7 +195,22 @@ export default function AnalysisPage({ files, auditReports }: AnalysisPageProps)
   }, [hasAnalysisProfileFile, files.analysisProfile, defsAttempted, defsLoading]);
 
   const refreshRepository = (id: UploadSlotId, sessionId: string) =>
-    fetchAnalysisRepository(sessionId).then((repo) => setRepositories((prev) => ({ ...prev, [id]: repo.entries })));
+    fetchAnalysisRepository(sessionId).then((repo) => {
+      setRepositories((prev) => ({ ...prev, [id]: repo.entries }));
+      announcePageChange(); // the assistant shows the same suggestions: let it look again
+    });
+
+  // The assistant added, accepted or ran something while this page is open: read it all again.
+  const chatChanges = useChatChangeCount();
+  useEffect(() => {
+    if (chatChanges === 0) return;
+    for (const id of auditedReady) {
+      const sessionId = auditReports[id]!.session_id;
+      fetchFeatureReport(sessionId).then((report) => setFeatureReports((prev) => ({ ...prev, [id]: report }))).catch(() => undefined);
+      refreshRepository(id, sessionId).catch(() => undefined);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatChanges]);
 
   // Step 2: once the Analysis Profile upload has settled (or there wasn't
   // one), load the repository for each ready slot. Entries then run on

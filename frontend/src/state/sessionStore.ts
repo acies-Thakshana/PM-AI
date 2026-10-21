@@ -58,6 +58,29 @@ export function useStoredRef<T>(key: string, create: () => T): T {
   return refs.get(key) as T;
 }
 
+// ---------------------------------------------------------------------------------------------- change signals
+// The Features and Analysis pages load their data once per visit, and the assistant changes the same data
+// (adds a calculation, accepts an analysis ...) while a page is open. Two counters tell each side to look again:
+//   * chatChanged: the assistant changed data       -> the pages refetch what they show;
+//   * pageChanged: a page changed data (accept ...) -> the assistant refreshes its suggestion cards.
+// They are separate so that reacting to one never raises the other (no loop).
+const CHAT_CHANGED = "sync.chatChanged";
+const PAGE_CHANGED = "sync.pageChanged";
+
+function bump(key: string) {
+  values.set(key, (Number(values.get(key)) || 0) + 1);
+  notify();
+}
+
+/** The assistant changed data the wizard pages show. */
+export const announceChatChange = () => bump(CHAT_CHANGED);
+/** A wizard page changed data the assistant shows. */
+export const announcePageChange = () => bump(PAGE_CHANGED);
+/** Goes up each time the assistant changes data: a page refetches when it does (0 = nothing changed yet). */
+export const useChatChangeCount = () => useStoredState<number>(CHAT_CHANGED, 0)[0];
+/** Goes up each time a page changes data: the assistant refreshes when it does. */
+export const usePageChangeCount = () => useStoredState<number>(PAGE_CHANGED, 0)[0];
+
 // Keys are namespaced "<stage>.<name>". The audit stage owns "audit.*";
 // everything after it derives from the audited data.
 const DOWNSTREAM_PREFIXES = ["features.", "analysis.", "report."];

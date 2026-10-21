@@ -1,6 +1,6 @@
 import { API_BASE_URL, apiFetch } from "./apiFetch";
 
-export type ChatPhase = "interview" | "readback" | "plan" | "build" | "refine";
+export type ChatPhase = "interview" | "readback" | "ready" | "build" | "refine";
 
 export interface ChatTurnMessage {
   role: "user" | "assistant";
@@ -24,23 +24,12 @@ export interface Assumption {
   text: string;
 }
 
-export interface PlanItem {
-  name: string;
-  description: string;
-}
-
-export interface ChatPlan {
-  analyses: PlanItem[];
-  features: PlanItem[];
-}
-
 export type ChatAction =
   | { type: "set_brief"; text: string }
-  | { type: "approve_plan" }
-  | { type: "navigate"; page: "upload" | "audit" | "features" | "analysis" | "report" }
+  /** `open` is the id of an analysis (on "analysis") or a calculation (on "features") to open on that page. */
+  | { type: "navigate"; page: "upload" | "planner" | "audit" | "features" | "analysis" | "report"; open?: string }
   | { type: "add_analysis"; name: string; description: string }
   | { type: "add_feature"; name: string; description: string }
-  | { type: "explain"; target: string }
   | { type: "check_ready" }
   | { type: "continue_build" };
 
@@ -51,13 +40,17 @@ export interface ChatTurnRequest {
   state: Record<string, unknown>;
 }
 
+export type ChatIntent = "interview" | "ask" | "change" | "generate" | "other";
+
 export interface ChatTurnResponse {
   reply: string;
+  intent: ChatIntent;
   phase: ChatPhase;
   understanding: Understanding;
   assumptions: Assumption[];
   quick_replies: string[];
-  plan: ChatPlan | null;
+  /** Follow-up questions the PM could ask next (never during the interview). */
+  next_questions: string[];
   actions: ChatAction[];
 }
 
@@ -86,11 +79,10 @@ export interface InterviewRecord {
   brief: string;
   understanding: Understanding;
   assumptions: Assumption[];
-  plan: ChatPlan | null;
   transcript: ChatTurnMessage[];
 }
 
-/** Keeps the interview with the session, next to the brief (and tells the Planner what was approved). */
+/** Keeps the interview with the session, next to the brief: the Planner reads it when it suggests features and analyses. */
 export async function saveInterview(sessionId: string, record: InterviewRecord): Promise<void> {
   const res = await apiFetch(`${API_BASE_URL}/api/chat/interview/${sessionId}`, {
     method: "PUT",

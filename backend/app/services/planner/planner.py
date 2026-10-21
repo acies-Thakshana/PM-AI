@@ -65,8 +65,8 @@ def _build_columns_block(col_meta: dict, row_count: int) -> str:
 
 
 def _interview_block(session_id: str) -> str:
-    """The PM interview saved by the chat (what was clarified, what was assumed, the plan the PM approved), as
-    prompt text; empty when there was no interview."""
+    """The PM interview saved by the chat (what was clarified and what was assumed), as prompt text; empty when
+    there was no interview."""
     rec = doc_store.get(session_id, "INTERVIEW")
     if not isinstance(rec, dict):
         return ""
@@ -78,17 +78,11 @@ def _interview_block(session_id: str) -> str:
             lines.append(f"- {label}: {rec['understanding'][key]}")
     for a in rec.get("assumptions") or []:
         lines.append(f"- Assumption (not confirmed by the client): {a.get('text', '')}")
-    plan = rec.get("plan") or {}
-    for key, title in (("analyses", "Analyses"), ("features", "Calculations")):
-        items = plan.get(key) or []
-        if items:
-            lines.append(f"{title} the PM approved (include each one, choosing the columns and formula yourself):")
-            lines.extend(f"  * {i.get('name', '')}: {i.get('description', '')}" for i in items)
     if not lines:
         return ""
     return (
-        "PM INTERVIEW (the PM clarified the brief; follow these answers and make sure every approved item "
-        "below is covered, adding anything else the brief clearly needs):\n" + "\n".join(lines)
+        "PM INTERVIEW (the PM clarified the brief; follow these answers when you choose what to suggest):\n"
+        + "\n".join(lines)
     )
 
 

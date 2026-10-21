@@ -82,6 +82,16 @@
   color: var(--color-success);
 }
 
+.step-indicator__item--todo .step-indicator__badge {
+  background: var(--accent-amber-bg);
+  border-color: var(--accent-amber);
+  color: var(--accent-amber);
+}
+
+.step-indicator__item--todo .step-indicator__label {
+  color: var(--accent-amber);
+}
+
 .step-indicator__item--done .step-indicator__connector,
 .step-indicator__item--current .step-indicator__connector {
   background: var(--carrier-light-blue);
