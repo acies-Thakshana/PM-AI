@@ -1,9 +1,17 @@
-"""Thin client for the SWP (SensiWatch) external API. All secrets come from app.config (env vars)."""
+"""Thin client for the SWP (SensiWatch) external API. All secrets come from app.config (env vars).
+
+Pacing: the API allows 20 trip calls a minute PER SUBSCRIPTION KEY. Every trip call goes through a small pool of keys
+(SWP_TRIP_KEY and, if set, SWP_TRIP_KEY_2); a call takes the key that is free soonest and calls on one key start at least
+SWP_CALL_GAP_SECONDS (3 s) apart. With two keys two calls can be in flight at once, so the pace doubles. Threads may call
+freely: the pool decides when each call may start.
+"""
 from __future__ import annotations
 
+import contextvars
 import logging
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 
@@ -30,6 +38,7 @@ STATUS_LABELS = {
 ALL_STATUS_KEYWORDS = ["NotStarted", "Started", "InTransit", "Arrived", "Draft", "Disabled"]
 
 _REQUIRED = ("SWP_BASE_URL", "SWP_SECURITY_KEY", "SWP_TRIP_KEY", "SWP_USER", "SWP_PASS")
+_RATE_LIMIT_WAIT_SECONDS = 65   # a key that got HTTP 429 / 403 rests this long (the window is 60 s)
 
 
 class SwpError(Exception):
@@ -47,28 +56,84 @@ def _program(program_id: str | None) -> str:
     return (program_id or config.SWP_PROGRAM_ID).strip()
 
 
-_lock = threading.Lock()          # one call at a time keeps us under the 20 calls/min limit
-_token: dict = {"value": None, "expires": 0.0}
+# ---- the pool of trip keys ----------------------------------------------------------------------------------------
+
+class _Pacer:
+    def __init__(self, key: str):
+        self.key = key
+        self.next_at = 0.0   # time.monotonic() before which this key may not start another call
 
 
-def _call(method: str, path: str, key: str, token: str | None = None, **kwargs) -> dict:
-    missing = missing_settings()
-    if missing:
-        raise SwpError("The SWP API is not configured. Set in backend/.env: " + ", ".join(missing))
+_pool_lock = threading.Lock()
+_pacers: list[_Pacer] = []
+
+
+def trip_keys() -> list[str]:
+    return [k for k in (config.SWP_TRIP_KEY, config.SWP_TRIP_KEY_2) if k]
+
+
+def key_count() -> int:
+    return max(len(trip_keys()), 1)
+
+
+def _reserve() -> _Pacer:
+    """The key that is free soonest. Its next free time moves one gap on, so calls on one key start >= the gap apart;
+    the caller sleeps until its own slot."""
+    with _pool_lock:
+        keys = trip_keys()
+        if [p.key for p in _pacers] != keys:
+            _pacers[:] = [_Pacer(k) for k in keys]
+        pacer = min(_pacers, key=lambda p: p.next_at)
+        start = max(time.monotonic(), pacer.next_at)
+        pacer.next_at = start + config.SWP_CALL_GAP_SECONDS
+    wait = start - time.monotonic()
+    if wait > 0:
+        time.sleep(wait)
+    return pacer
+
+
+def _rest(pacer: _Pacer) -> None:
+    with _pool_lock:
+        pacer.next_at = max(pacer.next_at, time.monotonic() + _RATE_LIMIT_WAIT_SECONDS)
+
+
+def _send(method: str, path: str, key: str, token: str | None, **kwargs) -> requests.Response:
     headers = {"Ocp-Apim-Subscription-Key": key}
     if token:
         headers["Authorization"] = f"Bearer {token}"
-    with _lock:
-        try:
-            r = requests.request(method, config.SWP_BASE_URL + path, headers=headers, timeout=60, **kwargs)
-        except requests.RequestException as exc:
-            raise SwpError(f"Could not reach the SWP API: {exc}") from exc
-        log.info("SWP %s %s -> %s", method, path.split("?")[0], r.status_code)
+    try:
+        return requests.request(method, config.SWP_BASE_URL + path, headers=headers, timeout=120, **kwargs)
+    except requests.RequestException as exc:
+        raise SwpError(f"Could not reach the SWP API: {exc}") from exc
+
+
+def _checked(response: requests.Response, method: str, path: str) -> dict:
+    if response.status_code != 200:
+        raise SwpError(f"SWP API {method} {path.split('?')[0]} failed ({response.status_code}): {response.text[:300]}")
+    return response.json()
+
+
+def _trip_call(method: str, path: str, token: str, **kwargs) -> dict:
+    """A trip call on whichever key is free; if a key is told to slow down it rests and the call goes to the next free one."""
+    missing = missing_settings()
+    if missing:
+        raise SwpError("The SWP API is not configured. Set in backend/.env: " + ", ".join(missing))
+    for attempt in range(4):
+        pacer = _reserve()
+        response = _send(method, path, pacer.key, token, **kwargs)
+        log.info("SWP %s %s -> %s (key %d)", method, path.split("?")[0], response.status_code, trip_keys().index(pacer.key) + 1)
         progress.tick()
-        time.sleep(config.SWP_CALL_DELAY_SECONDS)
-    if r.status_code != 200:
-        raise SwpError(f"SWP API {method} {path.split('?')[0]} failed ({r.status_code}): {r.text[:300]}")
-    return r.json()
+        if response.status_code in (429, 403) and attempt < 3:
+            log.warning("SWP rate limit on a key; resting it for %s s", _RATE_LIMIT_WAIT_SECONDS)
+            _rest(pacer)
+            continue
+        return _checked(response, method, path)
+    raise SwpError("unreachable")
+
+
+# ---- the login token ------------------------------------------------------------------------------------------------
+_token: dict = {"value": None, "expires": 0.0}
+_token_lock = threading.Lock()
 
 
 def has_token() -> bool:
@@ -76,28 +141,37 @@ def has_token() -> bool:
 
 
 def get_token() -> str:
-    """A bearer token, reused until shortly before it expires."""
-    if _token["value"] and time.time() < _token["expires"]:
+    """A bearer token, reused until shortly before it expires (shared by every thread)."""
+    with _token_lock:
+        if _token["value"] and time.time() < _token["expires"]:
+            return _token["value"]
+        missing = missing_settings()
+        if missing:
+            raise SwpError("The SWP API is not configured. Set in backend/.env: " + ", ".join(missing))
+        path = "/api/security-external/external/auth/connect/token"
+        response = _send(
+            "POST", path, config.SWP_SECURITY_KEY, None,
+            data={"grant_type": "password", "client_id": config.SWP_CLIENT_ID,
+                  "client_secret": config.SWP_CLIENT_SECRET, "scope": "rtweb.api offline_access",
+                  "username": config.SWP_USER, "password": config.SWP_PASS},
+        )
+        progress.tick()
+        data = _checked(response, "POST", path)
+        _token["value"] = data["access_token"]
+        _token["expires"] = time.time() + max(int(data.get("expires_in") or 3600) - 120, 60)
         return _token["value"]
-    data = _call(
-        "POST", "/api/security-external/external/auth/connect/token", config.SWP_SECURITY_KEY,
-        data={"grant_type": "password", "client_id": config.SWP_CLIENT_ID,
-              "client_secret": config.SWP_CLIENT_SECRET, "scope": "rtweb.api offline_access",
-              "username": config.SWP_USER, "password": config.SWP_PASS},
-    )
-    _token["value"] = data["access_token"]
-    _token["expires"] = time.time() + max(int(data.get("expires_in") or 3600) - 120, 60)
-    return _token["value"]
 
+
+# ---- the calls -----------------------------------------------------------------------------------------------------
 
 def search_trips(token: str, keyword: str, program_id: str | None = None) -> list[dict]:
-    """All trips matching a keyword (page through the results)."""
+    """Call 2: all trips matching a keyword (page through the results, 50 a page)."""
     trips: list[dict] = []
     page = 0
     while True:
-        data = _call(
-            "POST", f"/api/trip/external/ExternalTrip/tripsearch/programId/{_program(program_id)}",
-            config.SWP_TRIP_KEY, token, json={"keyword": keyword, "from": page},
+        data = _trip_call(
+            "POST", f"/api/trip/external/ExternalTrip/tripsearch/programId/{_program(program_id)}", token,
+            json={"keyword": keyword, "from": page},
         )
         records = data.get("records") or []
         trips += records
@@ -109,17 +183,10 @@ def search_trips(token: str, keyword: str, program_id: str | None = None) -> lis
         page += 1
 
 
-def get_trip(token: str, trip_id: str, program_id: str | None = None) -> dict:
-    return _call(
-        "GET", f"/api/trip/external/ExternalTrip/programId/{_program(program_id)}/tripId/{trip_id}",
-        config.SWP_TRIP_KEY, token,
-    )
-
-
 def get_trip_detail(token: str, trip_id: str, program_id: str | None = None) -> dict:
-    return _call(
-        "GET", f"/api/trip/external/ExternalTripDetail/programId/{_program(program_id)}/tripId/{trip_id}",
-        config.SWP_TRIP_KEY, token,
+    """Call 4: one trip in full, with its sensor readings and GPS route."""
+    return _trip_call(
+        "GET", f"/api/trip/external/ExternalTripDetail/programId/{_program(program_id)}/tripId/{trip_id}", token,
     )
 
 
@@ -144,7 +211,8 @@ def all_trips(program_id: str | None = None, refresh: bool = False) -> list[dict
 
 def all_trips_info(program_id: str | None = None, refresh: bool = False) -> tuple[list[dict], float, bool]:
     """(trips, when they were fetched as epoch seconds, whether that was an earlier fetch). The list is kept on
-    disk and reused until `refresh`; this process also remembers it for SWP_TRIPS_CACHE_SECONDS."""
+    disk and reused until `refresh`; this process also remembers it for SWP_TRIPS_CACHE_SECONDS. A fresh fetch
+    searches the statuses on one thread per key, so two keys search at the same time."""
     program = _program(program_id)
     with _trips_lock:
         cached = _trips_cache.get(program)
@@ -157,9 +225,12 @@ def all_trips_info(program_id: str | None = None, refresh: bool = False) -> tupl
         progress.add_total(len(ALL_STATUS_KEYWORDS) + (0 if has_token() else 1))  # one page per status to start with
         token = get_token()
         by_id: dict[str, dict] = {}
-        for keyword in ALL_STATUS_KEYWORDS:
-            for t in search_trips(token, keyword, program):
-                by_id[t["tripID"]] = t
+        with ThreadPoolExecutor(max_workers=key_count()) as pool:
+            # each task runs in its own copy of the context so the progress counter reaches the threads
+            futures = [pool.submit(contextvars.copy_context().run, search_trips, token, kw, program) for kw in ALL_STATUS_KEYWORDS]
+            for future in futures:
+                for t in future.result():
+                    by_id[t["tripID"]] = t
         trips = list(by_id.values())
         at = cache.save_trips(program, trips)
         _trips_cache[program] = {"at": at, "trips": trips}
@@ -210,10 +281,8 @@ def record_fields(record: dict) -> list[str]:
 # are NOT in the guide, so confirm them there before enabling this. Needs a Trip Manage subscription
 # key and is limited to 20 calls a minute.
 #
-# def update_trip(token: str, trip_id: str, changes: dict, program_id: str | None = None) -> dict:
-#     current = get_trip(token, trip_id, program_id)            # keep what is not being changed
-#     body = {**current, **changes}   # e.g. {"tripStatusGuid": STATUS_GUIDS["arrived"],
-#                                     #       "tripActualArrivalTime": "2026-10-12T09:32:00Z"}
-#     return _call("PUT", f"/api/trip-manage/external/ExternalTrip/programId/{_program(program_id)}",
-#                  config.SWP_TRIP_MANAGE_KEY, token, json=body)   # URL and key name: confirm in the portal
-
+# def update_trip(token: str, record: dict, changes: dict, program_id: str | None = None) -> dict:
+#     body = {**record, **changes}    # the search record, with only what changes replaced, e.g.
+#                                     # {"tripStatusGuid": STATUS_GUIDS["arrived"], "tripActualArrivalTime": "2026-10-12T09:32:00Z"}
+#     return _trip_call("PUT", f"/api/trip-manage/external/ExternalTrip/programId/{_program(program_id)}", token, json=body)
+#     # URL, verb and the Trip Manage key (it is a different subscription than the trip key): confirm in the portal

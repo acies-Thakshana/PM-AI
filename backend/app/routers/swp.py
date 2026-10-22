@@ -1,6 +1,8 @@
-"""Trip data from the SWP (SensiWatch) API: syncing every trip of a program into the raw store (services/swp/preprocess.py),
-loading chosen ARRIVED trips into an audit session, and the per-trip numbers, raw sensor readings and GPS route the
-Data Audit shows.
+"""Trip data from the SWP (SensiWatch) API. Two steps, so the page does not wait for the slow part:
+  1. the trip list (call 2, the search) with each trip's numbers from SWP's own statistics: quick, shown at once;
+  2. the trip details (call 4) of the trips to be analysed, fetched in the background (services/swp/prefetch.py) and
+     stored; loading the arrived trips into an audit session waits for any still outstanding.
+Also the per-trip numbers, raw sensor readings and GPS route the Data Audit shows.
 Nothing is written back to SWP (see the commented-out update_trip in services/swp/client.py)."""
 import io
 import uuid
@@ -14,7 +16,7 @@ from app import config
 from app.routers.job_route import JobRoute
 from app.services.audit.audit_store import get_or_404, store
 from app.services.common import audit_log, column_meta, file_store, request_context
-from app.services.swp import client, preprocess, progress
+from app.services.swp import cache, client, prefetch, preprocess, progress
 from app.services.swp.transform import TIMEZONE, build_tables
 
 router = APIRouter(route_class=JobRoute, prefix="/api/swp", tags=["swp"])
@@ -75,31 +77,22 @@ class TripsResponse(BaseModel):
 
 @router.get("/trips", response_model=TripsResponse)
 def list_all_trips(program_id: str = "", refresh: bool = False, progress_id: str = "") -> TripsResponse:
-    """Step 1: EVERY trip of the program, each with its numbers. The trip list and the raw data of every trip are
-    kept in the store; what is stored and still current is reused, so only the first call (or `refresh`, for trips
-    that changed) asks SWP. The program id defaults to SWP_PROGRAM_ID."""
+    """Step 1: EVERY trip of the program from the trip search (call 2), each with its numbers from the search record. No
+    detail calls: this is quick. The list is kept in the store and reused unless `refresh`. The program id defaults to
+    SWP_PROGRAM_ID."""
     program = program_id.strip() or config.SWP_PROGRAM_ID
     _guard(program)
     progress.start(progress_id, label="Fetching all trips")
     records_list, fetched_at, from_cache = _swp_call(client.all_trips_info, program, refresh)
-    records = {r["tripID"]: r for r in records_list}
-    # The calls still to make (the trip detail of every trip not in the store) count toward the total.
-    ids = list(records)
-    progress.add_total(preprocess.expected_calls(ids, records, preprocess.stored_payloads(program, ids, records)))
-    payloads, table = _swp_call(preprocess.sync_program, program, records, client.get_token)
     progress.finish()
-    kpis = preprocess.trip_kpis(table)
     trips = []
-    for p in payloads:
-        r, k = p["record"], kpis.get(p["detail"].get("tripID") or p["tripID"], {})
-        departure, arrival = preprocess.trip_times(p)
+    for r in records_list:
+        k = preprocess.record_kpis(r)
         trips.append(TripSummary(
-            trip_id=p["tripID"], number=k.get("number"), status=client.status_name(r), departure=departure, arrival=arrival,
-            created=r.get("createDate"), updated=r.get("lastUpdatedDate"),
-            alarmed=k["alarmed"] if k.get("alarmed") is not None else r.get("alarmed"),
-            template=r.get("templateName"), trailer_id=r.get("trailerID"), product=k.get("product"),
-            origin=k.get("origin"), destination=k.get("destination"), carrier=k.get("carrier"),
-            mean_temp=k.get("mean_temp"), segment_days=k.get("segment_days"),
+            trip_id=r["tripID"], number=k["number"], status=client.status_name(r), departure=k["departure"], arrival=k["arrival"],
+            created=r.get("createDate"), updated=r.get("lastUpdatedDate"), alarmed=k["alarmed"], template=r.get("templateName"),
+            trailer_id=r.get("trailerID"), product=k["product"], origin=k["origin"], destination=k["destination"],
+            carrier=k["carrier"], mean_temp=k["mean_temp"], segment_days=k["segment_days"],
         ))
     trips.sort(key=lambda t: t.updated or "", reverse=True)
     counts: dict[str, int] = {}
@@ -110,6 +103,36 @@ def list_all_trips(program_id: str = "", refresh: bool = False, progress_id: str
         trips=trips, sample_fields=client.record_fields(records_list[0]) if records_list else [],
         fetched_at=datetime.fromtimestamp(fetched_at, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), from_cache=from_cache,
     )
+
+
+class PrefetchRequest(BaseModel):
+    program_id: str | None = None
+    trip_ids: list[str] = Field(default_factory=list)
+
+
+class PrefetchStatus(BaseModel):
+    total: int
+    done: int
+    failed: int
+    running: bool
+    error: str | None = None
+    seconds_per_trip: float   # about how long each outstanding trip takes (the gap between calls divided over the keys)
+
+
+@router.post("/prefetch", response_model=PrefetchStatus)
+def prefetch_details(body: PrefetchRequest) -> PrefetchStatus:
+    """Start fetching the details (call 4) of these trips in the background, and report how far they are. Asking again
+    with the same ids only reports; ids already stored, queued or done are not fetched twice. The trip list must have been
+    fetched first (it is read from the store, no API call)."""
+    program = (body.program_id or "").strip() or config.SWP_PROGRAM_ID
+    _guard(program)
+    by_lower = {r["tripID"].lower(): r for r in _swp_call(client.all_trips, program, False)}
+    records = {}
+    for tid in body.trip_ids:
+        match = by_lower.get(tid.strip().lower())
+        if match:
+            records[match["tripID"]] = match
+    return PrefetchStatus(**prefetch.submit(program, list(records), records))
 
 
 class TripEdit(BaseModel):
@@ -151,8 +174,9 @@ def _save_frame(session_id: str, name: str, df: pd.DataFrame) -> None:
 
 @router.post("/load", response_model=LoadResponse)
 def load_trips(body: LoadRequest) -> LoadResponse:
-    """Step 2: fetch the detail of the chosen trips, apply the edits made in the app, build the aggregate
-    table and open an audit session on it. The raw sensor readings and GPS route are kept alongside."""
+    """Step 2: take the detail of the chosen (arrived) trips from the store, waiting for any the background fetch has not
+    finished, apply the edits made in the app, build the aggregate table and open an audit session on it. The raw sensor
+    readings and GPS route are kept alongside."""
     program = (body.program_id or "").strip() or config.SWP_PROGRAM_ID
     _guard(program)
     all_records = _swp_call(client.all_trips, program, False)
@@ -166,7 +190,7 @@ def load_trips(body: LoadRequest) -> LoadResponse:
     if len(ids) > config.SWP_MAX_TRIPS:
         raise HTTPException(
             status_code=422,
-            detail=f"At most {config.SWP_MAX_TRIPS} trips can be loaded at once (each takes an API call or two).",
+            detail=f"At most {config.SWP_MAX_TRIPS} trips can be loaded at once.",
         )
 
     # Only arrived trips are analysed: a trip still on its way keeps changing. Status changes made in the app count.
@@ -181,12 +205,10 @@ def load_trips(body: LoadRequest) -> LoadResponse:
             detail=f"Only arrived trips can be loaded. Not arrived: {', '.join(not_arrived[:3])}{' ...' if len(not_arrived) > 3 else ''}",
         )
 
-    # The raw data comes from the store (the trips were synced when the list was fetched); anything missing is fetched.
-    saved = preprocess.stored_payloads(program, ids, records)
-    expected = preprocess.expected_calls(ids, records, saved)
-    progress.start(body.progress_id, total=expected, label="Loading trip data")
-    token = _swp_call(client.get_token) if expected else ""
-    trips_data = _swp_call(preprocess.fetch_payloads, program, ids, records, saved, token)
+    # The details come from the store. The background fetch has normally finished them; any still outstanding (or not asked for
+    # yet, like a trip just marked arrived) are fetched now and waited for, so the data is complete before the audit.
+    tracker = progress.start(body.progress_id, total=len(ids), label="Loading trip details")
+    trips_data = _swp_call(preprocess.payloads_for, program, ids, records, (lambda done, total: tracker.set(done, total)) if tracker else None)
 
     edits = {}
     for tid, edit in body.edits.items():
@@ -204,6 +226,7 @@ def load_trips(body: LoadRequest) -> LoadResponse:
         pass
     _save_frame(session.session_id, SENSORS_FILE, sensors)
     _save_frame(session.session_id, ROUTE_FILE, route)
+    cache.write_bytes(cache.aggregate_path(program), preprocess.excel_bytes(agg))  # the aggregate of this load, in the store
     audit_log.log_event(
         session.session_id, session.user_id, "swp_load",
         {"program": program, "trips": len(ids), "rows": len(agg), "sensor_readings": len(sensors),

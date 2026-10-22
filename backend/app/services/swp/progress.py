@@ -21,17 +21,28 @@ class Progress:
     label: str = ""
     finished: bool = False
     touched: float = field(default_factory=time.time)
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def add_total(self, n: int) -> None:
-        self.total += n
-        self.touched = time.time()
+        with self._lock:
+            self.total += n
+            self.touched = time.time()
 
     def tick(self, label: str | None = None) -> None:
-        self.done += 1
-        self.total = max(self.total, self.done)
-        if label:
-            self.label = label
-        self.touched = time.time()
+        with self._lock:
+            self.done += 1
+            self.total = max(self.total, self.done)
+            if label:
+                self.label = label
+            self.touched = time.time()
+
+    def set(self, done: int, total: int | None = None) -> None:
+        with self._lock:
+            self.done = done
+            if total is not None:
+                self.total = total
+            self.total = max(self.total, self.done)
+            self.touched = time.time()
 
 
 _lock = threading.Lock()

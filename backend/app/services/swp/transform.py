@@ -247,11 +247,14 @@ def trip_rows(basic: dict, detail: dict, sens: pd.DataFrame, edit: dict | None =
         "SWP Trip Key": detail.get("tripID"),
         "editedInApp": ", ".join(k for k in ("status", "departure", "arrival") if edit.get(k)) or None,
     }
-    default_serial = (basic.get("serialNumbers") or [None])[0]
+    # The logger of a trip without readings: from call 3 when it was fetched, else the loggers listed in the trip detail itself.
+    listed_serials = [m.get("serialNumber") for c in detail.get("containers") or [] for z in c.get("zones") or []
+                      for m in z.get("monitors") or [] if m.get("serialNumber")]
+    default_serial = next(iter(basic.get("serialNumbers") or listed_serials), None)
 
     # One row per logger (serial number) and sensor, Light before Temperature -- as in the export.
     rows = []
-    if not sens.empty:
+    if not sens.empty and default_serial is not None:
         sens = sens.assign(serialNumber=sens["serialNumber"].fillna(default_serial))
     for serial in sorted(sens["serialNumber"].dropna().unique()) if not sens.empty else []:
         for sensor in sorted(TABLE_SENSORS):

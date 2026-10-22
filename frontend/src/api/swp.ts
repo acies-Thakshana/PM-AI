@@ -123,6 +123,28 @@ export async function fetchAllTrips(programId: string, refresh = false, progress
   return response.json();
 }
 
+export interface SwpPrefetchStatus {
+  total: number;
+  done: number;
+  failed: number;
+  running: boolean;
+  error: string | null;
+  /** About how long each outstanding trip takes (the gap between calls divided over the keys). */
+  seconds_per_trip: number;
+}
+
+/** Start fetching the details (call 4) of these trips in the background and report how far they are. Sending the same
+ * ids again only reports (nothing is fetched twice), so it doubles as the way to poll. */
+export async function startPrefetch(programId: string, tripIds: string[]): Promise<SwpPrefetchStatus> {
+  const response = await apiFetch(`${API_BASE_URL}/api/swp/prefetch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ program_id: programId || null, trip_ids: tripIds }),
+  });
+  if (!response.ok) throw await failure(response, "Could not start fetching the trip details");
+  return response.json();
+}
+
 export interface SwpProgress {
   done: number;
   total: number;

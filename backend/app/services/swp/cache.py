@@ -26,6 +26,7 @@ log = logging.getLogger(__name__)
 
 _DIR = config.DATA_DIR / "swp_cache"
 _lock = threading.Lock()
+_memory: dict[tuple[str, str], dict] = {}   # payloads, when the on-disk store is switched off (SWP_CACHE=0)
 _SAFE = re.compile(r"[^A-Za-z0-9_.-]")
 
 
@@ -69,12 +70,16 @@ def save_trips(program_id: str, trips: list[dict]) -> float:
 
 def load_trip(program_id: str, trip_id: str) -> dict | None:
     """The raw payload {tripID, record, basic, detail} stored for a trip, or None."""
-    return _read(_path(program_id, "trips", f"{trip_id}.json")) if enabled() else None
+    if not enabled():
+        return _memory.get((program_id, trip_id))
+    return _read(_path(program_id, "trips", f"{trip_id}.json"))
 
 
 def save_trip(program_id: str, trip_id: str, payload: dict) -> None:
     if enabled():
         _write(_path(program_id, "trips", f"{trip_id}.json"), payload)
+    else:
+        _memory[(program_id, trip_id)] = payload
 
 
 def aggregate_path(program_id: str) -> Path:

@@ -1,7 +1,7 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import ApiProgress from "./ApiProgress";
-import { fetchAllTrips } from "../api/swp";
-import type { SwpTripsResponse, TripEdits } from "../api/swp";
+import { fetchAllTrips, startPrefetch } from "../api/swp";
+import type { SwpPrefetchStatus, SwpTripsResponse, TripEdits } from "../api/swp";
 import {
   ARRIVED,
   IN_TRANSIT,
@@ -34,6 +34,11 @@ interface SwpConfigPanelProps {
   disabled?: boolean;
 }
 
+function formatWait(seconds: number): string {
+  if (seconds < 60) return `${Math.max(Math.round(seconds), 1)} s`;
+  return `${Math.floor(seconds / 60)} min ${Math.round(seconds % 60)} s`;
+}
+
 const show = (value: number | null, unit = "") => (value == null ? "–" : `${value}${unit}`);
 
 /** The SWP side of the Configure page. The program id fetches EVERY trip of the program (stored data is reused);
@@ -44,6 +49,8 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>(IN_TRANSIT);
   const [search, setSearch] = useState("");
+  const [prefetch, setPrefetch] = useState<SwpPrefetchStatus | null>(null);
+  const [retry, setRetry] = useState(0);
 
   const fetchTrips = useCallback(
     async (refresh: boolean) => {
@@ -82,6 +89,35 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
   const toLoad = useMemo(() => selectedTrips(shownTrips, config, edits), [shownTrips, config, edits]);
   const unknown = useMemo(() => unknownTripIds(shownTrips, config), [shownTrips, config]);
   const typed = parseTripIds(config.idsText);
+
+  // As soon as the trip list is here, the arrived trips that will be analysed have their details (call 4) fetched in the
+  // background. Sending the same ids again only reports the progress, so this loop is also the poll.
+  const idsKey = toLoad.map((t) => t.trip_id).join(",");
+  const prefetchProgram = shownTrips?.program_id;
+  useEffect(() => {
+    if (!prefetchProgram || !idsKey) {
+      setPrefetch(null);
+      return;
+    }
+    let live = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const tick = async () => {
+      try {
+        const status = await startPrefetch(prefetchProgram, idsKey.split(","));
+        if (!live) return;
+        setPrefetch(status);
+        if (status.running) timer = setTimeout(tick, 2000);
+      } catch (err) {
+        if (live) setPrefetch({ total: 0, done: 0, failed: 0, running: false, error: err instanceof Error ? err.message : "Could not fetch the trip details.", seconds_per_trip: 0 });
+      }
+    };
+    const start = setTimeout(tick, 400); // wait a moment: marking trips arrived changes the list several times in a row
+    return () => {
+      live = false;
+      clearTimeout(start);
+      if (timer) clearTimeout(timer);
+    };
+  }, [prefetchProgram, idsKey, retry]);
 
   const listed = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -201,7 +237,7 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
 
       <div className="swp-fetchbar">
         <p className="swp-fetchbar__hint">
-          Fetches every trip of the program. What was fetched before is reused, so only new or changed trips take time.
+          Fetches the list of every trip of the program (quick). The details of the arrived trips are then fetched in the background.
         </p>
         <button type="button" className="swp-fetch" onClick={() => fetchTrips(false)} disabled={disabled || fetching || !programId}>
           {fetching ? (
@@ -342,6 +378,29 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
               <span className="swp-field__hint swp-field__hint--error">Not found: {unknown.slice(0, 3).join(", ")}{unknown.length > 3 ? ` and ${unknown.length - 3} more` : ""}.</span>
             )}
           </label>
+
+          {prefetch && toLoad.length > 0 && (
+            <div className="api-progress" role="status" aria-live="polite">
+              <div className="api-progress__text">
+                {prefetch.error && !prefetch.running ? (
+                  <>
+                    Could not fetch {prefetch.failed || "some"} trip detail(s): {prefetch.error}{" "}
+                    <button type="button" className="swp-link" onClick={() => setRetry((n) => n + 1)}>Try again</button>
+                  </>
+                ) : prefetch.running ? (
+                  <>
+                    Fetching the details of the arrived trips in the background: <strong>{prefetch.done} / {prefetch.total}</strong>
+                    {" "}(about {formatWait(Math.max(prefetch.total - prefetch.done - prefetch.failed, 0) * prefetch.seconds_per_trip)} left). You can carry on.
+                  </>
+                ) : (
+                  <>Trip details ready: <strong>{prefetch.done} / {prefetch.total}</strong> arrived trips. Continuing will be quick.</>
+                )}
+              </div>
+              <div className="api-progress__bar" aria-hidden="true">
+                <div className="api-progress__fill" style={{ width: `${prefetch.total ? Math.round((prefetch.done / prefetch.total) * 100) : 0}%` }} />
+              </div>
+            </div>
+          )}
 
           <p className={`swp-summary${toLoad.length === 0 ? " swp-summary--error" : ""}`}>
             {toLoad.length === 0
