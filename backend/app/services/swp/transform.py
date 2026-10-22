@@ -11,6 +11,8 @@ from Fahrenheit (what the API returns) to Celsius.
 """
 from __future__ import annotations
 
+import re
+
 import numpy as np
 import pandas as pd
 
@@ -76,6 +78,15 @@ def pick(d, *path):
             return None
         d = d.get(p)
     return d
+
+
+def duration_days(text: str | None) -> float | None:
+    """'3.17:00:00' (days.hours:minutes:seconds) -> days."""
+    m = re.match(r"(?:(\d+)\.)?(\d+):(\d+):(\d+)", text or "")
+    if not m:
+        return None
+    d, h, mi, s = (int(x or 0) for x in m.groups())
+    return d + h / 24 + mi / 1440 + s / 86400
 
 
 def _flatten(obj, prefix: str = "") -> dict:
@@ -284,6 +295,53 @@ def trip_rows(basic: dict, detail: dict, sens: pd.DataFrame, edit: dict | None =
             "MKT Statistics Value": _round(f_to_c(stats.get("mkt"))),
         })
     return rows
+
+
+_NO_READINGS = pd.DataFrame(columns=["serialNumber", "sensor", "dateTime", "value"])
+
+
+def record_rows(record: dict, edit: dict | None = None) -> list[dict]:
+    """The audit-table rows of one trip from its SEARCH record alone (no detail call): SWP's own trip statistics stand in
+    for the numbers computed from the readings. About 40 of the 59 columns are filled; the ones that need the readings
+    (the ideal-based hours and minutes, one row per logger) and the segment type and number stay empty until the detail
+    is fetched. The record has the same layout as the detail for everything used here, so the detail's code is reused."""
+    row = trip_rows({}, record, _NO_READINGS, edit, record)[0]   # the Temperature row, from the statistics
+    stats = record.get("tripStatistics") or {}
+
+    def whole_hours(text):
+        days = duration_days(text)
+        return None if days is None else float(round(days * 24))
+
+    def degree_minutes(value):
+        return None if value is None else _round(value * 5.0 / 9.0, 6)
+
+    row["Time Below Low Hours"] = whole_hours(pick(stats, "tempTime", "below"))
+    row["Time Above High Hours"] = whole_hours(pick(stats, "tempTime", "above"))
+    row["Value Minutes Below Low"] = degree_minutes(pick(stats, "tempDegreeMinutes", "low"))
+    row["Value Minutes Above High"] = degree_minutes(pick(stats, "tempDegreeMinutes", "high"))
+    rows = [row]
+    variance, reading = stats.get("lightVariance"), stats.get("lightReadings")
+    if variance:
+        light = {k: row[k] for k in row if k in EXPORT_COLUMNS and k not in (
+            "Limit Low", "Limit Ideal", "Limit High", "Mean Value", "Standard Deviation", "Min Value", "Max Value", "MKT Statistics Value",
+            "Time Below Low Hours", "Time Above High Hours", "Value Minutes Below Low", "Value Minutes Above High")}
+        light.update({"Sensor Type": "Light", "Degree Unit": "%", "Mean Value": _round(variance.get("mean")),
+                      "Standard Deviation": _round(variance.get("sd")),
+                      "Min Value": _round((reading or {}).get("min")), "Max Value": _round((reading or {}).get("max"))})
+        rows.insert(0, light)   # Light before Temperature, as in the export
+    return rows
+
+
+def record_table(records: list[dict], sensors: list[str] | None = None, edits: dict[str, dict] | None = None) -> pd.DataFrame:
+    """The audit table for these search records (see record_rows); `sensors` and `edits` work as in build_tables."""
+    keep = {s.lower() for s in sensors} if sensors else None
+    out = []
+    for record in records:
+        rows = record_rows(record, (edits or {}).get(record["tripID"]))
+        if keep is not None:
+            rows = [r for r in rows if str(r["Sensor Type"]).lower() in keep] or rows[-1:]
+        out += rows
+    return pd.DataFrame(out).reindex(columns=EXPORT_COLUMNS)
 
 
 def build_tables(

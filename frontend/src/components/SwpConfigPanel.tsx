@@ -413,10 +413,10 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
           {view === AGGREGATE && (
             <div>
               <p className="swp-card__note">
-                The aggregate data: the {aggregate?.columns.length ?? 59} columns of the Excel file, one row per trip, logger and sensor, for the {toLoad.length} arrived
-                trips that will be loaded.{" "}
+                The aggregate data: the columns of the Excel file for the {toLoad.length} arrived trips that will be loaded. Rows marked <strong>search</strong> come
+                from the trip search (SWP's own statistics, shown at once); each switches to <strong>detail</strong>, with every column filled, when that trip's details have been fetched.{" "}
                 {aggregate
-                  ? `${aggregate.trips_ready} of ${aggregate.trips_total} trips are ready${aggregate.trips_ready < aggregate.trips_total ? "; the others are still being fetched and appear here as they arrive" : ""}.`
+                  ? `${aggregate.trips_ready} of ${aggregate.trips_total} trips are complete.`
                   : "Building the table…"}
                 {aggregate?.saved_to && <> Saved as Excel: <code>{aggregate.saved_to}</code></>}
               </p>

@@ -338,7 +338,7 @@ export default function UploadPage({
         )}
 
         {uploadError && <div className="upload-page__error">{uploadError}</div>}
-        {uploading && apiMode && <ApiProgress progressId={progressId} fallback="Loading the first trips…" />}
+        {uploading && apiMode && <ApiProgress progressId={progressId} fallback="Starting…" />}
 
         {apiMode && (
           <SwpConfigPanel

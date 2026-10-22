@@ -23,14 +23,13 @@ from __future__ import annotations
 import argparse
 import io
 import json
-import re
 from pathlib import Path
 
 import pandas as pd
 
 from app import config
 from app.services.swp import cache, client
-from app.services.swp.transform import EXPORT_COLUMNS, build_tables, f_to_c, pick
+from app.services.swp.transform import EXPORT_COLUMNS, build_tables, duration_days, f_to_c, pick
 
 AGGREGATE_FILE = "Tabular Shipment Data.xlsx"
 SHEET_NAME = "Tabular Shipment Data"
@@ -82,20 +81,11 @@ def payloads_for(program: str, ids: list[str], records: dict[str, dict], on_prog
 
 # ---- what the Configure page shows per trip: from the search record alone --------------------------------------------
 
-def _days(text: str | None) -> float | None:
-    """'3.17:00:00' (days.hours:minutes:seconds) -> days."""
-    m = re.match(r"(?:(\d+)\.)?(\d+):(\d+):(\d+)", text or "")
-    if not m:
-        return None
-    d, h, mi, s = (int(x or 0) for x in m.groups())
-    return d + h / 24 + mi / 1440 + s / 86400
-
-
 def record_kpis(record: dict) -> dict:
     """The numbers of one trip, read from its search record (no detail call): mean temperature in Celsius from SWP's own trip
     statistics, segment days from tripLength, and the names. For a trip still on its way both are as of the moment of the search."""
     mean_f = pick(record, "tripStatistics", "tempVariance", "mean")
-    days = _days(record.get("tripLength"))
+    days = duration_days(record.get("tripLength"))
     product = next((p.get("productName") for d in record.get("destinations") or [] for p in d.get("products") or [] if p.get("productName")), None)
     return {
         "number": None if record.get("id") is None else str(record["id"]),

@@ -21,7 +21,9 @@ from app.routers.job_route import JobRoute
 from app.services.audit.audit_store import get_or_404, store
 from app.services.common import audit_log, column_meta, file_store, request_context
 from app.services.swp import cache, client, prefetch, preprocess, progress
-from app.services.swp.transform import TIMEZONE, build_tables
+from app.services.swp.transform import (
+    ROUTE_COLUMNS, SENSOR_COLUMNS, TIMEZONE, build_tables, record_table,
+)
 
 log = logging.getLogger(__name__)
 
@@ -32,8 +34,6 @@ ROUTE_FILE = "swp_route.parquet"
 # The session's "file name": the Audit page shows it where an upload's file name used to be.
 SOURCE_NAME = "SWP API trips"
 MAX_MAP_POINTS = 600
-# The session is created as soon as this many trips are stored, so the Planner can start; the rest follow in the background.
-FIRST_TRIPS = 3
 
 
 def _guard(program_id: str | None = None) -> None:
@@ -278,16 +278,18 @@ def load_trips(body: LoadRequest) -> LoadResponse:
             detail=f"Only arrived trips can be loaded. Not arrived: {', '.join(not_arrived[:3])}{' ...' if len(not_arrived) > 3 else ''}",
         )
 
-    # Phase 1: a session from the details stored so far, so the Planner can start at once. The first few trips are waited for (the
-    # background fetch takes them in this order); the others are completed in the background (_start_finisher) and the Audit waits.
+    # The session is made at once, with no waiting, so the Planner can start. If every detail is already stored it is the complete
+    # table. Otherwise it is built from the trip search records (they carry SWP's own statistics, which is plenty for the Planner)
+    # and a background task (_start_finisher) swaps in the complete table when the details are in; the Audit waits for that.
     prefetch.submit(program, ids, records)
-    first = min(len(ids), FIRST_TRIPS)
-    tracker = progress.start(body.progress_id, total=first, label="Loading the first trips")
-    _swp_call(prefetch.wait, program, ids[:first], (lambda done, total: tracker.set(done, total)) if tracker else None)
     stored = preprocess.stored_payloads(program, ids, records)
-    ready_ids = [t for t in ids if t in stored]
     edits = _edits_for(body.edits, by_lower)
-    agg, sensors, route = build_tables([stored[t] for t in ready_ids], body.sensors or None, edits, records)
+    ready_ids = [t for t in ids if t in stored]
+    if len(ready_ids) == len(ids):
+        agg, sensors, route = build_tables([stored[t] for t in ids], body.sensors or None, edits, records)
+    else:
+        agg = record_table([records[t] for t in ids], body.sensors or None, edits)
+        sensors, route = pd.DataFrame(columns=SENSOR_COLUMNS), pd.DataFrame(columns=ROUTE_COLUMNS)
     if agg.empty:
         raise HTTPException(status_code=404, detail="The API returned no usable trip data.")
 
@@ -305,10 +307,9 @@ def load_trips(body: LoadRequest) -> LoadResponse:
         _start_finisher(session.session_id, program, ids, records, body.sensors, edits, len(ready_ids))
     audit_log.log_event(
         session.session_id, session.user_id, "swp_load",
-        {"program": program, "trips": len(ids), "ready_at_start": len(ready_ids), "rows": len(agg),
+        {"program": program, "trips": len(ids), "details_ready_at_start": len(ready_ids), "rows": len(agg),
          "sensor_readings": len(sensors), "edited_trips": len(edits)},
     )
-    progress.finish()
     return LoadResponse(
         session_id=session.session_id, filename=SOURCE_NAME, row_count=len(agg),
         column_count=len(agg.columns), columns=[str(c) for c in agg.columns], trip_ids=ids,
@@ -343,7 +344,7 @@ class AggregateRequest(BaseModel):
 class AggregateResponse(BaseModel):
     columns: list[str]
     rows: list[dict]
-    trips_ready: int     # trips whose detail is stored, so they are in the table
+    trips_ready: int     # trips whose detail is stored: their rows are complete ("Data from" = detail); the others come from the search
     trips_total: int
     saved_to: str | None = None   # the Excel file written when every trip is ready
 
@@ -372,15 +373,22 @@ def aggregate_preview(body: AggregateRequest) -> AggregateResponse:
             records[match["tripID"]] = match
     ids = list(records)
     stored = preprocess.stored_payloads(program, ids, records)
-    table, _readings, _route = build_tables([stored[t] for t in ids if t in stored], body.sensors or None, _edits_for(body.edits, by_lower), records)
+    edits = _edits_for(body.edits, by_lower)
+    complete, _readings, _route = build_tables([stored[t] for t in ids if t in stored], body.sensors or None, edits, records)
     saved_to = None
-    if ids and len(stored) == len(ids) and not table.empty:
+    if ids and len(stored) == len(ids) and not complete.empty:
         path = cache.aggregate_path(program)
-        cache.write_bytes(path, preprocess.excel_bytes(table))
+        cache.write_bytes(path, preprocess.excel_bytes(complete))
         saved_to = str(path)
-    shown = table.reindex(columns=preprocess.AGGREGATE_COLUMNS)
+    # rows of trips whose detail is stored are complete; the others are shown from their search record, so the table is full at once
+    from_search = record_table([records[t] for t in ids if t not in stored], body.sensors or None, edits)
+    table = pd.concat([complete.assign(**{"Data from": "detail"}), from_search.assign(**{"Data from": "search"})], ignore_index=True)
+    order = {t: i for i, t in enumerate(ids)}
+    table = table.assign(_order=table["SWP Trip Key"].map(order)).sort_values("_order", kind="stable")
+    columns = preprocess.AGGREGATE_COLUMNS + ["Data from"]
+    shown = table.reindex(columns=columns)
     rows = [{c: _cell(v) for c, v in row.items()} for row in shown.to_dict("records")]
-    return AggregateResponse(columns=preprocess.AGGREGATE_COLUMNS, rows=rows, trips_ready=len(stored), trips_total=len(ids), saved_to=saved_to)
+    return AggregateResponse(columns=columns, rows=rows, trips_ready=len(stored), trips_total=len(ids), saved_to=saved_to)
 
 
 class ProgressResponse(BaseModel):
