@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import ApiProgress from "./ApiProgress";
-import { fetchAllTrips, startPrefetch } from "../api/swp";
-import type { SwpPrefetchStatus, SwpTripsResponse, TripEdits } from "../api/swp";
+import ExcelTable from "./ExcelTable";
+import { fetchAggregate, fetchAllTrips, startPrefetch } from "../api/swp";
+import type { SwpAggregate, SwpPrefetchStatus, SwpTripsResponse, TripEdits } from "../api/swp";
 import {
   ARRIVED,
   IN_TRANSIT,
@@ -21,7 +22,8 @@ import "../pages/UploadPage.css";
 import "../pages/TripsPage.css";
 
 const MAX_LISTED_TRIPS = 300;
-type View = typeof IN_TRANSIT | typeof ARRIVED;
+const AGGREGATE = "Aggregate";
+type View = typeof IN_TRANSIT | typeof ARRIVED | typeof AGGREGATE;
 
 interface SwpConfigPanelProps {
   config: SwpConfigState;
@@ -51,6 +53,8 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
   const [search, setSearch] = useState("");
   const [prefetch, setPrefetch] = useState<SwpPrefetchStatus | null>(null);
   const [retry, setRetry] = useState(0);
+  const [aggregate, setAggregate] = useState<SwpAggregate | null>(null);
+  const [aggregateError, setAggregateError] = useState<string | null>(null);
 
   const fetchTrips = useCallback(
     async (refresh: boolean) => {
@@ -77,7 +81,9 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
   const shownTrips = trips && trips.program_id === programId ? trips : null;
   const dateFilterOn = Boolean(config.dateFrom || config.dateTo);
   const inDates = useMemo(() => matchingTrips(shownTrips, config), [shownTrips, config]);
-  const inView = useMemo(() => tripsInView(shownTrips, config, edits, view), [shownTrips, config, edits, view]);
+  // The Aggregate tab shows the table of the arrived trips; the cards and search below it belong to the arrived list.
+  const listView = view === AGGREGATE ? ARRIVED : view;
+  const inView = useMemo(() => tripsInView(shownTrips, config, edits, listView), [shownTrips, config, edits, listView]);
   const counts = useMemo(
     () => ({
       [IN_TRANSIT]: tripsInView(shownTrips, config, edits, IN_TRANSIT).length,
@@ -118,6 +124,43 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
       if (timer) clearTimeout(timer);
     };
   }, [prefetchProgram, idsKey, retry]);
+
+  const sensorsKey = config.sensors.join(",");
+  const editsKey = JSON.stringify(edits);
+  const prefetchDone = prefetch?.done ?? 0;
+  const prefetchRunning = prefetch?.running ?? false;
+  const prefetchTotal = prefetch?.total ?? -1;
+  useEffect(() => {
+    if (!prefetchProgram || !idsKey) {
+      setAggregate(null);
+      return;
+    }
+    // built when the tab is open (so it fills up as details arrive), and once when everything is ready (which also writes the Excel)
+    if (view !== AGGREGATE && !(!prefetchRunning && prefetchDone === prefetchTotal)) return;
+    let live = true;
+    const ids = idsKey.split(",");
+    const handle = setTimeout(async () => {
+      try {
+        const result = await fetchAggregate({
+          program_id: prefetchProgram,
+          trip_ids: ids,
+          sensors: sensorsKey ? sensorsKey.split(",") : [],
+          edits: Object.fromEntries(ids.filter((id) => edits[id]).map((id) => [id, edits[id]])),
+        });
+        if (live) {
+          setAggregate(result);
+          setAggregateError(null);
+        }
+      } catch (err) {
+        if (live) setAggregateError(err instanceof Error ? err.message : "Could not build the aggregate table.");
+      }
+    }, 800);
+    return () => {
+      live = false;
+      clearTimeout(handle);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, prefetchProgram, idsKey, sensorsKey, editsKey, prefetchDone, prefetchRunning, prefetchTotal]);
 
   const listed = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -272,7 +315,7 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
           </p>
 
           <div className="source-toggle" role="tablist" aria-label="Trips by status">
-            {([IN_TRANSIT, ARRIVED] as const).map((status) => (
+            {([IN_TRANSIT, ARRIVED, AGGREGATE] as const).map((status) => (
               <button
                 key={status}
                 type="button"
@@ -281,7 +324,7 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
                 className={`source-toggle__option${view === status ? " source-toggle__option--active" : ""}`}
                 onClick={() => setView(status)}
               >
-                {status === IN_TRANSIT ? "In Transit" : "Arrived"} ({counts[status]})
+                {status === AGGREGATE ? "Aggregate data (Excel view)" : `${status === IN_TRANSIT ? "In Transit" : "Arrived"} (${counts[status]})`}
               </button>
             ))}
           </div>
@@ -290,11 +333,13 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
             {tile("Total trips", String(inDates.length))}
             {tile("Arrived", String(counts[ARRIVED]))}
             {tile("In transit", String(counts[IN_TRANSIT]))}
-            {tile(`Alarmed (${view === IN_TRANSIT ? "in transit" : "arrived"})`, String(kpis.alarmed))}
-            {tile(`Avg mean temp (${view === IN_TRANSIT ? "in transit" : "arrived"})`, show(kpis.avgMeanTemp, " °C"))}
-            {tile(`Avg segment days (${view === IN_TRANSIT ? "in transit" : "arrived"})`, show(kpis.avgSegmentDays))}
+            {tile(`Alarmed (${listView === IN_TRANSIT ? "in transit" : "arrived"})`, String(kpis.alarmed))}
+            {tile(`Avg mean temp (${listView === IN_TRANSIT ? "in transit" : "arrived"})`, show(kpis.avgMeanTemp, " °C"))}
+            {tile(`Avg segment days (${listView === IN_TRANSIT ? "in transit" : "arrived"})`, show(kpis.avgSegmentDays))}
           </div>
 
+          {view !== AGGREGATE && (
+          <>
           <div className="swp-picker__head">
             <input
               className="swp-field__input swp-picker__search"
@@ -362,6 +407,30 @@ export default function SwpConfigPanel({ config, onConfigChange, trips, onTripsC
             </table>
           </div>
           {inView.length > listed.length && !search && <p className="swp-card__note">Showing the first {MAX_LISTED_TRIPS}; search or set dates to narrow the list.</p>}
+          </>
+          )}
+
+          {view === AGGREGATE && (
+            <div>
+              <p className="swp-card__note">
+                The aggregate data: the {aggregate?.columns.length ?? 59} columns of the Excel file, one row per trip, logger and sensor, for the {toLoad.length} arrived
+                trips that will be loaded.{" "}
+                {aggregate
+                  ? `${aggregate.trips_ready} of ${aggregate.trips_total} trips are ready${aggregate.trips_ready < aggregate.trips_total ? "; the others are still being fetched and appear here as they arrive" : ""}.`
+                  : "Building the table…"}
+                {aggregate?.saved_to && <> Saved as Excel: <code>{aggregate.saved_to}</code></>}
+              </p>
+              {aggregateError && <div className="upload-page__error">{aggregateError}</div>}
+              {aggregate &&
+                (aggregate.rows.length > 0 ? (
+                  <div className="swp-aggregate">
+                    <ExcelTable columns={aggregate.columns} rows={aggregate.rows} frozen={["Serial Number", "Trip ID"]} />
+                  </div>
+                ) : (
+                  <p className="swp-card__note">No trip details have arrived yet; the first rows appear in a few seconds.</p>
+                ))}
+            </div>
+          )}
 
           <label className="swp-field" style={{ marginTop: 16 }}>
             <span className="swp-field__label">Trip IDs (optional)</span>

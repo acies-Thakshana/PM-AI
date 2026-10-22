@@ -24,6 +24,7 @@ import { CONFIGURE_LOAD_KEY, CONFIGURE_STATUS_KEY, NOT_READY } from "../chat/sig
 import type { ConfigureStatus } from "../chat/signals";
 import { useStoredState } from "../state/sessionStore";
 import { hasBrief } from "../context/plannerSkipped";
+import type { TripDataState } from "../context/tripData";
 import type { DataSource } from "../context/plannerSkipped";
 import "./UploadPage.css";
 
@@ -54,7 +55,7 @@ interface UploadPageProps {
   edits: TripEdits;
   onEditsChange: (edits: TripEdits) => void;
   /** The arrived trips were loaded from the store into one audit session. */
-  onLoadComplete: (sessionId: string, label: File, signature: string) => void;
+  onLoadComplete: (sessionId: string, label: File, signature: string, status: TripDataState) => void;
   onSelect: (id: UploadSlotId, file: File) => void;
   onRemove: (id: UploadSlotId) => void;
   onClearAll: () => void;
@@ -174,7 +175,7 @@ export default function UploadPage({
       // The Planner and the later steps only look at the file's name, so a stand-in carries the label.
       const label = new File([], loaded.filename);
       await finalizeBrief(brief, { ...files, sensiwatch: label }, [loaded.session_id]);
-      onLoadComplete(loaded.session_id, label, signature);
+      onLoadComplete(loaded.session_id, label, signature, { ready: loaded.complete, loaded: loaded.loaded, total: loaded.total, error: null });
       await goOn(loaded.session_id);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Could not load the trips. Is the backend running?");
@@ -337,7 +338,7 @@ export default function UploadPage({
         )}
 
         {uploadError && <div className="upload-page__error">{uploadError}</div>}
-        {uploading && apiMode && <ApiProgress progressId={progressId} fallback="Loading the arrived trips…" />}
+        {uploading && apiMode && <ApiProgress progressId={progressId} fallback="Loading the first trips…" />}
 
         {apiMode && (
           <SwpConfigPanel

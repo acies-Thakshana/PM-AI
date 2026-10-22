@@ -1,6 +1,6 @@
 import { DataSourceContext, PlannerSkippedContext, hasBrief } from "./context/plannerSkipped";
 import type { DataSource } from "./context/plannerSkipped";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import WelcomePage from "./pages/WelcomePage";
 import UploadPage from "./pages/UploadPage";
@@ -16,7 +16,10 @@ import type { UploadSlotId } from "./types/upload";
 import { resetAllState, resetDownstreamState } from "./state/sessionStore";
 import { EMPTY_BRIEF } from "./components/ClientBriefInput";
 import type { BriefState } from "./components/ClientBriefInput";
+import { fetchSessionStatus } from "./api/swp";
 import type { SwpTimesResult, SwpTripsResponse, TripEdits } from "./api/swp";
+import { TripDataContext } from "./context/tripData";
+import type { TripDataState } from "./context/tripData";
 import { EMPTY_SWP_CONFIG } from "./utils/swpTrips";
 import { ChatProvider } from "./chat/ChatProvider";
 import ChatPanel from "./components/ChatPanel";
@@ -59,6 +62,30 @@ function App() {
   const [reuploadingSensiwatch, setReuploadingSensiwatch] = useState(false);
   const [reuploadError, setReuploadError] = useState<string | null>(null);
 
+  // After a load from SWP the session first holds the trips fetched so far; the rest arrive in the background.
+  const [tripData, setTripData] = useState<TripDataState>({ ready: true, loaded: 0, total: 0, error: null });
+  const sensiwatchSession = uploadedSessionIds.sensiwatch;
+  useEffect(() => {
+    if (!sensiwatchSession || tripData.ready || tripData.error) return;
+    let live = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const tick = async () => {
+      try {
+        const s = await fetchSessionStatus(sensiwatchSession);
+        if (!live) return;
+        setTripData({ ready: s.complete, loaded: s.loaded, total: s.total, error: s.error });
+        if (!s.complete && !s.error) timer = setTimeout(tick, 2000);
+      } catch {
+        if (live) timer = setTimeout(tick, 4000); // a missed poll is fine
+      }
+    };
+    timer = setTimeout(tick, 1000);
+    return () => {
+      live = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [sensiwatchSession, tripData.ready, tripData.error]);
+
   const plannerSkipped = !hasBrief(brief);
 
   // Always-current session ids, so an async audit/resolve/revert that finishes
@@ -79,6 +106,7 @@ function App() {
   const handleSourceChange = (source: DataSource) => {
     if (source === dataSource) return;
     resetAllState();
+    setTripData({ ready: true, loaded: 0, total: 0, error: null });
     setDataSource(source);
     setFiles((prev) => ({ ...prev, sensiwatch: null, coldstream: null }));
     setUploadedSessionIds({});
@@ -92,8 +120,9 @@ function App() {
 
   // The trips were loaded from the SWP API into one session. `label` is a stand-in "file" that only
   // carries the source's name for the pages that show it.
-  const handleLoadComplete = (sessionId: string, label: File, signature: string) => {
+  const handleLoadComplete = (sessionId: string, label: File, signature: string, status: TripDataState) => {
     resetAllState();
+    setTripData(status);
     setFiles((prev) => ({ ...prev, sensiwatch: label }));
     setUploadedBriefSignature(signature);
     setUploadedSessionIds({ sensiwatch: sessionId });
@@ -157,6 +186,7 @@ function App() {
     setSwpConfig(EMPTY_SWP_CONFIG);
     setSwpTrips(null);
     setTripEdits({});
+    setTripData({ ready: true, loaded: 0, total: 0, error: null });
     setUploadedSessionIds({});
     setUploadedBriefSignature(null);
     setPlannerSessionId(null);
@@ -252,6 +282,7 @@ function App() {
   return (
     <BrowserRouter>
       <DataSourceContext.Provider value={dataSource}>
+      <TripDataContext.Provider value={tripData}>
       <PlannerSkippedContext.Provider value={plannerSkipped}>
       <ChatProvider
         brief={brief}
@@ -319,6 +350,7 @@ function App() {
       <ChatPanel />
       </ChatProvider>
       </PlannerSkippedContext.Provider>
+      </TripDataContext.Provider>
       </DataSourceContext.Provider>
     </BrowserRouter>
   );

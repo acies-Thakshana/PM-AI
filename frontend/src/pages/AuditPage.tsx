@@ -15,6 +15,8 @@ import TripInspectTable from "../components/TripInspectTable";
 import TripInspectModal from "../components/TripInspectModal";
 import type { SwpTimesResult } from "../api/swp";
 import { DataSourceContext } from "../context/plannerSkipped";
+import { TripDataContext } from "../context/tripData";
+import TripDataBanner from "../components/TripDataBanner";
 import { IconShieldSearch, IconDownload } from "../components/icons";
 import { downloadCleansedFile } from "../api/audit";
 import { resetDownstreamState, useStoredState } from "../state/sessionStore";
@@ -64,6 +66,7 @@ export default function AuditPage({
   const proceed = () => navigate("/features");
   const proceedLabel = "Proceed to Features";
   const apiSource = useContext(DataSourceContext) === "api";
+  const tripData = useContext(TripDataContext);
   // The trip open in the Inspect window (by SWP key from the trips table, by Trip ID from the outlier tables), and
   // a counter that goes up whenever a trip's times were changed so what is built on them is read again.
   const [inspect, setInspect] = useState<{ key?: string; number?: string } | null>(null);
@@ -102,10 +105,11 @@ export default function AuditPage({
     for (const id of AUDITED_SLOTS) {
       // SensiWatch's audit is deferred until the outlier step is passed (skipped or corrected file uploaded).
       if (id === WIZARD_SLOT && !sensiwatchStandardUnlocked) continue;
+      if (!tripData.ready) continue; // the audit needs every trip: wait for the background load
       if (needsAudit(id)) onRunAudit(id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uploadedSessionIds, auditReports, auditLoading, auditErrors, sensiwatchStandardUnlocked]);
+  }, [uploadedSessionIds, auditReports, auditLoading, auditErrors, sensiwatchStandardUnlocked, tripData.ready]);
 
   const advanceSensiwatchToStandard = (sessionId: string | null | undefined = sensiwatchSessionId) => {
     setUnlockedForSession(sessionId ?? null);
@@ -126,6 +130,24 @@ export default function AuditPage({
   const anyPending = auditedSlotsWithFiles.some((id) => auditReports[id]?.status === "pending_review");
   const canContinue =
     !!uploadedSessionIds.sensiwatch && sensiwatchStandardUnlocked && !anyLoading && !anyPending;
+
+  if (!tripData.ready) {
+    return (
+      <div className="audit-page">
+        <Header subtitle="Data Audit" />
+        <main className="audit-page__main">
+          <StepIndicator current={3} />
+          <TripDataBanner audit />
+          <div className="audit-page__empty">
+            <p>The audit needs all the trips, so it starts as soon as they have been loaded.</p>
+            <button type="button" className="btn btn--secondary" onClick={() => navigate("/planner")}>
+              Back to the Planner
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   if (!hasAnyFile) {
     return (

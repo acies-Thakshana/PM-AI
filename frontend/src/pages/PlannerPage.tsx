@@ -1,6 +1,8 @@
 import ThinkingLoader, { Spinner } from "../components/ThinkingLoader";
 import { LOADING } from "../utils/loadingMessages";
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
+import TripDataBanner from "../components/TripDataBanner";
+import { TripDataContext } from "../context/tripData";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Header from "../components/Header";
 import StepIndicator from "../components/StepIndicator";
@@ -64,6 +66,7 @@ interface PlannerCacheEntry {
 
 export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
   const navigate = useNavigate();
+  const tripData = useContext(TripDataContext);
   // Lives in the shared session store (like every other page's cross-navigation
   // state) instead of a module-level Map, so it also survives whatever Features/
   // Analysis/Report already rely on this store for -- same Map objects, same
@@ -229,15 +232,17 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
       <Header subtitle="AI Planner" />
       <main className="planner-page__main">
         <StepIndicator current={2} />
+        <TripDataBanner />
 
         <PageNav position="top" onBack={() => navigate("/upload")}>
           <button
             type="button"
             className="btn btn--primary"
-            disabled={saving || loading || !result}
+            disabled={saving || loading || !result || !tripData.ready}
+            title={tripData.ready ? undefined : "The Audit opens when all the trip data has been loaded"}
             onClick={handleProceed}
           >
-            {saving ? "Saving…" : "Proceed to Audit"}
+            {saving ? "Saving…" : tripData.ready ? "Proceed to Audit" : `Waiting for trip data ${tripData.loaded}/${tripData.total}`}
           </button>
         </PageNav>
 
@@ -360,10 +365,11 @@ export default function PlannerPage({ sessionId, files }: PlannerPageProps) {
           <button
             type="button"
             className="btn btn--primary"
-            disabled={saving || loading || !result}
+            disabled={saving || loading || !result || !tripData.ready}
+            title={tripData.ready ? undefined : "The Audit opens when all the trip data has been loaded"}
             onClick={handleProceed}
           >
-            {saving ? "Saving…" : "Proceed to Audit"}
+            {saving ? "Saving…" : tripData.ready ? "Proceed to Audit" : `Waiting for trip data ${tripData.loaded}/${tripData.total}`}
           </button>
         </PageNav>
       </main>

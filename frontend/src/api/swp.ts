@@ -60,6 +60,10 @@ export interface SwpLoadResponse {
   column_count: number;
   columns: string[];
   trip_ids: string[];
+  /** false: the session holds the trips fetched so far and is completed in the background. */
+  complete: boolean;
+  loaded: number;
+  total: number;
 }
 
 export interface SwpSessionTrip {
@@ -167,6 +171,38 @@ export async function loadTrips(request: SwpLoadRequest): Promise<SwpLoadRespons
     body: JSON.stringify(request),
   });
   if (!response.ok) throw await failure(response, "Could not load the trips");
+  return response.json();
+}
+
+export interface SwpSessionStatus {
+  complete: boolean;
+  loaded: number;
+  total: number;
+  error: string | null;
+}
+
+export async function fetchSessionStatus(sessionId: string): Promise<SwpSessionStatus> {
+  const response = await apiFetch(`${API_BASE_URL}/api/swp/${sessionId}/status`);
+  if (!response.ok) throw await failure(response, "Could not read the loading status");
+  return response.json();
+}
+
+export interface SwpAggregate {
+  columns: string[];
+  rows: Record<string, unknown>[];
+  trips_ready: number;
+  trips_total: number;
+  saved_to: string | null;
+}
+
+/** The aggregate table (the Excel file's columns) for these trips, from the details fetched so far. No SWP call. */
+export async function fetchAggregate(request: { program_id: string | null; trip_ids: string[]; sensors: string[]; edits: TripEdits }): Promise<SwpAggregate> {
+  const response = await apiFetch(`${API_BASE_URL}/api/swp/aggregate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
+  if (!response.ok) throw await failure(response, "Could not build the aggregate table");
   return response.json();
 }
 
