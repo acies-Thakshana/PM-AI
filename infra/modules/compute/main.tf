@@ -86,6 +86,13 @@ resource "aws_lb_listener" "http" {
     target_group_arn = aws_lb_target_group.backend.arn
   }
 
+  lifecycle {
+    precondition {
+      condition     = var.alb_listener_protocol != "HTTPS" || can(regex("^arn:aws[a-z-]*:acm:", var.alb_certificate_arn))
+      error_message = "alb_listener_protocol is HTTPS, so alb_certificate_arn must be the ARN of an ACM certificate in this region (arn:aws:acm:<region>:<account>:certificate/<id>)."
+    }
+  }
+
   tags = {
     Name = "${var.project}-alb-listener-${var.environment}"
   }

@@ -215,7 +215,13 @@ variable "alb_listener_port" {
 }
 
 variable "alb_certificate_arn" {
-  description = "ACM certificate ARN if alb_listener_protocol=HTTPS."
+  description = "ACM certificate ARN if alb_listener_protocol=HTTPS. The certificate must be in the same region as the load balancer and already issued."
+  type        = string
+  default     = ""
+}
+
+variable "alb_tls_server_name" {
+  description = "Name on that ACM certificate (for example api.example.com). Needed only when alb_listener_protocol=HTTPS: API Gateway checks the load balancer's certificate against it."
   type        = string
   default     = ""
 }

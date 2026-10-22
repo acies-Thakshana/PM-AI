@@ -50,6 +50,7 @@ Fill these first:
 | Private subnet IDs | `existing_private_subnet_ids` | Same list used by VPC Link, internal ALB, and ECS |
 | Private route table IDs | `existing_private_route_table_ids` | Needed only if `enable_vpc_endpoints=true` |
 | Extra CORS origins | `extra_cors_origins` | CG custom domain, if any. The Amplify URL is added automatically when `enable_amplify = true`; if Amplify is off, list the frontend origin here. |
+| HTTPS on the load balancer (optional) | `alb_listener_protocol`, `alb_listener_port`, `alb_certificate_arn`, `alb_tls_server_name` | Only if CG requires HTTPS inside the VPC: `"HTTPS"`, `443`, the ARN of an issued ACM certificate in the same region, and the name on that certificate. Leave them out for HTTP on port 80. |
 | Tags | `owner`, `cost_center`, `additional_tags` | CG governance tags |
 | Bedrock models | `bedrock_cheap_model_id`, `bedrock_default_model_id`, `bedrock_strong_model_id` | CG-approved Bedrock models (cheap, default, strong) |
 | Bedrock model ARNs | `bedrock_model_arns` | Specific ARNs if CG provides them; `*` only for early test if allowed |

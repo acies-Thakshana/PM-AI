@@ -28,6 +28,12 @@ variable "listener_arn" {
   type        = string
 }
 
+variable "tls_server_name" {
+  description = "Name on the ALB's ACM certificate (for example api.example.com). Needed only when the ALB listener is HTTPS: API Gateway checks the certificate against it. Empty = HTTP listener, no TLS check."
+  type        = string
+  default     = ""
+}
+
 variable "log_retention_days" {
   description = "CloudWatch log retention in days."
   type        = number

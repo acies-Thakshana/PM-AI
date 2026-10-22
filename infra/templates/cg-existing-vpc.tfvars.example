@@ -71,6 +71,13 @@ desired_count = 0
 # If enable_amplify = false there is no Amplify URL to add, so list the real frontend origin here.
 extra_cors_origins = []
 
+# HTTPS on the internal load balancer (optional). Leave these out for HTTP on port 80. For HTTPS, the ACM
+# certificate must already be issued in the same region as the load balancer.
+# alb_listener_protocol = "HTTPS"
+# alb_listener_port     = 443
+# alb_certificate_arn   = "arn:aws:acm:<region>:<account-id>:certificate/<certificate-id>"
+# alb_tls_server_name   = "<name on the certificate, for example api.example.com>"
+
 # App resources: create unless CG gives existing resources.
 create_ecr                 = true
 create_s3_bucket           = true

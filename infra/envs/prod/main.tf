@@ -193,6 +193,7 @@ module "api" {
   vpclink_security_group_id        = module.security.vpclink_security_group_id
   private_subnet_ids               = module.network.private_subnet_ids
   listener_arn                     = module.compute.listener_arn
+  tls_server_name                  = var.alb_tls_server_name
   log_retention_days               = var.log_retention_days
   api_gateway_timeout_ms           = var.api_gateway_timeout_ms
   api_gateway_cors_max_age_seconds = var.api_gateway_cors_max_age_seconds

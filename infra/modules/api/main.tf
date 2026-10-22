@@ -54,6 +54,14 @@ resource "aws_apigatewayv2_integration" "alb" {
   connection_type        = "VPC_LINK"
   connection_id          = aws_apigatewayv2_vpc_link.backend.id
   timeout_milliseconds   = var.api_gateway_timeout_ms
+
+  # Only for an HTTPS listener: the name API Gateway verifies on the ALB's ACM certificate.
+  dynamic "tls_config" {
+    for_each = var.tls_server_name == "" ? [] : [var.tls_server_name]
+    content {
+      server_name_to_verify = tls_config.value
+    }
+  }
 }
 
 resource "aws_apigatewayv2_route" "default" {

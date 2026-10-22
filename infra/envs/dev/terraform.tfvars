@@ -116,3 +116,12 @@ bedrock_prompt_ids = {
   overall_analysis_agent           = "WQLYTHR71Q:1",
   report_final_summary_agent       = "908YYO0K5S:1"
 }
+
+# ----------------------------------------------------------------------------------------------
+# HTTPS on the internal load balancer (ACM certificate). Off today: the listener is HTTP on port 80.
+# To turn it on, first have the certificate ISSUED in ACM in this region, then uncomment the four lines:
+#   alb_listener_protocol = "HTTPS"
+#   alb_listener_port     = 443
+#   alb_certificate_arn   = "arn:aws:acm:<region>:<account-id>:certificate/<certificate-id>"
+#   alb_tls_server_name   = "<name on the certificate, for example api.example.com>"
+# ----------------------------------------------------------------------------------------------
