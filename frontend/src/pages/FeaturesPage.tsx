@@ -12,6 +12,7 @@ import FeatureCard from "../components/FeatureCard";
 import FeatureDetailModal from "../components/FeatureDetailModal";
 import Modal from "../components/Modal";
 import FeatureSuggestionCard from "../components/FeatureSuggestionCard";
+import FeatureSuggestionDetail from "../components/FeatureSuggestionDetail";
 import AddKpiForm from "../components/AddKpiForm";
 import DataPreviewTable from "../components/DataPreviewTable";
 import { IconDoc, IconGrid, IconSparkle, IconWarnTriangle, IconShieldCheck, IconDownload, IconClipboard } from "../components/icons";
@@ -83,6 +84,8 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
   const [defsAttempted, setDefsAttempted] = useStoredState("features.defsAttempted", false);
 
   const [openFeature, setOpenFeature] = useState<{ slotId: UploadSlotId; featureId: string } | null>(null);
+  // A suggestion that has not been computed yet has no computed-feature window: it opens its own detail instead.
+  const [openSuggestion, setOpenSuggestion] = useState<FeatureRepositoryEntry | null>(null);
   // Tells the assistant which calculation is open, so "explain this" means this one.
   const [, setChatFocus] = useStoredState<string | null>("chat.focus", null);
   useEffect(() => {
@@ -112,17 +115,23 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
       });
   }, [hasKpiFile, files.customerKpis, defsAttempted, defsLoading]);
 
-  const refreshRepository = (id: UploadSlotId, sessionId: string) =>
+  const loadRepository = (id: UploadSlotId, sessionId: string) =>
     fetchFeatureRepository(sessionId).then((repo) => {
       setRepositories((prev) => ({ ...prev, [id]: repo.entries }));
       announcePageChange(); // the assistant shows the same suggestions: let it look again
+      return repo.entries;
     });
+  const refreshRepository = (id: UploadSlotId, sessionId: string): Promise<void> =>
+    loadRepository(id, sessionId).then(() => undefined);
 
-  // The computed features and the repository, read again from the server.
+  // The computed features and the repository, read again from the server (and handed back).
   const reloadFeatures = (id: UploadSlotId, sessionId: string) =>
     Promise.all([
-      fetchFeatureReport(sessionId).then((report) => setReports((prev) => ({ ...prev, [id]: report }))),
-      refreshRepository(id, sessionId),
+      fetchFeatureReport(sessionId).then((report) => {
+        setReports((prev) => ({ ...prev, [id]: report }));
+        return report;
+      }),
+      loadRepository(id, sessionId),
     ]);
 
   // The assistant added or changed a calculation while this page is open: show it.
@@ -197,8 +206,9 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
     // Refetch first: the item may have just been added, and the cached copy would not have it.
     const id = slotsReady[0];
     reloadFeatures(id, auditReports[id]!.session_id)
-      .then(() => {
-        setOpenFeature({ slotId: id, featureId: openParam });
+      .then(([report, entries]) => {
+        if (report.features.some((f) => f.id === openParam)) setOpenFeature({ slotId: id, featureId: openParam });
+        else setOpenSuggestion(entries.find((e) => e.id === openParam) ?? null);
         setSearchParams({}, { replace: true });
       })
       .catch(() => undefined);
@@ -529,6 +539,7 @@ export default function FeaturesPage({ files, auditReports }: FeaturesPageProps)
         </PageNav>
       </main>
 
+      {openSuggestion && <FeatureSuggestionDetail suggestion={openSuggestion} onClose={() => setOpenSuggestion(null)} />}
       {openFeature &&
         (() => {
           const openFeatureData = reports[openFeature.slotId]?.features.find((f) => f.id === openFeature.featureId);

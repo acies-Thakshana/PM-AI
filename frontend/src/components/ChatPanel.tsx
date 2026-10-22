@@ -172,10 +172,15 @@ export default function ChatPanel() {
   // The assistant only shows what belongs to the page the PM is on, so nothing appears before its step.
   const stage = stageOf(location.pathname);
   const reviewStage: ReviewStage | null = stage === "planner" || stage === "features" || stage === "analysis" ? stage : null;
-  const stageReview = reviewStage ? chat.review.filter((r) => r.stage === reviewStage) : [];
-  const pendingReview = stageReview.filter((r) => r.state === "pending" || r.state === "working" || r.state === "error");
+  const waiting = (r: { state: string }) => r.state === "pending" || r.state === "working" || r.state === "error";
+  const stageReview = reviewStage ? chat.review.filter((r) => r.stage === reviewStage && (reviewStage === "planner" || waiting(r))) : [];
+  const pendingReview = stageReview.filter(waiting);
+  const reviewOpen = reviewStage === "planner" || chat.suggestedFor === reviewStage;
   // The list of analyses is for watching them being built: it is gone once they have all finished.
   const showBuildItems = chat.buildItems.some((i) => i.state === "queued" || i.state === "running");
+  const itemKinds = new Set(chat.buildItems.map((i) => i.kind ?? "analysis"));
+  const progressTitle = itemKinds.size > 1 ? "Working on your items" : itemKinds.has("feature") ? "Computing your calculation" : "Building your analyses";
+  const itemPath = (item: { id: string; kind?: string }) => `${item.kind === "feature" ? "/features" : "/analysis"}?open=${item.id}`;
   const undoable = chat.changes.filter((c) => c.state === "added");
   const showChanges = undoable.length > 0 && (stage === "features" || stage === "analysis" || stage === "report");
   // The way on to the next page, from the chat itself, with a line about the page the PM is on.
@@ -309,8 +314,8 @@ export default function ChatPanel() {
           </section>
         )}
         {reviewStage && stageReview.length > 0 && (
-          <section className="chat__card chat__review" aria-label="Suggestions to review">
-            <h3>Suggestions to review ({pendingReview.length} waiting)</h3>
+          <details className="chat__card chat__review" key={`review-${reviewStage}-${reviewOpen}`} open={reviewOpen}>
+            <summary>Suggestions to review ({pendingReview.length} waiting)</summary>
             <p className="chat__stage-hint">You can also accept or reject them on the page.</p>
             <ul>
               {stageReview.map((r) => (
@@ -352,25 +357,25 @@ export default function ChatPanel() {
                 </button>
               </div>
             )}
-          </section>
+          </details>
         )}
         <div ref={endRef} />
       </div>
 
       {showBuildItems && (
-        <section className="chat__card chat__live" aria-label="Analyses being built">
-          <div className="chat__live-title">Building your analyses</div>
+        <section className="chat__card chat__live" aria-label="Work in progress">
+          <div className="chat__live-title">{progressTitle}</div>
           <ul>
             {chat.buildItems.map((item) => (
               <li key={item.id} className={`chat__live-item chat__live-item--${item.state}`}>
                 <span className="chat__live-state" aria-hidden="true">
                   {item.state === "running" ? <Spinner /> : item.state === "done" ? "✓" : item.state === "failed" ? "!" : "·"}
                 </span>
-                <button type="button" className="chat__live-name chat__live-open" title="Open this analysis" onClick={() => openPath(`/analysis?open=${item.id}`)}>
+                <button type="button" className="chat__live-name chat__live-open" title="Open this item" onClick={() => openPath(itemPath(item))}>
                   {item.name}
                 </button>
                 <span className="chat__live-label">
-                  {item.state === "queued" ? "waiting" : item.state === "running" ? "building" : item.state === "done" ? "ready" : "failed"}
+                  {item.state === "queued" ? "waiting" : item.state === "running" ? (item.kind === "feature" ? "computing" : "building") : item.state === "done" ? "ready" : "failed"}
                 </span>
                 {item.state === "failed" && item.error && <span className="chat__live-error">{item.error}</span>}
               </li>

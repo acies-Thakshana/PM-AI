@@ -60,10 +60,9 @@ def _strip_code_fence(text: str) -> str:
     return match.group(1) if match else stripped
 
 
-def strip_json_fence(text: str) -> str:
-    stripped = (text or "").strip()
-    match = re.match(r"^```[a-zA-Z]*\s*(.*?)\s*```$", stripped, re.DOTALL)
-    return match.group(1).strip() if match else stripped
+# The one shared reader of the model's JSON (fences, prose around it, a second object after it). Kept under this name
+# because the analysis designer, drill-down agents and the planner call `analysis_agent.strip_json_fence`.
+strip_json_fence = llm.strip_json_fence
 
 
 def describe_columns(df: pd.DataFrame) -> str:

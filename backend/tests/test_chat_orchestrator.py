@@ -53,6 +53,16 @@ class RunTurnTest(unittest.TestCase):
         self.assertIn('"value": 42', model.prompts[1])
         self.assertIn('"value": 42', result.evidence)
 
+    def test_the_items_read_successfully_are_remembered(self):
+        def tool(name, args, ctx):
+            return {"error": "No analysis has that id."} if args.get("id") == "bad" else {"id": args["id"], "name": "n"}
+
+        self.run_tool.side_effect = tool
+        calls_ = [{"name": "get_analysis", "args": {"id": "a1"}}, {"name": "get_analysis", "args": {"id": "bad"}},
+                  {"name": "get_feature", "args": {"id": "f1"}}, {"name": "find_item", "args": {"id": "x"}}]
+        result = orchestrator.run_turn("S", "U", FakeModel({"tool_calls": calls_[:3]}, final()), CTX)
+        self.assertEqual(result.looked_at, [("analysis", "a1"), ("feature", "f1")])
+
     def test_the_session_comes_from_the_server_not_the_model(self):
         model = FakeModel({"tool_calls": [{"name": "get_analysis", "args": {"id": "a1", "session_id": "someone-else"}}]}, final())
         orchestrator.run_turn("S", "U", model, CTX)
@@ -123,6 +133,62 @@ class RunTurnTest(unittest.TestCase):
     def test_an_answer_that_is_not_an_object_counts_as_not_json(self):
         with self.assertRaises(ValueError):
             orchestrator.run_turn("S", "U", FakeModel("[1, 2]", "[3]"), CTX)
+
+
+class PromiseTest(unittest.TestCase):
+    """A reply that is only "I'll look that up" must not end the turn: the lookup it promised has to happen."""
+
+    def test_only_a_short_reply_that_starts_with_a_promise_counts(self):
+        for promise in ("I'll look up that analysis.", "Sure, let me check that for you.", "Okay! I will look into it", "Let me find it."):
+            self.assertTrue(orchestrator.promises_lookup(promise), promise)
+        for fine in (
+            "Let me know if you want me to check more.",
+            "I'll add that analysis for you.",
+            "Carrier A is best. Let me know if you want me to check more.",
+            "I'll get started.",
+            "x" * 200,
+            "",
+        ):
+            self.assertFalse(orchestrator.promises_lookup(fine), fine)
+
+    def setUp(self):
+        patch = mock.patch.object(orchestrator.tools, "run_tool", side_effect=lambda name, args, ctx: {"tool": name, "value": 42})
+        self.run_tool = patch.start()
+        self.addCleanup(patch.stop)
+
+    def test_a_promise_gets_one_nudge_and_the_lookup_is_then_done(self):
+        model = FakeModel(final("I'll look up that analysis."), calls("find_item"), final("It shows 42."))
+        result = orchestrator.run_turn("S", "U", model, CTX)
+        self.assertEqual(result.tools_used, ["find_item"])
+        self.assertEqual(result.raw["reply"], "It shows 42.")
+        self.assertIn("called no tool", model.prompts[1])
+
+    def test_a_promise_can_also_be_answered_from_what_the_model_has(self):
+        model = FakeModel(final("I'll check that."), final("Carrier B is the slowest."))
+        result = orchestrator.run_turn("S", "U", model, CTX)
+        self.assertEqual(result.raw["reply"], "Carrier B is the slowest.")
+        self.assertEqual(result.tools_used, [])
+
+    def test_a_second_promise_is_passed_on_not_nudged_again(self):
+        model = FakeModel(final("I'll look it up."), final("Let me check."))
+        result = orchestrator.run_turn("S", "U", model, CTX)
+        self.assertEqual(len(model.prompts), 2)
+        self.assertEqual(result.raw["reply"], "Let me check.")
+
+    def test_a_normal_answer_is_never_nudged(self):
+        model = FakeModel(final("Carrier B is the slowest. Let me know if you want me to check more."))
+        orchestrator.run_turn("S", "U", model, CTX)
+        self.assertEqual(len(model.prompts), 1)
+
+    def test_a_reply_with_actions_is_not_a_bare_promise(self):
+        model = FakeModel(final("Let me open that for you.", actions=[{"type": "navigate", "page": "analysis"}]))
+        orchestrator.run_turn("S", "U", model, CTX)
+        self.assertEqual(len(model.prompts), 1)
+
+    def test_without_a_session_there_is_nothing_to_look_up_so_no_nudge(self):
+        model = FakeModel(final("I'll look that up."))
+        orchestrator.run_turn("S", "U", model, None)
+        self.assertEqual(len(model.prompts), 1)
 
 
 class GroundTest(unittest.TestCase):

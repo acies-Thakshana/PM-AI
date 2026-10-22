@@ -161,6 +161,25 @@ def _clean_actions(
     return out
 
 
+PAGE_OF_KIND = {kind: page for page, kind in OPENABLE_KIND.items()}
+
+
+def _open_what_was_read(actions: list[dict], looked_at: list[tuple[str, str]]) -> list[dict]:
+    """The model is asked to point its navigate action at the item it explains, but it often leaves the id out (or
+    writes a wrong one that gets dropped), and then only the page opens. The server knows which item it read: when
+    exactly one item was read, that page's navigate action opens it (and one is added when the model sent none)."""
+    items = set(looked_at)
+    if len(items) != 1:
+        return actions
+    kind, item_id = next(iter(items))
+    page = PAGE_OF_KIND[kind]
+    if any(a.get("type") == "navigate" and a.get("page") != page for a in actions):
+        return actions  # the model is taking the PM somewhere else on purpose
+    if not any(a.get("type") == "navigate" for a in actions):
+        actions = [*actions, {"type": "navigate", "page": page}]
+    return [{**a, "open": item_id} if a.get("type") == "navigate" and not a.get("open") else a for a in actions]
+
+
 def _refusal_note(refused: list[str], pending: int | None) -> str:
     """Said after the model's reply when it asked for something the audited data is not ready for."""
     what = "that" if len(refused) == 1 else "those"
@@ -207,6 +226,7 @@ def _normalise(
     known_items: dict[str, str] | None = None,
     unverified: list[str] | None = None,
     asked: list[str] | None = None,
+    looked_at: list[tuple[str, str]] | None = None,
 ) -> dict:
     """Turn whatever the model returned into the response shape, falling back to the previous state.
     `audited` is whether features and analyses may be added yet (data loaded, audit decisions made)."""
@@ -230,6 +250,8 @@ def _normalise(
 
     quick = [_clean_text(q, 80) for q in (raw.get("quick_replies") or []) if isinstance(q, str) and q.strip()][:4]
     cleaned = _clean_actions(raw.get("actions"), audited, intent, known_items)
+    if intent in ("ask", "other") and looked_at:
+        cleaned.actions = _open_what_was_read(cleaned.actions, looked_at)
     reply = _clean_text(raw.get("reply"), 3000) or "Sorry, I lost my train of thought. Could you say that again?"
     notes = []
     if cleaned.needs_audit:
@@ -318,7 +340,7 @@ def turn(req: ChatTurnRequest):
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"Chat LLM error: {exc}") from exc
     asked = [m.content for m in req.messages if m.role == "user"]
-    return _normalise(raw, req.state, audited, pending, _known_items(req.session_id), unverified, asked)
+    return _normalise(raw, req.state, audited, pending, _known_items(req.session_id), unverified, asked, result.looked_at)
 
 
 # --------------------------------------------------------------------------- interview record

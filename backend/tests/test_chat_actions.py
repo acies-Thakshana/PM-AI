@@ -109,6 +109,48 @@ class OpenItemTest(unittest.TestCase):
         self.assertEqual(self._nav("report", "a1"), {"type": "navigate", "page": "report"})
 
 
+class OpenWhatWasReadTest(unittest.TestCase):
+    """Explaining an analysis opens that analysis even when the model leaves the id out of its navigate action."""
+    KNOWN = {"a1": "analysis", "f1": "feature"}
+
+    def _out(self, actions, looked_at, intent="ask"):
+        raw = {"reply": "Here it is.", "intent": intent, "actions": actions}
+        return chat._normalise(raw, {}, known_items=self.KNOWN, looked_at=looked_at)["actions"]
+
+    def test_a_navigate_without_an_id_gets_the_item_that_was_read(self):
+        self.assertEqual(self._out([{"type": "navigate", "page": "analysis"}], [("analysis", "a1")]),
+                         [{"type": "navigate", "page": "analysis", "open": "a1"}])
+
+    def test_a_wrong_id_that_was_dropped_is_replaced_by_the_item_that_was_read(self):
+        self.assertEqual(self._out([{"type": "navigate", "page": "analysis", "open": "made-up"}], [("analysis", "a1")]),
+                         [{"type": "navigate", "page": "analysis", "open": "a1"}])
+
+    def test_no_navigate_at_all_still_opens_the_item(self):
+        self.assertEqual(self._out([], [("feature", "f1")]), [{"type": "navigate", "page": "features", "open": "f1"}])
+
+    def test_reading_the_same_item_twice_is_still_one_item(self):
+        self.assertEqual(self._out([], [("analysis", "a1"), ("analysis", "a1")]),
+                         [{"type": "navigate", "page": "analysis", "open": "a1"}])
+
+    def test_several_items_read_means_no_guessing(self):
+        self.assertEqual(self._out([{"type": "navigate", "page": "analysis"}], [("analysis", "a1"), ("feature", "f1")]),
+                         [{"type": "navigate", "page": "analysis"}])
+
+    def test_a_navigate_to_another_page_is_left_alone(self):
+        self.assertEqual(self._out([{"type": "navigate", "page": "report"}], [("analysis", "a1")]),
+                         [{"type": "navigate", "page": "report"}])
+
+    def test_nothing_is_opened_when_nothing_was_read(self):
+        self.assertEqual(self._out([], []), [])
+
+    def test_an_id_the_model_gave_is_kept(self):
+        self.assertEqual(self._out([{"type": "navigate", "page": "analysis", "open": "a1"}], [("analysis", "a1")]),
+                         [{"type": "navigate", "page": "analysis", "open": "a1"}])
+
+    def test_adding_something_never_opens_an_item_by_this_rule(self):
+        self.assertEqual(self._out([], [("analysis", "a1")], intent="change"), [])
+
+
 class NextQuestionsTest(unittest.TestCase):
     def test_short_distinct_questions_the_pm_has_not_asked(self):
         out = chat._clean_questions(["Why is X high?", "why is x high?", "What about Y?", "", 5, "Z" * 200, "A?", "B?"], ["What about Y?"])

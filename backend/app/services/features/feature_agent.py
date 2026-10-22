@@ -45,12 +45,8 @@ def _strip_code_fence(text: str) -> str:
     return match.group(1) if match else stripped
 
 
-def _strip_json_fence(text: str) -> str:
-    stripped = text.strip()
-    if stripped.startswith("```"):
-        stripped = stripped.split("```", 2)[-1] if stripped.count("```") >= 2 else stripped
-        stripped = stripped[4:].strip() if stripped.lower().startswith("json") else stripped
-    return stripped
+# The one shared reader of the model's JSON (see llm.strip_json_fence).
+_strip_json_fence = llm.strip_json_fence
 
 
 def _columns_block(df: pd.DataFrame) -> str:

@@ -13,6 +13,8 @@ The loop is bounded so a turn can neither run away nor grow without limit:
   * at most MAX_CALLS_PER_ROUND tool calls per round and MAX_CALLS_TOTAL per turn;
   * each tool result is cut at MAX_RESULT_CHARS;
   * a TIME_BUDGET_SECONDS budget: past it, the model is told to answer with what it has.
+  * a reply that is only a promise to look something up ("I'll look up that analysis.") gets ONE nudge to make the
+    tool call instead (see promises_lookup).
 
 Failures are not retried blindly: a tool that fails answers {"error": ...} (the model explains it), and a
 model answer that is not JSON gets exactly one more chance.
@@ -23,8 +25,9 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from app.services.chat import tools
@@ -50,14 +53,39 @@ Before you answer you may look things up. To use tools, answer with ONLY {{"tool
 
 _ANSWER_NOW = "\n\n---\nYou have what you can get: answer now with the normal JSON object (no tool_calls)."
 _NOT_JSON = "\n\n---\nYour last answer was not valid JSON. Answer again with the JSON object only, no other text."
+_KEEP_YOUR_PROMISE = (
+    "\n\n---\nYou said you would look something up but called no tool. Do it now: answer with "
+    '{"tool_calls":[...]} for the tools you need, or answer from what you already have. Never answer with only a promise.'
+)
 _REVIEW = (
     "\n\n---\nREVIEW: your reply contained figures that appear in none of the data you were shown: {figures}. "
     "Answer again using only figures from the tool results and data above, or leave the figures out."
 )
 
 
+# A reply that is nothing but a promise to look something up: short, and it starts with the promise.
+_PROMISE = re.compile(
+    r"^(?:(?:sure|ok|okay|certainly|of course|absolutely)\b[\s,.!-]*)?"
+    r"(?:i['\u2019]ll|i will|let me|allow me to|i['\u2019]m going to|i am going to)\s+(?:just\s+|quickly\s+)?"
+    r"(?:look|check|find|pull|fetch|search|see|have a look|take a look)\b",
+    re.IGNORECASE,
+)
+MAX_PROMISE_CHARS = 160
+
+
+def promises_lookup(reply: str) -> bool:
+    """Is `reply` only a promise to look something up ("I'll look up that analysis.")? A long answer that merely
+    contains "let me know if you want me to check" is not."""
+    text = reply.strip()
+    return 0 < len(text) <= MAX_PROMISE_CHARS and bool(_PROMISE.match(text))
+
+
 def tools_prompt() -> str:
     return TOOLS_PROMPT.format(per_round=MAX_CALLS_PER_ROUND, tools=tools.describe_tools())
+
+
+# The tools that read one item, and what kind of item that is (the kinds `known_items` uses).
+_OPENED_BY = {"get_analysis": "analysis", "get_feature": "feature"}
 
 
 @dataclass
@@ -68,6 +96,8 @@ class TurnResult:
     #: The tool results alone, so a review call can show them again.
     scratch: str
     tools_used: list[str]
+    #: (kind, id) of every analysis ("analysis") or calculation ("feature") the model read successfully this turn.
+    looked_at: list[tuple[str, str]] = field(default_factory=list)
 
 
 def _parse(text: str) -> dict:
@@ -107,7 +137,9 @@ def run_turn(
     started = clock()
     scratch = ""
     used: list[str] = []
+    looked_at: list[tuple[str, str]] = []
     retried_json = False
+    nudged = False
     rounds = 0
     while True:
         out_of_budget = rounds >= MAX_ROUNDS or len(used) >= MAX_CALLS_TOTAL or clock() - started > TIME_BUDGET_SECONDS
@@ -123,12 +155,21 @@ def run_turn(
             continue
         calls = [] if (ctx is None or out_of_budget) else _calls(raw)
         if not calls:
-            return TurnResult(raw=raw, evidence=user_prompt + scratch, scratch=scratch, tools_used=used)
+            # The model promised a lookup and called no tool: the loop would end here with the promise as the answer.
+            # One nudge, so a lookup it meant to do is done; a second promise is passed on as it is.
+            if ctx is not None and not out_of_budget and not nudged and not raw.get("actions") and promises_lookup(str(raw.get("reply") or "")):
+                nudged = True
+                scratch += _KEEP_YOUR_PROMISE
+                continue
+            return TurnResult(raw=raw, evidence=user_prompt + scratch, scratch=scratch, tools_used=used, looked_at=looked_at)
         rounds += 1
         lines = []
         for call in calls[: MAX_CALLS_TOTAL - len(used)]:
             used.append(call["name"])
-            lines.append(_result_text(call["name"], call["args"], tools.run_tool(call["name"], call["args"], ctx)))
+            result = tools.run_tool(call["name"], call["args"], ctx)
+            if call["name"] in _OPENED_BY and not result.get("error") and isinstance(result.get("id"), str):
+                looked_at.append((_OPENED_BY[call["name"]], result["id"]))
+            lines.append(_result_text(call["name"], call["args"], result))
         scratch += f"\n\n--- TOOL RESULTS (round {rounds}) ---\n" + "\n".join(lines)
 
 

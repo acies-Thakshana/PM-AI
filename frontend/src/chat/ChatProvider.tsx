@@ -75,6 +75,8 @@ export interface ChatChange {
 /** One analysis the assistant is building (or just added), shown live in the panel while it works. */
 export interface BuildItem {
   id: string;
+  /** Which page it opens on; an item without one is an analysis. */
+  kind?: "feature" | "analysis";
   name: string;
   state: "queued" | "running" | "done" | "failed";
   error?: string;
@@ -105,6 +107,8 @@ export type AutoAccept = Record<ReviewStage, boolean>;
 
 interface ChatValue {
   review: ReviewItem[];
+  /** The page whose suggestions the PM just asked for (their card is open there), or null. */
+  suggestedFor: ReviewStage | null;
   audit: AuditStatus;
   autoAccept: AutoAccept;
   setAutoAccept: (stage: ReviewStage, on: boolean) => void;
@@ -221,6 +225,8 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
   const [changes, setChanges] = useState<ChatChange[]>([]);
   const [autoAccept, setAutoAcceptState] = useState<AutoAccept>({ planner: false, features: false, analysis: false });
   const [buildItems, setBuildItems] = useState<BuildItem[]>([]);
+  // The page whose suggestions the PM just asked for: their card is open there, and folded away everywhere else.
+  const [suggestedFor, setSuggestedFor] = useState<ReviewStage | null>(null);
   const [repoReview, setReview] = useState<ReviewItem[]>([]);
   // The analysis or calculation open on its page (set by the page): "this graph" in a question means this one.
   const [chatFocus] = useStoredState<string | null>("chat.focus", null);
@@ -269,6 +275,15 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
 
   const patchItem = (id: string, patch: Partial<BuildItem>) =>
     setBuildItems((prev) => (prev.some((i) => i.id === id) ? prev.map((i) => (i.id === id ? { ...i, ...patch } : i)) : [...prev, { id, name: "", state: "queued", ...patch }]));
+
+  /**
+   * The assistant starts working on one item. Calculations and analyses share this, so both show the same progress.
+   * A single item (accepted or added on its own) starts a fresh list instead of joining the last build's.
+   */
+  const beginItem = (id: string, name: string, kind: NonNullable<BuildItem["kind"]>) => {
+    setBuildItems((prev) => (prev.some((i) => i.state === "queued" || i.state === "running") ? prev : []));
+    patchItem(id, { name, kind, state: "running" });
+  };
 
   // Analyses started here must not be started a second time by the Analysis page's own auto-run.
   const analysisStarted = useStoredRef<{ current: Set<string> }>("analysis.autoStarted", () => ({ current: new Set<string>() }));
@@ -366,7 +381,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     let finished = entries.filter((e) => e.run_status === "done").length;
     const failed: { name: string; error: string }[] = [];
     const queue = entries.filter((e) => e.run_status !== "done");
-    setBuildItems(entries.map((e) => ({ id: e.id, name: e.name, state: e.run_status === "done" ? "done" : "queued" })));
+    setBuildItems(entries.map((e) => ({ id: e.id, kind: "analysis" as const, name: e.name, state: e.run_status === "done" ? ("done" as const) : ("queued" as const) })));
     setLine("running", `Building analyses: ${finished} of ${total} finished.`);
 
     const worker = async () => {
@@ -546,9 +561,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
    * is missing) it is NOT marked as started, so the Analysis page runs it once the calculation is there.
    */
   const runAnalysis = async (sid: string, entryId: string, name: string): Promise<{ ok: true } | { ok: false; reason: string }> => {
-    // A single analysis (added or accepted on its own) starts a fresh list instead of joining the last build's.
-    setBuildItems((prev) => (prev.some((i) => i.state === "queued" || i.state === "running") ? prev : []));
-    patchItem(entryId, { name, state: "running" });
+    beginItem(entryId, name, "analysis");
     const blocked = await prepareAnalysis(sid, entryId).catch((err) => errorText(err, "it could not be prepared"));
     if (blocked) {
       patchItem(entryId, { state: "failed", error: blocked });
@@ -852,10 +865,11 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       ...features.entries.filter(pending).map((e) => ({ id: e.id, stage: "features" as const, kind: "feature" as const, name: e.name, description: e.description, state: "pending" as const })),
       ...analyses.entries.filter(pending).map((e) => ({ id: e.id, stage: "analysis" as const, kind: "analysis" as const, name: e.name, description: e.description, state: "pending" as const })),
     ];
-    // What the server says is waiting, plus the decisions already made here (shown until the page changes).
+    // What the server says is waiting, plus what is being decided or failed here (a failure must not vanish).
+    // Decided suggestions are not kept: they show up on their page and in "What I changed".
     setReview((prev) => {
       const waiting = new Set(items.map((i) => i.id));
-      return [...items, ...prev.filter((p) => !waiting.has(p.id) && p.state !== "pending")];
+      return [...items, ...prev.filter((p) => !waiting.has(p.id) && (p.state === "working" || p.state === "error"))];
     });
     return items;
   };
@@ -876,6 +890,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
             ? `${items.length} ${noun} suggested. Accept or reject each one below; open one to see its details on the page.`
             : `The AI had no new ${noun} to suggest.`
         );
+        if (items.length) setSuggestedFor(kind === "feature" ? "features" : "analysis");
         navigate(kind === "feature" ? "/features" : "/analysis");
       } catch (err) {
         say(`I could not get suggestions: ${errorText(err, "unknown error")}`, { error: true });
@@ -922,8 +937,10 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
           return;
         }
         if (item.kind === "feature") {
+          beginItem(id, item.name, "feature");
           await acceptFeatureEntry(sid, id);
           await applyFeatures(sid);
+          patchItem(id, { state: "done" });
           setReviewState(id, "accepted");
           announceChatChange();
           follow(`/features?open=${id}`);
@@ -936,7 +953,9 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
         if (outcome.ok) follow(`/analysis?open=${id}`);
         else say(`I accepted "${item.name}", but ${outcome.reason}`, { error: true, links: [{ label: "Open this analysis", path: `/analysis?open=${id}` }] });
       } catch (err) {
-        setReviewState(id, "error", explainFailure(errorText(err, "")));
+        const reason = explainFailure(errorText(err, ""));
+        if (item.kind === "feature") patchItem(id, { state: "failed", error: reason });
+        setReviewState(id, "error", reason);
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -988,6 +1007,20 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     if (sessionId && (here === "features" || here === "analysis")) void loadReview(sessionId).catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, sessionId, pageChanges]);
+
+  // The card stays open only on the page the PM asked for suggestions on; leaving that page folds it away. The marker is
+  // set a moment before the router has moved to the page, so "not there yet" must not count as "left it".
+  const reachedSuggested = useRef(false);
+  useEffect(() => {
+    if (!suggestedFor) {
+      reachedSuggested.current = false;
+    } else if (stageOf(location.pathname) === suggestedFor) {
+      reachedSuggested.current = true;
+    } else if (reachedSuggested.current) {
+      reachedSuggested.current = false;
+      setSuggestedFor(null);
+    }
+  }, [location.pathname, suggestedFor]);
 
   /**
    * Opens a page for a link in the chat. Going to the page the PM is already on does nothing by itself, so that case
@@ -1051,6 +1084,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
   const value = useMemo<ChatValue>(
     () => ({
       review,
+      suggestedFor,
       audit,
       autoAccept,
       setAutoAccept,
@@ -1085,7 +1119,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       undoChange,
       reset,
     }),
-    [review, audit, autoAccept, setAutoAccept, decide, acceptAll, inspect, buildItems, open, messages, busy, phase, understanding, assumptions, quickReplies, nextQuestions, build, changes, location.pathname, sessionId, startInterview, startBuild, persistInterview, suggestWithAi, openPage, send, editAssumption, removeAssumption, undoChange, reset]
+    [review, suggestedFor, audit, autoAccept, setAutoAccept, decide, acceptAll, inspect, buildItems, open, messages, busy, phase, understanding, assumptions, quickReplies, nextQuestions, build, changes, location.pathname, sessionId, startInterview, startBuild, persistInterview, suggestWithAi, openPage, send, editAssumption, removeAssumption, undoChange, reset]
   );
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

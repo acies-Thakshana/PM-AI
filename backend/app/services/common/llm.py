@@ -51,14 +51,36 @@ _CODE_FENCE = re.compile(r"^```[a-zA-Z0-9_+-]*\s*\n?(.*?)\n?```\s*$", re.DOTALL)
 _ANY_FENCE = re.compile(r"```[a-zA-Z0-9_+-]*\s*(.*?)```", re.DOTALL)
 
 
+_MAX_JSON_START_TRIES = 5  # prose can hold stray braces; never scan a whole answer for a place to start
+
+
+def _first_json_value(text: str) -> str | None:
+    """The first complete JSON object or array in `text`, with whatever follows it (a second object, a closing
+    sentence) left out. None when no JSON value can be read from it."""
+    decoder = json.JSONDecoder()
+    tries = 0
+    for match in re.finditer(r"[{\[]", text):
+        try:
+            _, end = decoder.raw_decode(text, match.start())
+        except ValueError:
+            tries += 1
+            if tries >= _MAX_JSON_START_TRIES:
+                break
+            continue
+        return text[match.start() : end]
+    return None
+
+
 def strip_json_fence(text: str) -> str:
     """Models such as Claude often wrap JSON in ```json fences -- and sometimes add a sentence
-    before or after it ("Here is the plan: ..."). Return the bare JSON in all of those cases;
-    text that is not recognisably JSON is returned unchanged (the caller's json.loads reports it)."""
+    before or after it ("Here is the plan: ..."), or a second JSON object after the first. Return the first
+    complete JSON value in all of those cases; text that is not recognisably JSON is returned unchanged
+    (the caller's json.loads reports it)."""
     t = (text or "").strip()
     m = _JSON_FENCE.match(t)
     if m:
-        return m.group(1).strip()
+        inner = m.group(1).strip()
+        return _first_json_value(inner) or inner
     if t[:1] in ("{", "["):
         try:
             json.loads(t)
@@ -68,19 +90,8 @@ def strip_json_fence(text: str) -> str:
     for block in _ANY_FENCE.findall(t):  # a fenced block with prose around it
         block = block.strip()
         if block[:1] in ("{", "["):
-            return block
-    starts = [i for i in (t.find("{"), t.find("[")) if i >= 0]
-    if starts:  # unfenced JSON with prose around it: first opener .. last matching closer
-        start = min(starts)
-        end = t.rfind("}" if t[start] == "{" else "]")
-        if end > start:
-            candidate = t[start : end + 1]
-            try:
-                json.loads(candidate)
-                return candidate
-            except ValueError:
-                pass
-    return t
+            return _first_json_value(block) or block
+    return _first_json_value(t) or t
 
 
 def strip_code_fence(text: str) -> str:

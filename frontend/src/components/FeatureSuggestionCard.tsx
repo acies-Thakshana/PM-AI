@@ -2,7 +2,7 @@ import { useState } from "react";
 import { tidyText } from "../utils/tidyText";
 import type { FeatureRepositoryEntry } from "../api/audit";
 import { IconExpand } from "./icons";
-import Modal from "./Modal";
+import FeatureSuggestionDetail from "./FeatureSuggestionDetail";
 import "./FeatureSuggestionCard.css";
 
 interface FeatureSuggestionCardProps {
@@ -36,12 +36,7 @@ export default function FeatureSuggestionCard({ suggestion, added, busy, onAdd }
         </button>
       </div>
 
-      {showFormula && (
-        <Modal title={suggestion.name} onClose={() => setShowFormula(false)}>
-          <p className="feature-suggestion__modal-description">{tidyText(suggestion.description)}</p>
-          <p className="feature-suggestion__formula">{suggestion.calculation_intent}</p>
-        </Modal>
-      )}
+      {showFormula && <FeatureSuggestionDetail suggestion={suggestion} onClose={() => setShowFormula(false)} />}
     </>
   );
 }
