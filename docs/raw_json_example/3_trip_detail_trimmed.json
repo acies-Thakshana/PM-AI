@@ -1,0 +1,308 @@
+{
+  "enabled": true,
+  "programId": 651,
+  "tripStatus": 3,
+  "tripStatusGuid": "6b611752-bdc9-4ecf-8f3b-ee2d55f4ba30",
+  "createDate": "2026-10-08T04:05:10.307",
+  "lastUpdatedDate": "2026-10-13T07:56:07.63",
+  "acknowledged": false,
+  "alarmed": false,
+  "acknowledgedLocation": null,
+  "alarmedLocation": "48.271076, 11.643931",
+  "tripOrigin": {
+    "driverName": "",
+    "driverCell": "",
+    "internalTripID": "48-385 EDEKA FIG",
+    "plannedDepartureTime": null,
+    "actualDepartureTime": "2026-10-08T18:30:23",
+    "administerMedicineTime": null,
+    "carrier": null,
+    "managingCarrier": null,
+    "locations": {
+      "locationID": 799125,
+      "locationName": "Perla Fruit",
+      "locationAddress": "Kahraman Caddesi,,Kestel,Bursa,16450, TR",
+      "latitude": 40.22521,
+      "longitude": 29.26432,
+      "plannedArrivalTime": null,
+      "plannedDepartureTime": null,
+      "actualArrivalTime": null,
+      "actualDepartureTime": "2026-10-08T18:30:23",
+      "courierEstimatedDeliveryTime": null,
+      "ianaId": "Europe/Istanbul",
+      "timezoneAbbreviation": "Turkey Standard Time",
+      "locationSegmentName": ""
+    }
+  },
+  "waypoints": null,
+  "destinations": [
+    {
+      "poNumber": "",
+      "orderNumber": "",
+      "destinationType": "aa7dd78f-33b9-4937-9da8-d05cb1133b94",
+      "modeOfTransportationGuid": "00000000-0000-0000-0000-000000000000",
+      "modeOfTransportation": "",
+      "containerNumber": "33 BBS 739 / 33 BAL 289\t\t",
+      "masterBillofLading": "",
+      "bookingNumber": null,
+      "products": [
+        {
+          "productID": 12798,
+          "productName": "Fig"
+        }
+      ],
+      "locationID": 41287,
+      "locationName": "EDEKA - FK SUD Garching",
+      "locationAddress": ",,,,, DE",
+      "latitude": 48.25588,
+      "longitude": 11.61726,
+      "plannedArrivalTime": null,
+      "plannedDepartureTime": null,
+      "actualArrivalTime": "2026-10-12T11:30:23",
+      "actualDepartureTime": "2026-10-13T08:00:29",
+      "courierEstimatedDeliveryTime": null,
+      "ianaId": "Europe/Berlin",
+      "timezoneAbbreviation": "CEST",
+      "locationSegmentName": null
+    }
+  ],
+  "containers": [
+    {
+      "containerID": -1,
+      "containerName": null,
+      "zones": [
+        {
+          "zoneId": -1,
+          "zoneName": null,
+          "zoneType": null,
+          "monitors": [
+            {
+              "monitorID": 8131188,
+              "serialNumber": "QCM9J00AC4",
+              "model": "TempTale GEO X",
+              "monitorName": null,
+              "isMonitorAlreadyAssignedToTrip": false,
+              "tripIds": null,
+              "shelfLifeExpiration": null,
+              "locationId": 0,
+              "positionId": null
+            }
+          ],
+          "zoneProducts": [
+            {
+              "locationId": 0,
+              "productId": 12798,
+              "productName": "Fig",
+              "minTemperature": 30.2,
+              "min2Temperature": null,
+              "idealTemperature": 32.0,
+              "maxTemperature": 35.6,
+              "max2Temperature": null,
+              "minHumidity": null,
+              "min2Humidity": null,
+              "idealHumidity": null,
+              "maxHumidity": null,
+              "max2Humidity": null,
+              "minLight": null,
+              "min2Light": null,
+              "idealLight": null,
+              "maxLight": null,
+              "max2Light": null,
+              "minCO2": null,
+              "min2CO2": null,
+              "idealCO2": null,
+              "maxCO2": null,
+              "max2CO2": null,
+              "minTemperatureProbe": null,
+              "min2TemperatureProbe": null,
+              "idealTemperatureProbe": null,
+              "maxTemperatureProbe": null,
+              "max2TemperatureProbe": null
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "isProgramEligibleForExtendedStops": false,
+  "isProgramEligibleForSPT": false,
+  "tripTemplateId": 4044,
+  "lastStatusChangeDate": "2026-10-12T11:30:23+00:00",
+  "tripActualArrivalTime": "2026-10-12T11:30:23+00:00",
+  "notes": "Trip copied from Perla Fruit. ",
+  "trailerID": "33 BBS 739 / 33 BAL 289\t\t",
+  "courierId": null,
+  "carrierId": null,
+  "managingCarrierId": null,
+  "atSupplierThresholdTimeInMinutes": null,
+  "preDepartureTimeInMinutes": 0,
+  "postArrivalTimeInMinutes": 0,
+  "tripID": "01ca2297-695f-4bf2-86b6-d1f0d4ed6720",
+  "id": 4733528,
+  "canEdit": true,
+  "canView": true,
+  "tripRecentData": {
+    "longitude": 11.643931,
+    "latitude": 48.271076,
+    "address": "E45, 85748 Garching, Germany",
+    "time": "2026-10-12T11:30:23Z",
+    "temperature": 34.6,
+    "light": 0.0,
+    "humidity": 83.2,
+    "cO2": null,
+    "fixType": "Cell",
+    "temperatureProbe": null
+  },
+  "tripExcursions": null,
+  "tripRoute": {
+    "tripId": "01ca2297-695f-4bf2-86b6-d1f0d4ed6720",
+    "tripCoordinates": [
+      {
+        "monitorLocationDataId": 5290598682,
+        "lat": 40.231306,
+        "long": 28.925125,
+        "createdOn": "2026-10-08T18:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5290674565,
+        "lat": 40.262935,
+        "long": 28.490342,
+        "createdOn": "2026-10-08T19:00:34Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      "... 71 more items"
+    ],
+    "isDataPointLimitExceed": false
+  },
+  "sensorData": [
+    {
+      "name": null,
+      "serialNumber": "QCM9J00AC4",
+      "temperatureData": [
+        {
+          "dateTime": "2026-10-08T18:45:21Z",
+          "value": 35.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T19:00:21Z",
+          "value": 35.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        "... 354 more items"
+      ],
+      "simulatedTemperatureData": [],
+      "lightData": [
+        {
+          "dateTime": "2026-10-08T18:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T19:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        "... 354 more items"
+      ],
+      "humidityData": [
+        {
+          "dateTime": "2026-10-08T18:45:21Z",
+          "value": 73.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T19:00:21Z",
+          "value": 73.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        "... 354 more items"
+      ],
+      "co2Data": [],
+      "temperatureProbeData": [],
+      "temperatureHigh": null,
+      "minTemperature": null,
+      "idealTemperature": null,
+      "maxTemperature": null,
+      "minHumidity": null,
+      "idealHumidity": null,
+      "maxHumidity": null,
+      "minLight": null,
+      "idealLight": null,
+      "maxLight": null,
+      "minCO2": null,
+      "idealCO2": null,
+      "maxCO2": null,
+      "minTemperatureProbe": null,
+      "idealTemperatureProbe": null,
+      "maxTemperatureProbe": null,
+      "hasTemperature": true,
+      "hasLight": true,
+      "hasHumidity": true,
+      "hasCO2": false,
+      "hasTemperatureProbe": false
+    }
+  ],
+  "segments": [
+    {
+      "segmentName": "Perla Fruit \u279c EDEKA - FK SUD Garching",
+      "segmentNumber": 1,
+      "segmentType": "InTransit",
+      "startTime": "2026-10-08T18:30:23+00:00",
+      "endTime": "2026-10-12T11:30:23+00:00",
+      "length": "3.17:00:00",
+      "departedLocationId": 799125,
+      "arrivedLocationId": 41287,
+      "isCreatedSegment": false,
+      "departedLocationType": null,
+      "arrivedLocationType": null,
+      "departedLocationSuffix": null,
+      "arrivedLocationSuffix": null,
+      "legLongName": null,
+      "legShortName": null
+    },
+    {
+      "segmentName": "@EDEKA - FK SUD Garching",
+      "segmentNumber": 2,
+      "segmentType": "Stationary",
+      "startTime": "2026-10-12T11:30:23+00:00",
+      "endTime": "2026-10-12T11:30:23+00:00",
+      "length": "00:00:00",
+      "departedLocationId": 41287,
+      "arrivedLocationId": 41287,
+      "isCreatedSegment": false,
+      "departedLocationType": null,
+      "arrivedLocationType": null,
+      "departedLocationSuffix": null,
+      "arrivedLocationSuffix": null,
+      "legLongName": null,
+      "legShortName": null
+    }
+  ],
+  "excusrions": {
+    "count": 0,
+    "acknowledged": 0,
+    "totalAlarmed": 0,
+    "totalInvalidated": 0,
+    "items": []
+  },
+  "parentSupplierId": null,
+  "tripETA": null,
+  "departureReason": null,
+  "arrivalReason": "Location",
+  "isTemplateMonitorLocationEnabled": false,
+  "oceanShipmentInfo": null
+}

@@ -1,0 +1,7386 @@
+{
+  "enabled": true,
+  "programId": 651,
+  "tripStatus": 3,
+  "tripStatusGuid": "6b611752-bdc9-4ecf-8f3b-ee2d55f4ba30",
+  "createDate": "2026-10-08T04:05:10.307",
+  "lastUpdatedDate": "2026-10-13T07:56:07.63",
+  "acknowledged": false,
+  "alarmed": false,
+  "acknowledgedLocation": null,
+  "alarmedLocation": "48.271076, 11.643931",
+  "tripOrigin": {
+    "driverName": "",
+    "driverCell": "",
+    "internalTripID": "48-385 EDEKA FIG",
+    "plannedDepartureTime": null,
+    "actualDepartureTime": "2026-10-08T18:30:23",
+    "administerMedicineTime": null,
+    "carrier": null,
+    "managingCarrier": null,
+    "locations": {
+      "locationID": 799125,
+      "locationName": "Perla Fruit",
+      "locationAddress": "Kahraman Caddesi,,Kestel,Bursa,16450, TR",
+      "latitude": 40.22521,
+      "longitude": 29.26432,
+      "plannedArrivalTime": null,
+      "plannedDepartureTime": null,
+      "actualArrivalTime": null,
+      "actualDepartureTime": "2026-10-08T18:30:23",
+      "courierEstimatedDeliveryTime": null,
+      "ianaId": "Europe/Istanbul",
+      "timezoneAbbreviation": "Turkey Standard Time",
+      "locationSegmentName": ""
+    }
+  },
+  "waypoints": null,
+  "destinations": [
+    {
+      "poNumber": "",
+      "orderNumber": "",
+      "destinationType": "aa7dd78f-33b9-4937-9da8-d05cb1133b94",
+      "modeOfTransportationGuid": "00000000-0000-0000-0000-000000000000",
+      "modeOfTransportation": "",
+      "containerNumber": "33 BBS 739 / 33 BAL 289\t\t",
+      "masterBillofLading": "",
+      "bookingNumber": null,
+      "products": [
+        {
+          "productID": 12798,
+          "productName": "Fig"
+        }
+      ],
+      "locationID": 41287,
+      "locationName": "EDEKA - FK SUD Garching",
+      "locationAddress": ",,,,, DE",
+      "latitude": 48.25588,
+      "longitude": 11.61726,
+      "plannedArrivalTime": null,
+      "plannedDepartureTime": null,
+      "actualArrivalTime": "2026-10-12T11:30:23",
+      "actualDepartureTime": "2026-10-13T08:00:29",
+      "courierEstimatedDeliveryTime": null,
+      "ianaId": "Europe/Berlin",
+      "timezoneAbbreviation": "CEST",
+      "locationSegmentName": null
+    }
+  ],
+  "containers": [
+    {
+      "containerID": -1,
+      "containerName": null,
+      "zones": [
+        {
+          "zoneId": -1,
+          "zoneName": null,
+          "zoneType": null,
+          "monitors": [
+            {
+              "monitorID": 8131188,
+              "serialNumber": "QCM9J00AC4",
+              "model": "TempTale GEO X",
+              "monitorName": null,
+              "isMonitorAlreadyAssignedToTrip": false,
+              "tripIds": null,
+              "shelfLifeExpiration": null,
+              "locationId": 0,
+              "positionId": null
+            }
+          ],
+          "zoneProducts": [
+            {
+              "locationId": 0,
+              "productId": 12798,
+              "productName": "Fig",
+              "minTemperature": 30.2,
+              "min2Temperature": null,
+              "idealTemperature": 32.0,
+              "maxTemperature": 35.6,
+              "max2Temperature": null,
+              "minHumidity": null,
+              "min2Humidity": null,
+              "idealHumidity": null,
+              "maxHumidity": null,
+              "max2Humidity": null,
+              "minLight": null,
+              "min2Light": null,
+              "idealLight": null,
+              "maxLight": null,
+              "max2Light": null,
+              "minCO2": null,
+              "min2CO2": null,
+              "idealCO2": null,
+              "maxCO2": null,
+              "max2CO2": null,
+              "minTemperatureProbe": null,
+              "min2TemperatureProbe": null,
+              "idealTemperatureProbe": null,
+              "maxTemperatureProbe": null,
+              "max2TemperatureProbe": null
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "isProgramEligibleForExtendedStops": false,
+  "isProgramEligibleForSPT": false,
+  "tripTemplateId": 4044,
+  "lastStatusChangeDate": "2026-10-12T11:30:23+00:00",
+  "tripActualArrivalTime": "2026-10-12T11:30:23+00:00",
+  "notes": "Trip copied from Perla Fruit. ",
+  "trailerID": "33 BBS 739 / 33 BAL 289\t\t",
+  "courierId": null,
+  "carrierId": null,
+  "managingCarrierId": null,
+  "atSupplierThresholdTimeInMinutes": null,
+  "preDepartureTimeInMinutes": 0,
+  "postArrivalTimeInMinutes": 0,
+  "tripID": "01ca2297-695f-4bf2-86b6-d1f0d4ed6720",
+  "id": 4733528,
+  "canEdit": true,
+  "canView": true,
+  "tripRecentData": {
+    "longitude": 11.643931,
+    "latitude": 48.271076,
+    "address": "E45, 85748 Garching, Germany",
+    "time": "2026-10-12T11:30:23Z",
+    "temperature": 34.6,
+    "light": 0.0,
+    "humidity": 83.2,
+    "cO2": null,
+    "fixType": "Cell",
+    "temperatureProbe": null
+  },
+  "tripExcursions": null,
+  "tripRoute": {
+    "tripId": "01ca2297-695f-4bf2-86b6-d1f0d4ed6720",
+    "tripCoordinates": [
+      {
+        "monitorLocationDataId": 5290598682,
+        "lat": 40.231306,
+        "long": 28.925125,
+        "createdOn": "2026-10-08T18:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5290674565,
+        "lat": 40.262935,
+        "long": 28.490342,
+        "createdOn": "2026-10-08T19:00:34Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5290905716,
+        "lat": 40.246378,
+        "long": 27.282644,
+        "createdOn": "2026-10-08T20:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5290982096,
+        "lat": 40.391713,
+        "long": 26.919817,
+        "createdOn": "2026-10-08T21:00:34Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5291287505,
+        "lat": 40.840394,
+        "long": 26.63036,
+        "createdOn": "2026-10-08T23:00:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5291364736,
+        "lat": 41.248742,
+        "long": 26.711049,
+        "createdOn": "2026-10-08T23:31:17Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5291521736,
+        "lat": 41.689896,
+        "long": 26.479378,
+        "createdOn": "2026-10-09T00:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5291667323,
+        "lat": 41.712736,
+        "long": 26.370174,
+        "createdOn": "2026-10-09T01:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5291821911,
+        "lat": 41.7195896595745,
+        "long": 26.3445033404255,
+        "createdOn": "2026-10-09T02:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5291898732,
+        "lat": 41.7185675,
+        "long": 26.35116425,
+        "createdOn": "2026-10-09T03:00:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5292129286,
+        "lat": 41.710584,
+        "long": 26.382333,
+        "createdOn": "2026-10-09T04:00:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5292207063,
+        "lat": 41.7192998222222,
+        "long": 26.3460718,
+        "createdOn": "2026-10-09T05:00:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5292517377,
+        "lat": 41.7207975806452,
+        "long": 26.3385286129032,
+        "createdOn": "2026-10-09T07:00:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5292748107,
+        "lat": 41.720524,
+        "long": 26.341307,
+        "createdOn": "2026-10-09T08:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5292825406,
+        "lat": 41.7208819642857,
+        "long": 26.3376716428571,
+        "createdOn": "2026-10-09T09:00:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5292906918,
+        "lat": 41.7209576875,
+        "long": 26.336902625,
+        "createdOn": "2026-10-09T09:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5293212978,
+        "lat": 41.714502,
+        "long": 26.367816,
+        "createdOn": "2026-10-09T11:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5293602079,
+        "lat": 41.714503,
+        "long": 26.367813,
+        "createdOn": "2026-10-09T14:00:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5293678750,
+        "lat": 41.71512,
+        "long": 26.365541,
+        "createdOn": "2026-10-09T14:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5294216095,
+        "lat": 41.7178829677419,
+        "long": 26.3546130645161,
+        "createdOn": "2026-10-09T18:00:27Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5294293597,
+        "lat": 41.715708,
+        "long": 26.365571,
+        "createdOn": "2026-10-09T18:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5294680743,
+        "lat": 41.71918,
+        "long": 26.3459519090909,
+        "createdOn": "2026-10-09T21:00:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5294835216,
+        "lat": 41.7192383529412,
+        "long": 26.3456221764706,
+        "createdOn": "2026-10-09T22:00:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5295218498,
+        "lat": 41.721164,
+        "long": 26.334741,
+        "createdOn": "2026-10-10T00:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5295371553,
+        "lat": 41.718537037037,
+        "long": 26.3495850740741,
+        "createdOn": "2026-10-10T01:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5295835704,
+        "lat": 41.71721,
+        "long": 26.355273,
+        "createdOn": "2026-10-10T04:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5295915803,
+        "lat": 41.717896,
+        "long": 26.355347,
+        "createdOn": "2026-10-10T05:00:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5296146086,
+        "lat": 41.71716,
+        "long": 26.355537,
+        "createdOn": "2026-10-10T06:00:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5296377489,
+        "lat": 41.718214,
+        "long": 26.349921,
+        "createdOn": "2026-10-10T08:00:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5296458271,
+        "lat": 41.7193109043478,
+        "long": 26.3486574956522,
+        "createdOn": "2026-10-10T08:30:27Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5296612086,
+        "lat": 41.71844,
+        "long": 26.349487,
+        "createdOn": "2026-10-10T09:30:27Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5296689677,
+        "lat": 41.7194238275862,
+        "long": 26.3486269224138,
+        "createdOn": "2026-10-10T10:00:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5296767943,
+        "lat": 41.719401,
+        "long": 26.348322,
+        "createdOn": "2026-10-10T10:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5296801625,
+        "lat": 41.7201274285714,
+        "long": 26.3479954285714,
+        "createdOn": "2026-10-10T10:43:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5296924814,
+        "lat": 41.721477,
+        "long": 26.301839,
+        "createdOn": "2026-10-10T11:30:34Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5297003768,
+        "lat": 41.930804,
+        "long": 25.919284,
+        "createdOn": "2026-10-10T12:00:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5297165539,
+        "lat": 42.214877,
+        "long": 24.939046,
+        "createdOn": "2026-10-10T13:02:28Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5297239188,
+        "lat": 42.233747,
+        "long": 24.382584,
+        "createdOn": "2026-10-10T13:30:33Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5297324554,
+        "lat": 42.288726,
+        "long": 24.236825,
+        "createdOn": "2026-10-10T14:00:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5297632977,
+        "lat": 42.778441,
+        "long": 23.752471,
+        "createdOn": "2026-10-10T16:01:25Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5297712623,
+        "lat": 43.018189,
+        "long": 23.687863,
+        "createdOn": "2026-10-10T16:32:29Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5298170649,
+        "lat": 43.962816,
+        "long": 22.847337,
+        "createdOn": "2026-10-10T19:31:22Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5298325138,
+        "lat": 44.033276,
+        "long": 23.094371,
+        "createdOn": "2026-10-10T20:00:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5298325236,
+        "lat": 44.301173,
+        "long": 22.918983,
+        "createdOn": "2026-10-10T20:30:27Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5298482996,
+        "lat": 44.748049,
+        "long": 22.39884,
+        "createdOn": "2026-10-10T21:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5300026619,
+        "lat": 41.71934,
+        "long": 26.348698,
+        "createdOn": "2026-10-11T05:00:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5300172103,
+        "lat": 45.627385,
+        "long": 22.068699,
+        "createdOn": "2026-10-11T08:30:32Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5300325181,
+        "lat": 45.995559,
+        "long": 21.065868,
+        "createdOn": "2026-10-11T09:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5300401769,
+        "lat": 46.202951,
+        "long": 21.052003,
+        "createdOn": "2026-10-11T10:00:47Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5300480211,
+        "lat": 46.156234,
+        "long": 20.785314,
+        "createdOn": "2026-10-11T10:30:44Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5300867017,
+        "lat": 47.011624,
+        "long": 19.606383,
+        "createdOn": "2026-10-11T13:01:21Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5301019825,
+        "lat": 47.485783,
+        "long": 18.834412,
+        "createdOn": "2026-10-11T14:00:37Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5301097963,
+        "lat": 47.595217,
+        "long": 18.388494,
+        "createdOn": "2026-10-11T14:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5301327835,
+        "lat": 47.645895,
+        "long": 17.71509,
+        "createdOn": "2026-10-11T16:01:46Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5301400942,
+        "lat": 47.840742,
+        "long": 17.259086,
+        "createdOn": "2026-10-11T16:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5301780706,
+        "lat": 47.9262565,
+        "long": 17.1094207826087,
+        "createdOn": "2026-10-11T19:00:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5301857102,
+        "lat": 47.926342,
+        "long": 17.109339,
+        "createdOn": "2026-10-11T19:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5303078634,
+        "lat": 47.922923,
+        "long": 17.112067,
+        "createdOn": "2026-10-12T03:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5303156787,
+        "lat": 47.92823,
+        "long": 16.999572,
+        "createdOn": "2026-10-12T04:00:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5303231624,
+        "lat": 48.126705,
+        "long": 16.582579,
+        "createdOn": "2026-10-12T04:30:36Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5303307923,
+        "lat": 48.062713,
+        "long": 16.159775,
+        "createdOn": "2026-10-12T05:00:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5303385340,
+        "lat": 48.189651,
+        "long": 15.768565,
+        "createdOn": "2026-10-12T05:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5303461385,
+        "lat": 48.197708,
+        "long": 15.240042,
+        "createdOn": "2026-10-12T06:00:36Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5303538002,
+        "lat": 48.114553,
+        "long": 14.709615,
+        "createdOn": "2026-10-12T06:30:38Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5303614902,
+        "lat": 48.195664,
+        "long": 14.238147,
+        "createdOn": "2026-10-12T07:00:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5303690653,
+        "lat": 48.158297,
+        "long": 13.706385,
+        "createdOn": "2026-10-12T07:30:33Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5303844006,
+        "lat": 48.268043,
+        "long": 13.499535,
+        "createdOn": "2026-10-12T08:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5303920960,
+        "lat": 48.4206118823529,
+        "long": 13.4113835294118,
+        "createdOn": "2026-10-12T09:00:27Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5303997545,
+        "lat": 48.637456,
+        "long": 13.296983,
+        "createdOn": "2026-10-12T09:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5304072135,
+        "lat": 48.816043,
+        "long": 12.938409,
+        "createdOn": "2026-10-12T10:00:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5304148211,
+        "lat": 48.659879,
+        "long": 12.488417,
+        "createdOn": "2026-10-12T10:30:30Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5304224522,
+        "lat": 48.487963,
+        "long": 11.998008,
+        "createdOn": "2026-10-12T11:00:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      },
+      {
+        "monitorLocationDataId": 5304301760,
+        "lat": 48.271076,
+        "long": 11.643931,
+        "createdOn": "2026-10-12T11:30:23Z",
+        "extendedStopDetected": true,
+        "hasExcursion": false,
+        "excursionCount": 0,
+        "serialNumber": "QCM9J00AC4"
+      }
+    ],
+    "isDataPointLimitExceed": false
+  },
+  "sensorData": [
+    {
+      "name": null,
+      "serialNumber": "QCM9J00AC4",
+      "temperatureData": [
+        {
+          "dateTime": "2026-10-08T18:45:21Z",
+          "value": 35.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T19:00:21Z",
+          "value": 35.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T19:15:21Z",
+          "value": 35.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T19:30:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T19:45:21Z",
+          "value": 35.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T20:00:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T20:15:21Z",
+          "value": 35.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T20:30:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T20:45:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T21:00:21Z",
+          "value": 34.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T21:15:21Z",
+          "value": 34.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T21:30:21Z",
+          "value": 33.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T21:45:21Z",
+          "value": 34.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T22:00:21Z",
+          "value": 34.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T22:15:21Z",
+          "value": 34.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T22:30:21Z",
+          "value": 33.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T22:45:21Z",
+          "value": 33.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T23:00:21Z",
+          "value": 33.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T23:15:21Z",
+          "value": 33.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T23:30:21Z",
+          "value": 33.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T23:45:21Z",
+          "value": 33.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T00:00:21Z",
+          "value": 32.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T00:15:21Z",
+          "value": 32.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T00:30:21Z",
+          "value": 32.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T00:45:21Z",
+          "value": 33.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T01:00:21Z",
+          "value": 33.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T01:15:21Z",
+          "value": 33.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T01:30:21Z",
+          "value": 32.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T01:45:21Z",
+          "value": 33.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T02:00:21Z",
+          "value": 33.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T02:15:21Z",
+          "value": 33.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T02:30:21Z",
+          "value": 33.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T02:45:21Z",
+          "value": 33.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T03:00:21Z",
+          "value": 33.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T03:15:21Z",
+          "value": 33.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T03:30:21Z",
+          "value": 33.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T03:45:21Z",
+          "value": 33.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T04:00:21Z",
+          "value": 33.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T04:15:21Z",
+          "value": 33.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T04:30:21Z",
+          "value": 33.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T04:45:21Z",
+          "value": 33.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T05:00:21Z",
+          "value": 33.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T05:15:21Z",
+          "value": 33.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T05:30:21Z",
+          "value": 33.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T05:45:21Z",
+          "value": 33.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T06:00:21Z",
+          "value": 33.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T06:15:21Z",
+          "value": 33.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T06:30:21Z",
+          "value": 33.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T06:45:21Z",
+          "value": 34.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T07:00:21Z",
+          "value": 33.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T07:15:21Z",
+          "value": 33.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T07:30:21Z",
+          "value": 33.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T07:45:21Z",
+          "value": 33.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T08:00:21Z",
+          "value": 33.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T08:15:21Z",
+          "value": 33.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T08:30:21Z",
+          "value": 33.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T08:45:21Z",
+          "value": 34.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T09:00:21Z",
+          "value": 34.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T09:15:21Z",
+          "value": 34.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T09:30:21Z",
+          "value": 34.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T09:45:21Z",
+          "value": 34.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T10:00:21Z",
+          "value": 34.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T10:15:21Z",
+          "value": 34.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T10:30:21Z",
+          "value": 34.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T10:45:21Z",
+          "value": 34.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T11:00:21Z",
+          "value": 34.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T11:15:21Z",
+          "value": 34.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T11:30:21Z",
+          "value": 35.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T11:45:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T12:00:21Z",
+          "value": 34.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T12:15:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T12:30:21Z",
+          "value": 34.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T12:45:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T13:00:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T13:15:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T13:30:21Z",
+          "value": 35.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T13:45:21Z",
+          "value": 35.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T14:00:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T14:15:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T14:30:21Z",
+          "value": 34.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T14:45:21Z",
+          "value": 34.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T15:00:21Z",
+          "value": 34.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T15:15:21Z",
+          "value": 34.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T15:30:21Z",
+          "value": 34.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T15:45:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T16:00:21Z",
+          "value": 34.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T16:15:21Z",
+          "value": 34.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T16:30:21Z",
+          "value": 34.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T16:45:21Z",
+          "value": 34.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T17:00:21Z",
+          "value": 34.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T17:15:21Z",
+          "value": 34.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T17:30:21Z",
+          "value": 33.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T17:45:21Z",
+          "value": 33.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T18:00:21Z",
+          "value": 33.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T18:15:21Z",
+          "value": 34.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T18:30:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T18:45:21Z",
+          "value": 34.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T19:00:21Z",
+          "value": 34.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T19:15:21Z",
+          "value": 34.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T19:30:21Z",
+          "value": 33.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T19:45:21Z",
+          "value": 34.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T20:00:21Z",
+          "value": 34.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T20:15:21Z",
+          "value": 34.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T20:30:21Z",
+          "value": 34.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T20:45:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T21:00:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T21:15:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T21:30:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T21:45:21Z",
+          "value": 35.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T22:00:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T22:15:21Z",
+          "value": 35.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T22:30:21Z",
+          "value": 35.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T22:45:21Z",
+          "value": 35.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T23:00:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T23:15:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T23:30:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T23:45:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T00:00:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T00:15:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T00:30:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T00:45:21Z",
+          "value": 35.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T01:00:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T01:15:21Z",
+          "value": 34.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T01:30:21Z",
+          "value": 34.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T01:45:21Z",
+          "value": 34.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T02:00:21Z",
+          "value": 34.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T02:15:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T02:30:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T02:45:21Z",
+          "value": 35.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T03:00:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T03:15:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T03:30:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T03:45:21Z",
+          "value": 35.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T04:00:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T04:15:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T04:30:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T04:45:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T05:00:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T05:15:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T05:30:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T05:45:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T06:00:21Z",
+          "value": 35.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T06:15:21Z",
+          "value": 35.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T06:30:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T06:45:21Z",
+          "value": 35.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T07:00:21Z",
+          "value": 34.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T07:15:21Z",
+          "value": 34.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T07:30:21Z",
+          "value": 34.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T07:45:21Z",
+          "value": 34.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T08:00:21Z",
+          "value": 34.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T08:15:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T08:30:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T08:45:21Z",
+          "value": 35.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T09:00:21Z",
+          "value": 34.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T09:15:21Z",
+          "value": 34.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T09:30:21Z",
+          "value": 34.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T09:45:21Z",
+          "value": 34.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T10:00:21Z",
+          "value": 34.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T10:15:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T10:30:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T10:45:21Z",
+          "value": 38.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T11:00:21Z",
+          "value": 36.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T11:15:21Z",
+          "value": 35.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T11:30:21Z",
+          "value": 35.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T11:45:21Z",
+          "value": 35.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T12:00:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T12:15:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T12:30:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T12:45:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T13:00:21Z",
+          "value": 34.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T13:15:21Z",
+          "value": 34.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T13:30:21Z",
+          "value": 34.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T13:45:21Z",
+          "value": 34.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T14:00:21Z",
+          "value": 34.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T14:15:21Z",
+          "value": 34.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T14:30:21Z",
+          "value": 35.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T14:45:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T15:00:21Z",
+          "value": 34.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T15:15:21Z",
+          "value": 34.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T15:30:21Z",
+          "value": 34.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T15:45:21Z",
+          "value": 34.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T16:00:21Z",
+          "value": 34.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T16:15:21Z",
+          "value": 34.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T16:30:21Z",
+          "value": 34.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T16:45:21Z",
+          "value": 34.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T17:00:21Z",
+          "value": 34.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T17:15:21Z",
+          "value": 34.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T17:30:21Z",
+          "value": 34.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T17:45:21Z",
+          "value": 34.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T18:00:21Z",
+          "value": 34.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T18:15:21Z",
+          "value": 34.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T18:30:21Z",
+          "value": 33.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T18:45:21Z",
+          "value": 34.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T19:00:21Z",
+          "value": 33.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T19:15:21Z",
+          "value": 34.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T19:30:21Z",
+          "value": 33.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T19:45:21Z",
+          "value": 34.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T20:00:21Z",
+          "value": 33.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T20:15:21Z",
+          "value": 34.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T20:30:21Z",
+          "value": 33.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T20:45:21Z",
+          "value": 33.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T21:00:21Z",
+          "value": 33.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T21:15:21Z",
+          "value": 33.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T21:30:21Z",
+          "value": 33.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T21:45:21Z",
+          "value": 33.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T22:00:21Z",
+          "value": 33.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T22:15:21Z",
+          "value": 34.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T22:30:21Z",
+          "value": 34.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T22:45:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T23:00:21Z",
+          "value": 35.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T23:15:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T23:30:21Z",
+          "value": 34.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T23:45:21Z",
+          "value": 34.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T00:00:21Z",
+          "value": 34.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T00:15:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T00:30:21Z",
+          "value": 34.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T00:45:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T01:00:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T01:15:21Z",
+          "value": 35.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T01:30:21Z",
+          "value": 35.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T01:45:21Z",
+          "value": 35.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T02:00:21Z",
+          "value": 35.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T02:15:21Z",
+          "value": 35.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T02:30:21Z",
+          "value": 35.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T02:45:21Z",
+          "value": 35.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T03:00:21Z",
+          "value": 35.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T03:15:21Z",
+          "value": 35.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T03:30:21Z",
+          "value": 35.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T03:45:21Z",
+          "value": 35.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T04:00:21Z",
+          "value": 35.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T04:15:21Z",
+          "value": 35.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T04:30:21Z",
+          "value": 35.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T04:45:21Z",
+          "value": 35.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T05:00:21Z",
+          "value": 35.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T05:15:21Z",
+          "value": 35.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T05:30:21Z",
+          "value": 34.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T05:45:21Z",
+          "value": 35.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T06:00:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T06:15:21Z",
+          "value": 35.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T06:30:21Z",
+          "value": 34.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T06:45:21Z",
+          "value": 34.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T07:00:21Z",
+          "value": 34.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T07:15:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T07:30:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T07:45:21Z",
+          "value": 35.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T08:00:21Z",
+          "value": 35.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T08:15:21Z",
+          "value": 35.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T08:30:21Z",
+          "value": 35.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T08:45:21Z",
+          "value": 35.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T09:00:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T09:15:21Z",
+          "value": 35.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T09:30:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T09:45:21Z",
+          "value": 35.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T10:00:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T10:15:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T10:30:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T10:45:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T11:00:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T11:15:21Z",
+          "value": 34.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T11:30:21Z",
+          "value": 34.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T11:45:21Z",
+          "value": 34.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T12:00:21Z",
+          "value": 34.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T12:15:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T12:30:21Z",
+          "value": 34.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T12:45:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T13:00:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T13:15:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T13:30:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T13:45:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T14:00:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T14:15:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T14:30:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T14:45:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T15:00:21Z",
+          "value": 35.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T15:15:21Z",
+          "value": 34.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T15:30:21Z",
+          "value": 34.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T15:45:21Z",
+          "value": 34.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T16:00:21Z",
+          "value": 34.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T16:15:21Z",
+          "value": 34.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T16:30:21Z",
+          "value": 34.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T16:45:21Z",
+          "value": 34.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T17:00:21Z",
+          "value": 34.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T17:15:21Z",
+          "value": 34.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T17:30:21Z",
+          "value": 33.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T17:45:21Z",
+          "value": 33.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T18:00:21Z",
+          "value": 34.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T18:15:21Z",
+          "value": 34.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T18:30:21Z",
+          "value": 34.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T18:45:21Z",
+          "value": 34.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T19:00:21Z",
+          "value": 34.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T19:15:21Z",
+          "value": 34.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T19:30:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T19:45:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T20:00:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T20:15:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T20:30:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T20:45:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T21:00:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T21:15:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T21:30:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T21:45:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T22:00:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T22:15:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T22:30:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T22:45:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T23:00:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T23:15:21Z",
+          "value": 34.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T23:30:21Z",
+          "value": 34.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T23:45:21Z",
+          "value": 34.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T00:00:21Z",
+          "value": 34.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T00:15:21Z",
+          "value": 34.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T00:30:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T00:45:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T01:00:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T01:15:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T01:30:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T01:45:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T02:00:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T02:15:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T02:30:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T02:45:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T03:00:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T03:15:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T03:30:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T03:45:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T04:00:21Z",
+          "value": 34.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T04:15:21Z",
+          "value": 34.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T04:30:21Z",
+          "value": 34.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T04:45:21Z",
+          "value": 34.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T05:00:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T05:15:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T05:30:21Z",
+          "value": 35.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T05:45:21Z",
+          "value": 35.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T06:00:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T06:15:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T06:30:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T06:45:21Z",
+          "value": 35.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T07:00:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T07:15:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T07:30:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T07:45:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T08:00:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T08:15:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T08:30:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T08:45:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T09:00:21Z",
+          "value": 35.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T09:15:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T09:30:21Z",
+          "value": 34.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T09:45:21Z",
+          "value": 34.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T10:00:21Z",
+          "value": 34.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T10:15:21Z",
+          "value": 33.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T10:30:21Z",
+          "value": 33.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T10:45:21Z",
+          "value": 34.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T11:00:21Z",
+          "value": 34.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T11:15:21Z",
+          "value": 34.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T11:30:21Z",
+          "value": 34.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        }
+      ],
+      "simulatedTemperatureData": [],
+      "lightData": [
+        {
+          "dateTime": "2026-10-08T18:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T19:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T19:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T19:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T19:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T20:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T20:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T20:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T20:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T21:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T21:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T21:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T21:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T22:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T22:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T22:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T22:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T23:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T23:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T23:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T23:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T00:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T00:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T00:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T00:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T01:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T01:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T01:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T01:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T02:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T02:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T02:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T02:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T03:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T03:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T03:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T03:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T04:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T04:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T04:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T04:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T05:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T05:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T05:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T05:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T06:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T06:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T06:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T06:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T07:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T07:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T07:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T07:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T08:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T08:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T08:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T08:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T09:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T09:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T09:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T09:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T10:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T10:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T10:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T10:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T11:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T11:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T11:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T11:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T12:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T12:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T12:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T12:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T13:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T13:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T13:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T13:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T14:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T14:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T14:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T14:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T15:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T15:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T15:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T15:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T16:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T16:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T16:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T16:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T17:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T17:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T17:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T17:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T18:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T18:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T18:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T18:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T19:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T19:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T19:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T19:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T20:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T20:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T20:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T20:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T21:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T21:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T21:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T21:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T22:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T22:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T22:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T22:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T23:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T23:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T23:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T23:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T00:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T00:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T00:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T00:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T01:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T01:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T01:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T01:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T02:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T02:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T02:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T02:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T03:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T03:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T03:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T03:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T04:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T04:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T04:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T04:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T05:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T05:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T05:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T05:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T06:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T06:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T06:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T06:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T07:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T07:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T07:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T07:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T08:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T08:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T08:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T08:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T09:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T09:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T09:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T09:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T10:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T10:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T10:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T10:45:21Z",
+          "value": 39.21855921855922,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T11:00:21Z",
+          "value": 53.06471306471307,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T11:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T11:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T11:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T12:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T12:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T12:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T12:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T13:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T13:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T13:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T13:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T14:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T14:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T14:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T14:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T15:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T15:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T15:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T15:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T16:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T16:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T16:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T16:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T17:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T17:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T17:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T17:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T18:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T18:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T18:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T18:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T19:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T19:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T19:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T19:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T20:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T20:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T20:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T20:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T21:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T21:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T21:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T21:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T22:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T22:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T22:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T22:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T23:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T23:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T23:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T23:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T00:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T00:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T00:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T00:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T01:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T01:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T01:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T01:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T02:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T02:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T02:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T02:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T03:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T03:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T03:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T03:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T04:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T04:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T04:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T04:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T05:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T05:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T05:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T05:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T06:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T06:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T06:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T06:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T07:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T07:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T07:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T07:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T08:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T08:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T08:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T08:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T09:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T09:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T09:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T09:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T10:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T10:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T10:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T10:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T11:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T11:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T11:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T11:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T12:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T12:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T12:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T12:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T13:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T13:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T13:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T13:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T14:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T14:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T14:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T14:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T15:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T15:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T15:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T15:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T16:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T16:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T16:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T16:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T17:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T17:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T17:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T17:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T18:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T18:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T18:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T18:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T19:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T19:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T19:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T19:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T20:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T20:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T20:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T20:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T21:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T21:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T21:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T21:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T22:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T22:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T22:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T22:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T23:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T23:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T23:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T23:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T00:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T00:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T00:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T00:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T01:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T01:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T01:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T01:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T02:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T02:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T02:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T02:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T03:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T03:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T03:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T03:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T04:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T04:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T04:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T04:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T05:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T05:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T05:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T05:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T06:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T06:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T06:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T06:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T07:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T07:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T07:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T07:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T08:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T08:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T08:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T08:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T09:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T09:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T09:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T09:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T10:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T10:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T10:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T10:45:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T11:00:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T11:15:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T11:30:21Z",
+          "value": 0.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        }
+      ],
+      "humidityData": [
+        {
+          "dateTime": "2026-10-08T18:45:21Z",
+          "value": 73.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T19:00:21Z",
+          "value": 73.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T19:15:21Z",
+          "value": 74.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T19:30:21Z",
+          "value": 74.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T19:45:21Z",
+          "value": 73.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T20:00:21Z",
+          "value": 75.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T20:15:21Z",
+          "value": 74.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T20:30:21Z",
+          "value": 74.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T20:45:21Z",
+          "value": 74.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T21:00:21Z",
+          "value": 74.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T21:15:21Z",
+          "value": 75.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T21:30:21Z",
+          "value": 74.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T21:45:21Z",
+          "value": 73.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T22:00:21Z",
+          "value": 74.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T22:15:21Z",
+          "value": 75.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T22:30:21Z",
+          "value": 75.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T22:45:21Z",
+          "value": 75.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T23:00:21Z",
+          "value": 76.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T23:15:21Z",
+          "value": 75.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T23:30:21Z",
+          "value": 76.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-08T23:45:21Z",
+          "value": 75.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T00:00:21Z",
+          "value": 75.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T00:15:21Z",
+          "value": 77.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T00:30:21Z",
+          "value": 77.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T00:45:21Z",
+          "value": 74.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T01:00:21Z",
+          "value": 74.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T01:15:21Z",
+          "value": 74.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T01:30:21Z",
+          "value": 74.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T01:45:21Z",
+          "value": 74.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T02:00:21Z",
+          "value": 75.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T02:15:21Z",
+          "value": 75.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T02:30:21Z",
+          "value": 75.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T02:45:21Z",
+          "value": 76.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T03:00:21Z",
+          "value": 76.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T03:15:21Z",
+          "value": 76.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T03:30:21Z",
+          "value": 76.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T03:45:21Z",
+          "value": 76.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T04:00:21Z",
+          "value": 76.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T04:15:21Z",
+          "value": 76.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T04:30:21Z",
+          "value": 76.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T04:45:21Z",
+          "value": 76.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T05:00:21Z",
+          "value": 76.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T05:15:21Z",
+          "value": 76.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T05:30:21Z",
+          "value": 76.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T05:45:21Z",
+          "value": 76.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T06:00:21Z",
+          "value": 76.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T06:15:21Z",
+          "value": 76.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T06:30:21Z",
+          "value": 76.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T06:45:21Z",
+          "value": 76.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T07:00:21Z",
+          "value": 77.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T07:15:21Z",
+          "value": 76.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T07:30:21Z",
+          "value": 76.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T07:45:21Z",
+          "value": 76.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T08:00:21Z",
+          "value": 76.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T08:15:21Z",
+          "value": 76.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T08:30:21Z",
+          "value": 76.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T08:45:21Z",
+          "value": 76.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T09:00:21Z",
+          "value": 76.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T09:15:21Z",
+          "value": 76.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T09:30:21Z",
+          "value": 76.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T09:45:21Z",
+          "value": 75.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T10:00:21Z",
+          "value": 75.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T10:15:21Z",
+          "value": 75.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T10:30:21Z",
+          "value": 75.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T10:45:21Z",
+          "value": 75.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T11:00:21Z",
+          "value": 75.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T11:15:21Z",
+          "value": 74.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T11:30:21Z",
+          "value": 75.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T11:45:21Z",
+          "value": 75.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T12:00:21Z",
+          "value": 75.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T12:15:21Z",
+          "value": 75.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T12:30:21Z",
+          "value": 75.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T12:45:21Z",
+          "value": 75.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T13:00:21Z",
+          "value": 75.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T13:15:21Z",
+          "value": 75.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T13:30:21Z",
+          "value": 75.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T13:45:21Z",
+          "value": 75.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T14:00:21Z",
+          "value": 75.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T14:15:21Z",
+          "value": 75.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T14:30:21Z",
+          "value": 75.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T14:45:21Z",
+          "value": 75.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T15:00:21Z",
+          "value": 75.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T15:15:21Z",
+          "value": 75.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T15:30:21Z",
+          "value": 75.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T15:45:21Z",
+          "value": 76.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T16:00:21Z",
+          "value": 76.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T16:15:21Z",
+          "value": 76.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T16:30:21Z",
+          "value": 76.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T16:45:21Z",
+          "value": 76.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T17:00:21Z",
+          "value": 76.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T17:15:21Z",
+          "value": 76.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T17:30:21Z",
+          "value": 76.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T17:45:21Z",
+          "value": 76.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T18:00:21Z",
+          "value": 77.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T18:15:21Z",
+          "value": 77.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T18:30:21Z",
+          "value": 76.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T18:45:21Z",
+          "value": 76.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T19:00:21Z",
+          "value": 77.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T19:15:21Z",
+          "value": 77.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T19:30:21Z",
+          "value": 77.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T19:45:21Z",
+          "value": 77.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T20:00:21Z",
+          "value": 77.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T20:15:21Z",
+          "value": 77.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T20:30:21Z",
+          "value": 77.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T20:45:21Z",
+          "value": 77.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T21:00:21Z",
+          "value": 77.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T21:15:21Z",
+          "value": 77.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T21:30:21Z",
+          "value": 77.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T21:45:21Z",
+          "value": 77.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T22:00:21Z",
+          "value": 77.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T22:15:21Z",
+          "value": 77.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T22:30:21Z",
+          "value": 77.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T22:45:21Z",
+          "value": 77.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T23:00:21Z",
+          "value": 78.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T23:15:21Z",
+          "value": 78.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T23:30:21Z",
+          "value": 77.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-09T23:45:21Z",
+          "value": 77.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T00:00:21Z",
+          "value": 78.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T00:15:21Z",
+          "value": 78.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T00:30:21Z",
+          "value": 78.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T00:45:21Z",
+          "value": 78.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T01:00:21Z",
+          "value": 77.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T01:15:21Z",
+          "value": 78.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T01:30:21Z",
+          "value": 78.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T01:45:21Z",
+          "value": 78.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T02:00:21Z",
+          "value": 78.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T02:15:21Z",
+          "value": 78.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T02:30:21Z",
+          "value": 78.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T02:45:21Z",
+          "value": 78.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T03:00:21Z",
+          "value": 78.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T03:15:21Z",
+          "value": 78.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T03:30:21Z",
+          "value": 78.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T03:45:21Z",
+          "value": 78.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T04:00:21Z",
+          "value": 78.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T04:15:21Z",
+          "value": 79.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T04:30:21Z",
+          "value": 78.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T04:45:21Z",
+          "value": 78.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T05:00:21Z",
+          "value": 79.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T05:15:21Z",
+          "value": 79.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T05:30:21Z",
+          "value": 79.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T05:45:21Z",
+          "value": 78.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T06:00:21Z",
+          "value": 79.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T06:15:21Z",
+          "value": 79.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T06:30:21Z",
+          "value": 79.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T06:45:21Z",
+          "value": 78.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T07:00:21Z",
+          "value": 78.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T07:15:21Z",
+          "value": 79.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T07:30:21Z",
+          "value": 79.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T07:45:21Z",
+          "value": 79.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T08:00:21Z",
+          "value": 79.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T08:15:21Z",
+          "value": 79.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T08:30:21Z",
+          "value": 79.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T08:45:21Z",
+          "value": 78.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T09:00:21Z",
+          "value": 78.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T09:15:21Z",
+          "value": 79.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T09:30:21Z",
+          "value": 79.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T09:45:21Z",
+          "value": 79.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T10:00:21Z",
+          "value": 79.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T10:15:21Z",
+          "value": 79.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T10:30:21Z",
+          "value": 78.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T10:45:21Z",
+          "value": 82.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T11:00:21Z",
+          "value": 77.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T11:15:21Z",
+          "value": 78.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T11:30:21Z",
+          "value": 78.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T11:45:21Z",
+          "value": 79.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T12:00:21Z",
+          "value": 78.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T12:15:21Z",
+          "value": 78.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T12:30:21Z",
+          "value": 79.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T12:45:21Z",
+          "value": 78.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T13:00:21Z",
+          "value": 78.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T13:15:21Z",
+          "value": 78.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T13:30:21Z",
+          "value": 78.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T13:45:21Z",
+          "value": 78.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T14:00:21Z",
+          "value": 78.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T14:15:21Z",
+          "value": 77.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T14:30:21Z",
+          "value": 79.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T14:45:21Z",
+          "value": 78.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T15:00:21Z",
+          "value": 80.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T15:15:21Z",
+          "value": 78.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T15:30:21Z",
+          "value": 80.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T15:45:21Z",
+          "value": 79.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T16:00:21Z",
+          "value": 79.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T16:15:21Z",
+          "value": 79.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T16:30:21Z",
+          "value": 79.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T16:45:21Z",
+          "value": 79.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T17:00:21Z",
+          "value": 81.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T17:15:21Z",
+          "value": 79.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T17:30:21Z",
+          "value": 78.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T17:45:21Z",
+          "value": 79.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T18:00:21Z",
+          "value": 79.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T18:15:21Z",
+          "value": 79.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T18:30:21Z",
+          "value": 81.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T18:45:21Z",
+          "value": 81.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T19:00:21Z",
+          "value": 79.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T19:15:21Z",
+          "value": 79.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T19:30:21Z",
+          "value": 80.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T19:45:21Z",
+          "value": 79.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T20:00:21Z",
+          "value": 80.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T20:15:21Z",
+          "value": 80.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T20:30:21Z",
+          "value": 80.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T20:45:21Z",
+          "value": 80.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T21:00:21Z",
+          "value": 80.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T21:15:21Z",
+          "value": 80.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T21:30:21Z",
+          "value": 80.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T21:45:21Z",
+          "value": 80.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T22:00:21Z",
+          "value": 79.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T22:15:21Z",
+          "value": 79.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T22:30:21Z",
+          "value": 79.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T22:45:21Z",
+          "value": 78.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T23:00:21Z",
+          "value": 78.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T23:15:21Z",
+          "value": 79.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T23:30:21Z",
+          "value": 79.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-10T23:45:21Z",
+          "value": 79.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T00:00:21Z",
+          "value": 79.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T00:15:21Z",
+          "value": 79.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T00:30:21Z",
+          "value": 79.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T00:45:21Z",
+          "value": 79.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T01:00:21Z",
+          "value": 79.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T01:15:21Z",
+          "value": 79.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T01:30:21Z",
+          "value": 79.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T01:45:21Z",
+          "value": 79.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T02:00:21Z",
+          "value": 79.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T02:15:21Z",
+          "value": 79.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T02:30:21Z",
+          "value": 79.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T02:45:21Z",
+          "value": 79.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T03:00:21Z",
+          "value": 79.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T03:15:21Z",
+          "value": 79.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T03:30:21Z",
+          "value": 79.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T03:45:21Z",
+          "value": 79.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T04:00:21Z",
+          "value": 80.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T04:15:21Z",
+          "value": 79.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T04:30:21Z",
+          "value": 80.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T04:45:21Z",
+          "value": 79.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T05:00:21Z",
+          "value": 80.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T05:15:21Z",
+          "value": 79.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T05:30:21Z",
+          "value": 79.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T05:45:21Z",
+          "value": 79.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T06:00:21Z",
+          "value": 80.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T06:15:21Z",
+          "value": 80.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T06:30:21Z",
+          "value": 80.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T06:45:21Z",
+          "value": 80.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T07:00:21Z",
+          "value": 81.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T07:15:21Z",
+          "value": 81.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T07:30:21Z",
+          "value": 82.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T07:45:21Z",
+          "value": 81.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T08:00:21Z",
+          "value": 81.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T08:15:21Z",
+          "value": 81.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T08:30:21Z",
+          "value": 82.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T08:45:21Z",
+          "value": 82.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T09:00:21Z",
+          "value": 81.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T09:15:21Z",
+          "value": 81.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T09:30:21Z",
+          "value": 82.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T09:45:21Z",
+          "value": 81.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T10:00:21Z",
+          "value": 82.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T10:15:21Z",
+          "value": 81.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T10:30:21Z",
+          "value": 81.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T10:45:21Z",
+          "value": 81.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T11:00:21Z",
+          "value": 80.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T11:15:21Z",
+          "value": 80.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T11:30:21Z",
+          "value": 81.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T11:45:21Z",
+          "value": 82.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T12:00:21Z",
+          "value": 82.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T12:15:21Z",
+          "value": 82.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T12:30:21Z",
+          "value": 82.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T12:45:21Z",
+          "value": 81.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T13:00:21Z",
+          "value": 81.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T13:15:21Z",
+          "value": 82.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T13:30:21Z",
+          "value": 81.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T13:45:21Z",
+          "value": 82.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T14:00:21Z",
+          "value": 81.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T14:15:21Z",
+          "value": 81.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T14:30:21Z",
+          "value": 81.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T14:45:21Z",
+          "value": 81.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T15:00:21Z",
+          "value": 82.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T15:15:21Z",
+          "value": 80.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T15:30:21Z",
+          "value": 80.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T15:45:21Z",
+          "value": 81.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T16:00:21Z",
+          "value": 81.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T16:15:21Z",
+          "value": 81.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T16:30:21Z",
+          "value": 81.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T16:45:21Z",
+          "value": 81.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T17:00:21Z",
+          "value": 81.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T17:15:21Z",
+          "value": 81.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T17:30:21Z",
+          "value": 81.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T17:45:21Z",
+          "value": 81.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T18:00:21Z",
+          "value": 81.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T18:15:21Z",
+          "value": 81.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T18:30:21Z",
+          "value": 81.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T18:45:21Z",
+          "value": 81.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T19:00:21Z",
+          "value": 81.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T19:15:21Z",
+          "value": 81.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T19:30:21Z",
+          "value": 81.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T19:45:21Z",
+          "value": 81.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T20:00:21Z",
+          "value": 81.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T20:15:21Z",
+          "value": 81.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T20:30:21Z",
+          "value": 81.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T20:45:21Z",
+          "value": 81.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T21:00:21Z",
+          "value": 81.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T21:15:21Z",
+          "value": 81.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T21:30:21Z",
+          "value": 81.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T21:45:21Z",
+          "value": 81.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T22:00:21Z",
+          "value": 81.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T22:15:21Z",
+          "value": 81.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T22:30:21Z",
+          "value": 81.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T22:45:21Z",
+          "value": 81.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T23:00:21Z",
+          "value": 81.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T23:15:21Z",
+          "value": 81.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T23:30:21Z",
+          "value": 81.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-11T23:45:21Z",
+          "value": 81.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T00:00:21Z",
+          "value": 81.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T00:15:21Z",
+          "value": 81.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T00:30:21Z",
+          "value": 81.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T00:45:21Z",
+          "value": 81.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T01:00:21Z",
+          "value": 81.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T01:15:21Z",
+          "value": 81.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T01:30:21Z",
+          "value": 81.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T01:45:21Z",
+          "value": 81.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T02:00:21Z",
+          "value": 81.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T02:15:21Z",
+          "value": 81.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T02:30:21Z",
+          "value": 81.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T02:45:21Z",
+          "value": 81.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T03:00:21Z",
+          "value": 81.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T03:15:21Z",
+          "value": 81.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T03:30:21Z",
+          "value": 81.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T03:45:21Z",
+          "value": 81.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T04:00:21Z",
+          "value": 83.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T04:15:21Z",
+          "value": 83.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T04:30:21Z",
+          "value": 83.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T04:45:21Z",
+          "value": 83.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T05:00:21Z",
+          "value": 83.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T05:15:21Z",
+          "value": 83.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T05:30:21Z",
+          "value": 83.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T05:45:21Z",
+          "value": 84.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T06:00:21Z",
+          "value": 83.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T06:15:21Z",
+          "value": 83.7,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T06:30:21Z",
+          "value": 83.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T06:45:21Z",
+          "value": 84.0,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T07:00:21Z",
+          "value": 85.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T07:15:21Z",
+          "value": 83.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T07:30:21Z",
+          "value": 83.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T07:45:21Z",
+          "value": 83.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T08:00:21Z",
+          "value": 82.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T08:15:21Z",
+          "value": 82.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T08:30:21Z",
+          "value": 82.6,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T08:45:21Z",
+          "value": 82.5,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T09:00:21Z",
+          "value": 83.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T09:15:21Z",
+          "value": 82.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T09:30:21Z",
+          "value": 82.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T09:45:21Z",
+          "value": 83.3,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T10:00:21Z",
+          "value": 82.8,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T10:15:21Z",
+          "value": 83.1,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T10:30:21Z",
+          "value": 84.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T10:45:21Z",
+          "value": 84.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T11:00:21Z",
+          "value": 83.9,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T11:15:21Z",
+          "value": 84.4,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        },
+        {
+          "dateTime": "2026-10-12T11:30:21Z",
+          "value": 83.2,
+          "confidence0": 0.0,
+          "confidence1": 0.0
+        }
+      ],
+      "co2Data": [],
+      "temperatureProbeData": [],
+      "temperatureHigh": null,
+      "minTemperature": null,
+      "idealTemperature": null,
+      "maxTemperature": null,
+      "minHumidity": null,
+      "idealHumidity": null,
+      "maxHumidity": null,
+      "minLight": null,
+      "idealLight": null,
+      "maxLight": null,
+      "minCO2": null,
+      "idealCO2": null,
+      "maxCO2": null,
+      "minTemperatureProbe": null,
+      "idealTemperatureProbe": null,
+      "maxTemperatureProbe": null,
+      "hasTemperature": true,
+      "hasLight": true,
+      "hasHumidity": true,
+      "hasCO2": false,
+      "hasTemperatureProbe": false
+    }
+  ],
+  "segments": [
+    {
+      "segmentName": "Perla Fruit \u279c EDEKA - FK SUD Garching",
+      "segmentNumber": 1,
+      "segmentType": "InTransit",
+      "startTime": "2026-10-08T18:30:23+00:00",
+      "endTime": "2026-10-12T11:30:23+00:00",
+      "length": "3.17:00:00",
+      "departedLocationId": 799125,
+      "arrivedLocationId": 41287,
+      "isCreatedSegment": false,
+      "departedLocationType": null,
+      "arrivedLocationType": null,
+      "departedLocationSuffix": null,
+      "arrivedLocationSuffix": null,
+      "legLongName": null,
+      "legShortName": null
+    },
+    {
+      "segmentName": "@EDEKA - FK SUD Garching",
+      "segmentNumber": 2,
+      "segmentType": "Stationary",
+      "startTime": "2026-10-12T11:30:23+00:00",
+      "endTime": "2026-10-12T11:30:23+00:00",
+      "length": "00:00:00",
+      "departedLocationId": 41287,
+      "arrivedLocationId": 41287,
+      "isCreatedSegment": false,
+      "departedLocationType": null,
+      "arrivedLocationType": null,
+      "departedLocationSuffix": null,
+      "arrivedLocationSuffix": null,
+      "legLongName": null,
+      "legShortName": null
+    }
+  ],
+  "excusrions": {
+    "count": 0,
+    "acknowledged": 0,
+    "totalAlarmed": 0,
+    "totalInvalidated": 0,
+    "items": []
+  },
+  "parentSupplierId": null,
+  "tripETA": null,
+  "departureReason": null,
+  "arrivalReason": "Location",
+  "isTemplateMonitorLocationEnabled": false,
+  "oceanShipmentInfo": null
+}

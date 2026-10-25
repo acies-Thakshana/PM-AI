@@ -1,0 +1,347 @@
+{
+  "tripID": "01ca2297-695f-4bf2-86b6-d1f0d4ed6720",
+  "id": 4733528,
+  "canEdit": true,
+  "canView": true,
+  "templateName": "Integration",
+  "tripRecentData": {
+    "longitude": 11.643931,
+    "latitude": 48.271076,
+    "address": "E45, 85748 Garching, Germany",
+    "time": "2026-10-12T11:30:23Z",
+    "temperature": 34.6,
+    "light": 0.0,
+    "humidity": 83.2,
+    "cO2": null,
+    "fixType": null,
+    "temperatureProbe": null
+  },
+  "deviceData": {
+    "tripId": "01ca2297-695f-4bf2-86b6-d1f0d4ed6720",
+    "monitors": [
+      {
+        "id": 0,
+        "createdOn": "2026-10-12T11:30:23Z",
+        "serialNumber": "QCM9J00AC4",
+        "location": {
+          "lat": 48.271076,
+          "long": 11.643931,
+          "precision": 1140.0,
+          "confidence": 1.0
+        },
+        "address": {
+          "addressLine": "E45",
+          "locality": "Garching",
+          "neighborhood": "",
+          "adminDistrict": "Bavaria",
+          "adminDistrict2": "Munich (District)",
+          "formattedAddress": "E45, 85748 Garching, Germany",
+          "postalCode": "85748",
+          "countryRegion": "Germany",
+          "countryRegionIso2": "DE",
+          "landmark": "",
+          "fixType": null
+        },
+        "sensors": [
+          {
+            "id": "00000000-0000-0000-0000-000000000000",
+            "createdOn": "2026-10-12T11:30:21+00:00",
+            "sensorType": 2,
+            "sensorValue": 83.2,
+            "confidence0": 0.0,
+            "confidence1": 0.0
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000000",
+            "createdOn": "2026-10-12T11:30:21+00:00",
+            "sensorType": 0,
+            "sensorValue": 0.0,
+            "confidence0": 0.0,
+            "confidence1": 0.0
+          },
+          "... 1 more items"
+        ]
+      }
+    ],
+    "trafficLightRating": null
+  },
+  "enabled": true,
+  "programId": 651,
+  "tripStatus": "Arrived",
+  "tripStatusGuid": "6b611752-bdc9-4ecf-8f3b-ee2d55f4ba30",
+  "createDate": "2026-10-08T04:05:10.307",
+  "lastUpdatedDate": "2026-10-13T07:56:07.63",
+  "acknowledged": false,
+  "alarmed": false,
+  "acknowledgedLocation": null,
+  "alarmedLocation": "48.271076, 11.643931",
+  "tripOrigin": {
+    "driverName": "",
+    "driverCell": "",
+    "internalTripID": "48-385 EDEKA FIG",
+    "plannedDepartureTime": null,
+    "actualDepartureTime": "2026-10-08T18:30:23",
+    "administerMedicineTime": null,
+    "courier": null,
+    "carrier": null,
+    "managingCarrier": null,
+    "locations": [
+      {
+        "locationID": 799125,
+        "locationName": "Perla Fruit",
+        "locationAddress": "Kahraman Caddesi,,Kestel,Bursa,16450, TR",
+        "latitude": 40.22521,
+        "longitude": 29.26432,
+        "plannedArrivalTime": null,
+        "plannedDepartureTime": null,
+        "actualArrivalTime": null,
+        "actualDepartureTime": null,
+        "courierEstimatedDeliveryTime": null,
+        "geofenceRadiusDeparture": 5.0,
+        "geofenceRadiusArrival": 5.0,
+        "requiredDataPointsDeparture": 3,
+        "requiredDataPointsArrival": 1,
+        "dataPointSequenceDepartureId": 1,
+        "dataPointSequenceArrivalId": 2,
+        "ianaId": null,
+        "timezoneAbbreviation": null,
+        "locationSegmentName": "",
+        "locationOrder": 0,
+        "country": "TR"
+      }
+    ],
+    "parentSupplier": null
+  },
+  "waypoints": null,
+  "destinations": [
+    {
+      "poNumber": "",
+      "orderNumber": "",
+      "destinationType": "aa7dd78f-33b9-4937-9da8-d05cb1133b94",
+      "modeOfTransportationGuid": "00000000-0000-0000-0000-000000000000",
+      "modeOfTransportation": "",
+      "vesselOrFlightOperator": "",
+      "vesselNameOrTailNumber": "",
+      "containerNumber": "33 BBS 739 / 33 BAL 289\t\t",
+      "routeOrFlightNumber": "",
+      "masterBillOfLading": "",
+      "bookingNumber": null,
+      "products": [
+        {
+          "productID": 12798,
+          "productName": "Fig"
+        }
+      ],
+      "carrier": null,
+      "managingCarrier": null,
+      "locationID": 41287,
+      "locationName": "EDEKA - FK SUD Garching",
+      "locationAddress": ",,,,, DE",
+      "latitude": 48.25588,
+      "longitude": 11.61726,
+      "plannedArrivalTime": null,
+      "plannedDepartureTime": null,
+      "actualArrivalTime": "2026-10-12T11:30:23",
+      "actualDepartureTime": "2026-10-13T08:00:29",
+      "courierEstimatedDeliveryTime": null,
+      "geofenceRadiusDeparture": 5.0,
+      "geofenceRadiusArrival": 5.0,
+      "requiredDataPointsDeparture": 3,
+      "requiredDataPointsArrival": 1,
+      "dataPointSequenceDepartureId": 1,
+      "dataPointSequenceArrivalId": 1,
+      "ianaId": null,
+      "timezoneAbbreviation": null,
+      "locationSegmentName": null,
+      "locationOrder": 0,
+      "country": "DE"
+    }
+  ],
+  "containers": [
+    {
+      "containerID": -1,
+      "containerName": null,
+      "gatewayMonitorId": null,
+      "gatewayMonitorName": null,
+      "gatewayMonitorSerialNumber": null,
+      "gatewayMonitorModel": null,
+      "gatewayCurrentChargingState": null,
+      "groupId": 0,
+      "groupName": null,
+      "driverId": null,
+      "driverName": null,
+      "zones": [
+        {
+          "zoneId": -1,
+          "zoneName": null,
+          "zoneType": null,
+          "minTemperature": null,
+          "idealTemperature": null,
+          "maxTemperature": null,
+          "minHumidity": null,
+          "idealHumidity": null,
+          "maxHumidity": null,
+          "minLight": null,
+          "idealLight": null,
+          "maxLight": null,
+          "minCO2": null,
+          "idealCO2": null,
+          "maxCO2": null,
+          "minTemperatureProbe": null,
+          "idealTemperatureProbe": null,
+          "maxTemperatureProbe": null,
+          "monitors": [
+            {
+              "monitorID": 8131188,
+              "serialNumber": "QCM9J00AC4",
+              "model": "TempTale GEO X",
+              "monitorName": null,
+              "isMonitorAlreadyAssignedToTrip": false,
+              "tripIds": null,
+              "shelfLifeExpiration": null,
+              "locationId": 0,
+              "positionId": null
+            }
+          ],
+          "zoneProducts": [
+            {
+              "locationId": 0,
+              "productId": 12798,
+              "productName": "Fig",
+              "minTemperature": 30.2,
+              "min2Temperature": null,
+              "idealTemperature": 32.0,
+              "maxTemperature": 35.6,
+              "max2Temperature": null,
+              "minHumidity": null,
+              "min2Humidity": null,
+              "idealHumidity": null,
+              "maxHumidity": null,
+              "max2Humidity": null,
+              "minLight": null,
+              "min2Light": null,
+              "idealLight": null,
+              "maxLight": null,
+              "max2Light": null,
+              "minCO2": null,
+              "min2CO2": null,
+              "idealCO2": null,
+              "maxCO2": null,
+              "max2CO2": null,
+              "minTemperatureProbe": null,
+              "min2TemperatureProbe": null,
+              "idealTemperatureProbe": null,
+              "maxTemperatureProbe": null,
+              "max2TemperatureProbe": null
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "isProgramEligibleForExtendedStops": false,
+  "isProgramEligibleForSPT": false,
+  "tripTemplateId": 4044,
+  "lastStatusChangeDate": "2026-10-12T11:30:23+00:00",
+  "tripActualArrivalTime": "2026-10-12T11:30:23+00:00",
+  "tripContinuationSettings": {
+    "segmentSettings": []
+  },
+  "closedLoopSettings": {
+    "isClosedLoop": false
+  },
+  "reportingSettings": {
+    "segmentReportingSettings": []
+  },
+  "notes": "Trip copied from Perla Fruit. ",
+  "trailerID": "33 BBS 739 / 33 BAL 289\t\t",
+  "courierId": null,
+  "carrierId": null,
+  "managingCarrierId": null,
+  "preDepartureTimeInMinutes": 0,
+  "tripTypeModel": {
+    "id": 0,
+    "name": "None"
+  },
+  "visibility": false,
+  "flagged": false,
+  "destinationsSelectiveAccessApplied": false,
+  "waypointsSelectiveAccessApplied": false,
+  "createdBy": "IntegrationSolutions",
+  "updatedBy": "System",
+  "acknowledgedCount": 0,
+  "totalAlarmed": 0,
+  "tripStatistics": {
+    "mkt": 34.60729749208939,
+    "tempSpec": {
+      "high": 35.6,
+      "low": 30.2
+    },
+    "tempReading": {
+      "max": 38.6,
+      "min": 32.8
+    },
+    "tempTime": {
+      "above": "00:45:00",
+      "within": "3.16:00:00",
+      "below": "00:00:00"
+    },
+    "tempDegreeMinutes": {
+      "high": 64.49999999999996,
+      "low": 0.0
+    },
+    "tempVariance": {
+      "mean": 34.608146067415746,
+      "sd": 0.654532144283216
+    },
+    "lightSpec": {
+      "high": null,
+      "low": null
+    },
+    "lightReadings": {
+      "max": 53.06471306471307,
+      "min": 0.0
+    },
+    "lightTime": {
+      "above": null,
+      "within": null,
+      "below": null
+    },
+    "lightVariance": {
+      "mean": 0.25922267495301204,
+      "sd": 3.492461597326977
+    },
+    "humiditySpec": {
+      "high": null,
+      "low": null
+    },
+    "humidityReadings": {
+      "max": 85.2,
+      "min": 73.2
+    },
+    "humidityTime": {
+      "above": null,
+      "within": null,
+      "below": null
+    },
+    "humidityVariance": {
+      "mean": 79.1376404494382,
+      "sd": 2.601513978478374
+    },
+    "cO2Spec": null,
+    "cO2Readings": null,
+    "cO2Time": null,
+    "cO2Variance": null,
+    "haveMultipleStats": false,
+    "isStatsRequired": true,
+    "availableSensor": {
+      "hasCO2": false,
+      "hasTemperature": true,
+      "hasLight": true,
+      "hasHumidity": true,
+      "hasTemperatureProbe": false
+    }
+  },
+  "tripLength": "3.17:00:00",
+  "tripETA": null
+}

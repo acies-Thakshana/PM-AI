@@ -1,0 +1,88 @@
+{
+  "tripId": 4733528,
+  "tripGuid": "01ca2297-695f-4bf2-86b6-d1f0d4ed6720",
+  "tripStatus": "Arrived",
+  "tripTemplateId": 4044,
+  "tripETA": null,
+  "isRiskScoreEnabled": false,
+  "quality": null,
+  "qualityComment": null,
+  "eSignBy": null,
+  "eSignOn": null,
+  "id": null,
+  "isDraft": false,
+  "isFromEventRule": false,
+  "origin": {
+    "plannedDepartureTime": null,
+    "locationId": 799125,
+    "administerMedicineTime": null
+  },
+  "driverName": "",
+  "driverCell": "",
+  "internalTripId": "48-385 EDEKA FIG",
+  "courierId": null,
+  "carrierId": null,
+  "managingCarrierId": null,
+  "notes": "Trip copied from Perla Fruit. ",
+  "trailerId": "33 BBS 739 / 33 BAL 289\t\t",
+  "preDepartureTimeInMinutes": 0,
+  "postArrivalTimeInMinutes": 0,
+  "waypoints": [],
+  "destinations": [
+    {
+      "destinationType": "Destination",
+      "poNumber": "",
+      "orderNumber": "",
+      "products": [
+        {
+          "productId": 12798
+        }
+      ],
+      "productRequirement": "NoLimit",
+      "productCount": 0,
+      "locationId": 41287,
+      "modeOfTransportationId": null,
+      "plannedDepartureTime": null,
+      "plannedArrivalTime": null,
+      "courierEstimatedDeliveryTime": null,
+      "vesselOrFlightOperator": "",
+      "vesselNameOrTailNumber": "",
+      "containerNumber": "33 BBS 739 / 33 BAL 289\t\t",
+      "routeOrFlightNumber": "",
+      "masterBillofLading": "",
+      "bookingNumber": null
+    }
+  ],
+  "containers": [
+    {
+      "zones": [
+        {
+          "products": [
+            {
+              "productId": 12798
+            }
+          ],
+          "monitor": [
+            {
+              "locationId": 0,
+              "positionId": null,
+              "serialNumber": "QCM9J00AC4",
+              "monitorName": null
+            }
+          ],
+          "zoneId": -1
+        }
+      ],
+      "containerId": -1
+    }
+  ],
+  "parentSupplierId": null,
+  "isForSyncCSSTrip": false,
+  "isMonitorValidationRequired": false,
+  "visibility": false,
+  "courierNumber": null,
+  "companyName": null,
+  "serialNumbers": [
+    "QCM9J00AC4"
+  ]
+}

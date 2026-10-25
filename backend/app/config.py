@@ -159,7 +159,7 @@ GROQ_CALLS = {c.strip() for c in os.getenv("GROQ_CALLS", "*").split(",") if c.st
 # Needs OPENROUTER_API_KEY; without it those calls keep using whatever provider they used before.
 # OPENROUTER_MODEL is any model id from https://openrouter.ai/models.
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
-OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "") or "anthropic/claude-sonnet-4.5"
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "") or "google/gemini-2.5-flash"
 OPENROUTER_CALLS = {c.strip() for c in os.getenv("OPENROUTER_CALLS", "*").split(",") if c.strip()}
 
 

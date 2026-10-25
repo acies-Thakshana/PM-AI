@@ -297,6 +297,21 @@ def _known_items(session_id: str | None) -> dict[str, str]:
         return {}
 
 
+def _open_what_was_explained(raw: dict, ctx: Any, known: dict[str, str]) -> None:
+    """A reply that explains one analysis or calculation opens it next to the answer. The model is asked to say so with a
+    navigate action; when it forgot, the item its tools looked up last is opened."""
+    actions = raw.get("actions") if isinstance(raw.get("actions"), list) else []
+    if any(isinstance(a, dict) and a.get("type") == "navigate" and a.get("open") for a in actions):
+        return
+    looked = [i for i in (ctx.looked_at if ctx else []) if i in known]
+    if not looked:
+        return
+    page = "analysis" if known[looked[-1]] == "analysis" else "features"
+    raw["actions"] = [a for a in actions if not (isinstance(a, dict) and a.get("type") == "navigate")] + [
+        {"type": "navigate", "page": page, "open": looked[-1]}
+    ]
+
+
 @router.post("/turn")
 def turn(req: ChatTurnRequest):
     if not req.messages or req.messages[-1].role != "user":
@@ -318,7 +333,9 @@ def turn(req: ChatTurnRequest):
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"Chat LLM error: {exc}") from exc
     asked = [m.content for m in req.messages if m.role == "user"]
-    return _normalise(raw, req.state, audited, pending, _known_items(req.session_id), unverified, asked)
+    known = _known_items(req.session_id)
+    _open_what_was_explained(raw, ctx, known)
+    return _normalise(raw, req.state, audited, pending, known, unverified, asked)
 
 
 # --------------------------------------------------------------------------- interview record

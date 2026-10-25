@@ -4,7 +4,7 @@ import { useLocation } from "react-router-dom";
 import { useChat } from "../chat/ChatProvider";
 import type { ChatMsg, ReviewStage } from "../chat/ChatProvider";
 import { stageOf } from "../chat/rules";
-import { CONFIGURE_LOAD_KEY, CONFIGURE_STATUS_KEY, NOT_READY } from "../chat/signals";
+import { CONFIGURE_LOAD_KEY, CONFIGURE_STATUS_KEY, INTERVIEW_DONE_KEY, NOT_READY } from "../chat/signals";
 import type { ConfigureStatus } from "../chat/signals";
 import { useStoredState } from "../state/sessionStore";
 import { IconChatBot } from "./icons";
@@ -79,6 +79,8 @@ export default function ChatPanel() {
   // The Configure page tells whether "Load & continue" can be pressed; pressing it here raises the counter it watches.
   const [configure] = useStoredState<ConfigureStatus>(CONFIGURE_STATUS_KEY, NOT_READY);
   const [, setLoadRequest] = useStoredState<number>(CONFIGURE_LOAD_KEY, 0);
+  // The questions are finished (answered or skipped on the Planner page): the report can be built even when the model never said "ready".
+  const [interviewDone] = useStoredState<boolean>(INTERVIEW_DONE_KEY, false);
   const [editing, setEditing] = useState<string | null>(null);
   const [width, setWidth] = useState(loadWidth);
   const [resizing, setResizing] = useState(false);
@@ -157,12 +159,12 @@ export default function ChatPanel() {
   // The questions start by themselves on the Planner page (the data is loaded by then); the button is only for starting
   // them again by hand. Before that, on the Configure page, the next step is loading the data.
   const started = messages.some((m) => m.role === "user") || Object.values(chat.understanding).some(Boolean);
-  const fresh = phase === "interview" && !started && stageOf(location.pathname) === "planner";
+  const fresh = phase === "interview" && !started && !interviewDone && stageOf(location.pathname) === "planner";
   // One main button, by where the conversation is: begin the interview, build once it is confirmed, check at the end.
   const buildBusy = build.status === "running" || build.status === "waiting_data" || build.status === "paused_audit";
   const headerAction: { label: string; run: () => void } | null = fresh
     ? { label: "Start", run: chat.startInterview }
-    : phase === "ready" && !buildBusy
+    : (phase === "ready" || (interviewDone && (phase === "interview" || phase === "readback"))) && !buildBusy
       ? { label: "Build the report", run: chat.startBuild }
       : phase === "refine"
         ? { label: "Check it", run: () => chat.send("Is this ready to send?") }
