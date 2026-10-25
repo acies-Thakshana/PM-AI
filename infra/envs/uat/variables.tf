@@ -55,7 +55,7 @@ variable "additional_tags" {
 variable "create_vpc" {
   description = "true = create a new VPC for Acies practice; false = use existing VPC/subnets, expected for CG."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "vpc_cidr" {

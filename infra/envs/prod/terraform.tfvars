@@ -34,6 +34,10 @@ public_subnet_cidrs  = []
 private_subnet_cidrs = []
 enable_vpc_endpoints = true
 
+existing_vpc_id                  = ""
+existing_private_subnet_ids      = []
+existing_private_route_table_ids = []
+
 # Create app-specific security groups.
 create_security_groups = true
 allowed_egress_cidrs   = []
