@@ -132,9 +132,13 @@ class OpenWhatWasReadTest(unittest.TestCase):
         self.assertEqual(self._out([], [("analysis", "a1"), ("analysis", "a1")]),
                          [{"type": "navigate", "page": "analysis", "open": "a1"}])
 
-    def test_several_items_read_means_no_guessing(self):
-        self.assertEqual(self._out([{"type": "navigate", "page": "analysis"}], [("analysis", "a1"), ("feature", "f1")]),
-                         [{"type": "navigate", "page": "analysis"}])
+    def test_several_items_read_means_an_answer_in_text_only(self):
+        self.assertEqual(self._out([{"type": "navigate", "page": "analysis"}], [("analysis", "a1"), ("feature", "f1")]), [])
+        self.assertEqual(self._out([{"type": "navigate", "page": "features", "open": "f1"}], [("analysis", "a1"), ("feature", "f1")]), [])
+
+    def test_several_items_read_still_allow_a_navigate_to_another_page(self):
+        self.assertEqual(self._out([{"type": "navigate", "page": "report"}], [("analysis", "a1"), ("feature", "f1")]),
+                         [{"type": "navigate", "page": "report"}])
 
     def test_a_navigate_to_another_page_is_left_alone(self):
         self.assertEqual(self._out([{"type": "navigate", "page": "report"}], [("analysis", "a1")]),
@@ -246,6 +250,80 @@ class AuditStatusTest(unittest.TestCase):
     def test_an_audit_that_has_not_run_is_not_ready(self):
         # No issues at all looks "reviewed" on the server; the browser knows the audit has not run.
         self.assertEqual(self._status([], reviewed=False), (False, 0))
+
+
+class DataBlockIdsTest(unittest.TestCase):
+    """The model can only point the PM at an item when it knows the item's id."""
+
+    def test_every_analysis_and_calculation_is_listed_with_its_id(self):
+        analyses = [{"id": "a7", "name": "Carrier ranking", "status": "approved", "run_status": "done"}]
+        features = [{"id": "f3", "name": "Hours out of range", "status": "approved"}]
+        with mock.patch.object(chat.column_meta, "load", return_value=None), \
+                mock.patch.object(chat.chat_tools, "analyses_of", return_value=analyses), \
+                mock.patch.object(chat.feature_repository, "get_repository", return_value=features):
+            block = chat._data_block("s1")
+        self.assertIn("- [a7] Carrier ranking (approved, run=done)", block)
+        self.assertIn("- [f3] Hours out of range (approved)", block)
+
+
+class ReplyFormatTest(unittest.TestCase):
+    """The read-back and the "what next" line are written by the app, so they look the same every time."""
+    U = {"goal": "Find late carriers", "scope": "", "period": "2025-11 to 2026-03", "limits": "0 to 2 C", "output": "Internal", "kpis": ""}
+    DOT = "\u2022"
+
+    def _turn(self, raw, state=None, has_data=True):
+        return chat._normalise(raw, state or {}, has_data=has_data)
+
+    def test_the_readback_always_lists_the_same_six_rows_in_order(self):
+        out = self._turn({"reply": "**Goal:** a\n* b", "intent": "interview", "phase": "readback", "understanding": self.U})
+        rows = [line for line in out["reply"].splitlines() if line.startswith(self.DOT)]
+        self.assertEqual([r.split(":")[0] for r in rows],
+                         [f"{self.DOT} {label}" for label in ("Goal", "Scope", "Period", "Limits", "Output", "Client KPIs")])
+        self.assertIn(f"{self.DOT} Scope: Not specified", out["reply"])
+        self.assertIn(f"{self.DOT} Goal: Find late carriers", out["reply"])
+        self.assertNotIn("**", out["reply"])
+
+    def test_the_readback_ends_with_what_to_do_and_offers_the_two_answers(self):
+        out = self._turn({"reply": "anything", "intent": "interview", "phase": "readback", "understanding": self.U,
+                          "quick_replies": ["Something odd"]})
+        self.assertTrue(out["reply"].endswith(chat.READBACK_CLOSING))
+        self.assertEqual(out["quick_replies"], ["Yes, that's right", "Not quite"])
+
+    def test_the_readback_counts_the_assumptions(self):
+        out = self._turn({"reply": "x", "intent": "interview", "phase": "readback", "understanding": self.U,
+                          "assumptions": [{"id": "a1", "text": "Range is 0 to 2 C"}, {"id": "a2", "text": "All carriers"}]})
+        self.assertIn("I made 2 assumptions", out["reply"])
+        none = self._turn({"reply": "x", "intent": "interview", "phase": "readback", "understanding": self.U})
+        self.assertNotIn("assumption", none["reply"])
+
+    def test_a_question_during_the_interview_is_left_as_the_model_wrote_it(self):
+        out = self._turn({"reply": "What range counts as acceptable?", "intent": "interview", "phase": "interview"})
+        self.assertEqual(out["reply"], "What range counts as acceptable?")
+
+    def test_an_answer_about_the_report_is_not_turned_into_a_readback(self):
+        out = self._turn({"reply": "It ranks carriers.", "intent": "ask", "phase": "readback", "understanding": self.U})
+        self.assertEqual(out["reply"], "It ranks carriers.")
+
+    def test_a_confirmed_interview_with_data_says_what_comes_next(self):
+        out = self._turn({"reply": "Saved your answers.", "intent": "interview", "phase": "ready"})
+        self.assertEqual(out["reply"], "Saved your answers.\n\n" + chat.READY_CLOSING)
+
+    def test_the_next_step_is_not_repeated_when_the_model_already_said_it(self):
+        out = self._turn({"reply": 'All set. Press "Build the report" when ready.', "intent": "interview", "phase": "ready"})
+        self.assertNotIn(chat.READY_CLOSING, out["reply"])
+
+    def test_without_data_the_models_own_next_step_stands(self):
+        out = self._turn({"reply": "Load your data on the Configure page.", "intent": "interview", "phase": "ready"}, has_data=False)
+        self.assertEqual(out["reply"], "Load your data on the Configure page.")
+
+    def test_markdown_marks_are_taken_out_of_every_reply(self):
+        out = self._turn({"reply": "**Bold** text\n* one\n- two", "intent": "ask", "phase": "refine"})
+        self.assertEqual(out["reply"], f"Bold text\n{self.DOT} one\n{self.DOT} two")
+
+    def test_the_brief_the_model_stores_is_never_reformatted(self):
+        brief = "* keep this bullet\n- and this one\nof the PM"
+        out = chat._clean_actions([{"type": "set_brief", "text": brief}], intent="interview").actions
+        self.assertEqual(out, [{"type": "set_brief", "text": brief}])
 
 
 class UserPromptTest(unittest.TestCase):

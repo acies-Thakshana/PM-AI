@@ -86,6 +86,8 @@ def tools_prompt() -> str:
 
 # The tools that read one item, and what kind of item that is (the kinds `known_items` uses).
 _OPENED_BY = {"get_analysis": "analysis", "get_feature": "feature"}
+# find_item names the kind of what it found differently ("calculation" for what the rest of the app calls a feature).
+_FOUND_AS = {"analysis": "analysis", "calculation": "feature"}
 
 
 @dataclass
@@ -169,6 +171,11 @@ def run_turn(
             result = tools.run_tool(call["name"], call["args"], ctx)
             if call["name"] in _OPENED_BY and not result.get("error") and isinstance(result.get("id"), str):
                 looked_at.append((_OPENED_BY[call["name"]], result["id"]))
+            elif call["name"] == "find_item":
+                # A search with exactly one hit is the item the PM means, even when the model never read it afterwards.
+                found = result.get("matches") or []
+                if len(found) == 1 and found[0].get("kind") in _FOUND_AS and isinstance(found[0].get("id"), str):
+                    looked_at.append((_FOUND_AS[found[0]["kind"]], found[0]["id"]))
             lines.append(_result_text(call["name"], call["args"], result))
         scratch += f"\n\n--- TOOL RESULTS (round {rounds}) ---\n" + "\n".join(lines)
 
