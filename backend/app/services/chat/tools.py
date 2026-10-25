@@ -13,7 +13,7 @@ from __future__ import annotations
 import inspect
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable
 
 import pandas as pd
@@ -35,11 +35,9 @@ MAX_MATCHES = 5
 MATCH_THRESHOLD = 0.5
 
 
-@dataclass
+@dataclass(frozen=True)
 class ToolContext:
     session_id: str
-    #: Ids of the analyses / calculations the tools looked up this turn (the last one is what the reply is about).
-    looked_at: list[str] = field(default_factory=list)
 
 
 # ------------------------------------------------------------------------------------------- helpers
@@ -168,7 +166,6 @@ def get_analysis(ctx: ToolContext, id: str = "") -> dict:  # noqa: A002 - `id` i
     entry = next((e for e in _analyses(ctx.session_id) if e["id"] == id), None)
     if entry is None:
         return {"error": "No analysis has that id.", "known_ids": [e["id"] for e in _analyses(ctx.session_id)]}
-    ctx.looked_at.append(entry["id"])
     table = entry.get("result_table") or []
     return {
         "id": entry["id"],
@@ -209,7 +206,6 @@ def get_feature(ctx: ToolContext, id: str = "") -> dict:  # noqa: A002
     entry = next((e for e in _features(ctx.session_id) if e["id"] == id), None)
     if entry is None:
         return {"error": "No calculation has that id.", "known_ids": [e["id"] for e in _features(ctx.session_id)]}
-    ctx.looked_at.append(entry["id"])
     out = {
         "id": entry["id"],
         "name": entry["name"],
