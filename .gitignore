@@ -34,3 +34,10 @@ PM_AI_Refactor_Summary.xlsx
 ~$*
 backend/data/audit_log.jsonl
 backend/data/profiles/
+
+# SWP API trial runs: raw trip JSON, timing and field workbooks
+backend/swp_timing_output/
+backend/swp_try_output/
+docs/SWP_API_Fields.xlsx
+docs/SWP_Processing_Overview.xlsx
+docs/raw_json_example/
