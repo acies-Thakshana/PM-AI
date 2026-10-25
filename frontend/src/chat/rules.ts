@@ -156,7 +156,7 @@ export function explainFailure(raw: string | null | undefined): string {
 // ------------------------------------------------------------------------------------------------ shortcuts
 /** What the PM asked for in words the app can read without asking the model (one AI call saved each time). */
 export type Shortcut =
-  | { type: "suggest"; kind: "feature" | "analysis" }
+  | { type: "suggest"; kind: "feature" | "analysis" | "both" }
   | { type: "own"; kind: "feature" | "analysis"; text: string };
 
 /**
@@ -168,7 +168,9 @@ export function shortcutFor(text: string): Shortcut | null {
   const own = text.match(/^add (?:an? )?(analysis|calculation|feature)\s*:\s*(\S[\s\S]*)$/i);
   if (own) return { type: "own", kind: /analysis/i.test(own[1]) ? "analysis" : "feature", text: own[2].trim() };
   if (text.includes(":") || text.trim().split(/\s+/).length > 14 || /\b(?:explain|why|how|what does|what is)\b/i.test(text)) return null;
-  const kind = /analys/i.test(text) ? "analysis" : /feature|calculation|kpi|metric/i.test(text) ? "feature" : null;
+  const analysis = /analys/i.test(text);
+  const feature = /feature|calculation|kpi|metric/i.test(text);
+  const kind = analysis && feature ? "both" : analysis ? "analysis" : feature ? "feature" : null;
   const generic = /\b(?:suggest|recommend|propose|another|more|other|suitable|something|anything|on (?:your|ur) own)\b/i.test(text);
   const adding = /\b(?:add|suggest|recommend|propose|give|create|need|want)\b/i.test(text);
   return kind && generic && adding ? { type: "suggest", kind } : null;

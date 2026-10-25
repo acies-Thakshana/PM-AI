@@ -757,7 +757,14 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       }
       const shortcut = opts.hidden ? null : shortcutFor(text);
       if (shortcut?.type === "suggest") {
-        void suggestWithAi(shortcut.kind);
+        if (shortcut.kind === "both") {
+          // Both were asked for: the calculations first (the analyses may use them), then the analyses; each is reviewed on its own page.
+          void suggestWithAi("feature")
+            .then(() => suggestWithAi("analysis"))
+            .then(() => say("The calculations are waiting on the Features page and the analyses here: accept or reject each on its page."));
+        } else {
+          void suggestWithAi(shortcut.kind);
+        }
         return;
       }
       if (shortcut?.type === "own") {
