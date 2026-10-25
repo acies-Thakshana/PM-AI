@@ -121,6 +121,8 @@ interface ChatValue {
   messages: ChatMsg[];
   busy: boolean;
   phase: ChatPhase;
+  /** The Planner has produced its suggestions (the way on to the audit is open). */
+  plannerReady: boolean;
   understanding: Understanding;
   assumptions: Assumption[];
   quickReplies: string[];
@@ -423,8 +425,8 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     say(head + tail + " You can add drill-downs on the Analysis page, tell me what to change, or ask whether it is ready to send.", { links });
     setLine("done", `Report ready: ${done} of ${total} analyses built.`);
     setPhase("refine");
-    // Not the report: its analyses are listed on the Analysis page, where drill-downs are added.
-    navigate("/analysis");
+    // The report is the last step: the build ends there.
+    navigate("/report");
   };
 
   /**
@@ -1097,6 +1099,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       messages,
       busy,
       phase,
+      plannerReady: Boolean(plannerResult),
       understanding,
       assumptions,
       // "Skip the questions" belongs to the interview, which happens on the Configure page.
@@ -1119,7 +1122,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       undoChange,
       reset,
     }),
-    [review, suggestedFor, audit, autoAccept, setAutoAccept, decide, acceptAll, inspect, buildItems, open, messages, busy, phase, understanding, assumptions, quickReplies, nextQuestions, build, changes, location.pathname, sessionId, startInterview, startBuild, persistInterview, suggestWithAi, openPage, send, editAssumption, removeAssumption, undoChange, reset]
+    [review, suggestedFor, audit, autoAccept, setAutoAccept, decide, acceptAll, inspect, buildItems, open, messages, busy, phase, plannerResult, understanding, assumptions, quickReplies, nextQuestions, build, changes, location.pathname, sessionId, startInterview, startBuild, persistInterview, suggestWithAi, openPage, send, editAssumption, removeAssumption, undoChange, reset]
   );
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

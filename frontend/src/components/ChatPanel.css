@@ -118,6 +118,21 @@ body.chat-open .modal__overlay {
 .chat--resizing {
   user-select: none;
 }
+/* Full screen: over the whole window, the conversation kept at a readable width in the middle. */
+.chat--full {
+  width: 100vw;
+  max-width: none;
+  z-index: 200;
+  border-left: 0;
+  box-shadow: none;
+}
+.chat--full .chat__resize {
+  display: none;
+}
+.chat--full > :not(.chat__resize):not(.chat__header) {
+  width: min(960px, 100%);
+  margin-inline: auto;
+}
 .chat > :not(.chat__resize) {
   position: relative;
   z-index: 1;

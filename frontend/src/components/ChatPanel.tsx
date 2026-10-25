@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 import { useLocation } from "react-router-dom";
+import { TripDataContext } from "../context/tripData";
 import { useChat } from "../chat/ChatProvider";
 import type { ChatMsg, ReviewStage } from "../chat/ChatProvider";
 import { stageOf } from "../chat/rules";
@@ -81,9 +82,12 @@ export default function ChatPanel() {
   const [, setLoadRequest] = useStoredState<number>(CONFIGURE_LOAD_KEY, 0);
   // The questions are finished (answered or skipped on the Planner page): the report can be built even when the model never said "ready".
   const [interviewDone] = useStoredState<boolean>(INTERVIEW_DONE_KEY, false);
+  const tripData = useContext(TripDataContext);
   const [editing, setEditing] = useState<string | null>(null);
   const [width, setWidth] = useState(loadWidth);
   const [resizing, setResizing] = useState(false);
+  // Full screen: the assistant covers the whole window, the page behind it is out of the way. Escape or the button goes back.
+  const [full, setFull] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const { open, messages, busy, build, phase } = chat;
 
@@ -105,6 +109,13 @@ export default function ChatPanel() {
       /* not saved: it just starts at the default next time */
     }
   }, [width]);
+
+  useEffect(() => {
+    if (!full) return;
+    const leave = (event: KeyboardEvent) => event.key === "Escape" && setFull(false);
+    window.addEventListener("keydown", leave);
+    return () => window.removeEventListener("keydown", leave);
+  }, [full]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -188,7 +199,16 @@ export default function ChatPanel() {
   // The way on to the next page, from the chat itself, with a line about the page the PM is on.
   const nextStep: { label: string; path: string; enabled: boolean; hint: string } | null =
     stage === "planner"
-      ? { label: "Continue to Data audit", path: "/audit", enabled: true, hint: "Planner: accept or reject the suggestions here or on the page, then go on." }
+      ? {
+          label: "Continue to Data audit",
+          path: "/audit",
+          enabled: chat.plannerReady && tripData.ready,
+          hint: !chat.plannerReady
+            ? "Planner: answer the questions or skip them, so the Planner can suggest what to build."
+            : tripData.ready
+              ? "Planner: accept or reject the suggestions here or on the page, then go on."
+              : `Planner: waiting for the trip data (${tripData.loaded}/${tripData.total}).`,
+        }
       : stage === "audit"
         ? {
             label: "Continue to Features",
@@ -213,7 +233,7 @@ export default function ChatPanel() {
   };
 
   return (
-    <aside className={`chat${resizing ? " chat--resizing" : ""}`} aria-label={`${ASSISTANT_NAME}, ${ASSISTANT_ROLE}`}>
+    <aside className={`chat${resizing ? " chat--resizing" : ""}${full ? " chat--full" : ""}`} aria-label={`${ASSISTANT_NAME}, ${ASSISTANT_ROLE}`}>
       <div
         className="chat__resize"
         role="separator"
@@ -242,16 +262,29 @@ export default function ChatPanel() {
               {headerAction.label}
             </button>
           )}
-          <button type="button" className="chat__icon-btn" title="Make it smaller" aria-label="Make the assistant smaller" onClick={() => step(-1)}>
-            −
-          </button>
-          <button type="button" className="chat__icon-btn" title="Make it bigger" aria-label="Make the assistant bigger" onClick={() => step(1)}>
-            +
+          {!full && (
+            <>
+              <button type="button" className="chat__icon-btn" title="Make it smaller" aria-label="Make the assistant smaller" onClick={() => step(-1)}>
+                −
+              </button>
+              <button type="button" className="chat__icon-btn" title="Make it bigger" aria-label="Make the assistant bigger" onClick={() => step(1)}>
+                +
+              </button>
+            </>
+          )}
+          <button
+            type="button"
+            className="chat__icon-btn"
+            title={full ? "Back to the page (Esc)" : "Full screen"}
+            aria-label={full ? "Leave full screen" : "Make the assistant full screen"}
+            onClick={() => setFull((f) => !f)}
+          >
+            {full ? "⤡" : "⤢"}
           </button>
           <button type="button" className="chat__icon-btn" title="Start over" aria-label="Start over" onClick={chat.reset} disabled={busy}>
             ↺
           </button>
-          <button type="button" className="chat__icon-btn" title="Close" aria-label="Close the assistant" onClick={() => chat.setOpen(false)}>
+          <button type="button" className="chat__icon-btn" title="Close" aria-label="Close the assistant" onClick={() => { setFull(false); chat.setOpen(false); }}>
             ×
           </button>
         </div>

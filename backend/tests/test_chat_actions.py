@@ -147,6 +147,14 @@ class OpenWhatWasReadTest(unittest.TestCase):
         self.assertEqual(self._out([{"type": "navigate", "page": "analysis", "open": "a1"}], [("analysis", "a1")]),
                          [{"type": "navigate", "page": "analysis", "open": "a1"}])
 
+    def test_a_turn_labelled_as_an_interview_answer_still_opens_what_was_read(self):
+        self.assertEqual(self._out([], [("feature", "f1")], intent="interview"),
+                         [{"type": "navigate", "page": "features", "open": "f1"}])
+
+    def test_a_navigate_to_the_wrong_item_page_points_at_the_item_page(self):
+        self.assertEqual(self._out([{"type": "navigate", "page": "analysis"}], [("feature", "f1")]),
+                         [{"type": "navigate", "page": "features", "open": "f1"}])
+
     def test_adding_something_never_opens_an_item_by_this_rule(self):
         self.assertEqual(self._out([], [("analysis", "a1")], intent="change"), [])
 

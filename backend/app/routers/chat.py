@@ -173,11 +173,50 @@ def _open_what_was_read(actions: list[dict], looked_at: list[tuple[str, str]]) -
         return actions
     kind, item_id = next(iter(items))
     page = PAGE_OF_KIND[kind]
-    if any(a.get("type") == "navigate" and a.get("page") != page for a in actions):
-        return actions  # the model is taking the PM somewhere else on purpose
+    if any(a.get("type") == "navigate" and a.get("page") not in OPENABLE_KIND for a in actions):
+        return actions  # the model is taking the PM to another page (audit, report ...) on purpose
     if not any(a.get("type") == "navigate" for a in actions):
         actions = [*actions, {"type": "navigate", "page": page}]
-    return [{**a, "open": item_id} if a.get("type") == "navigate" and not a.get("open") else a for a in actions]
+    # A navigate to the wrong one of the two item pages (an analysis question sent to Features) points at the item's page.
+    return [{**a, "page": page, "open": item_id} if a.get("type") == "navigate" and not a.get("open") else a for a in actions]
+
+
+def _named_item(question: str, session_id: str | None) -> tuple[str, str, str] | None:
+    """(tool, id, name) of the one analysis or calculation the PM's message names in full, or None."""
+    if not session_id:
+        return None
+    try:
+        items = [("get_analysis", e["id"], e["name"]) for e in chat_tools.analyses_of(session_id)]
+        items += [("get_feature", e["id"], e["name"]) for e in chat_tools._features(session_id)]
+    except Exception as exc:  # noqa: BLE001 - without the hint the model simply looks the item up itself
+        log.warning("chat: could not list the items of %s: %s", session_id, exc)
+        return None
+    scored = sorted(((chat_tools.name_overlap(question, n), t, i, n) for t, i, n in items), reverse=True)
+    if scored and scored[0][0] >= 0.99 and (len(scored) == 1 or scored[1][0] < scored[0][0]):
+        return scored[0][1:]
+    return None
+
+
+def _open_what_was_named(actions: list[dict], question: str, session_id: str | None) -> list[dict]:
+    """The model sometimes opens the Analysis or Features page without reading anything and without an item id, so the
+    page opens but not the analysis the PM asked about. When the PM's message names exactly one item of that page
+    ("explain the monthly compliance trend"), that item is the one to open."""
+    if not session_id or not any(a.get("type") == "navigate" and not a.get("open") and a.get("page") in OPENABLE_KIND for a in actions):
+        return actions
+    try:
+        names = {"analysis": [(e["id"], e["name"]) for e in chat_tools.analyses_of(session_id)],
+                 "feature": [(e["id"], e["name"]) for e in chat_tools._features(session_id)]}
+    except Exception as exc:  # noqa: BLE001 - the page still opens, just without the item
+        log.warning("chat: could not list the items of %s: %s", session_id, exc)
+        return actions
+    out = []
+    for a in actions:
+        if a.get("type") == "navigate" and not a.get("open") and a.get("page") in OPENABLE_KIND:
+            scored = sorted(((chat_tools.name_overlap(question, n), i) for i, n in names[OPENABLE_KIND[a["page"]]]), reverse=True)
+            if scored and scored[0][0] >= 0.99 and (len(scored) == 1 or scored[1][0] < scored[0][0]):
+                a = {**a, "open": scored[0][1]}
+        out.append(a)
+    return out
 
 
 def _refusal_note(refused: list[str], pending: int | None) -> str:
@@ -250,7 +289,8 @@ def _normalise(
 
     quick = [_clean_text(q, 80) for q in (raw.get("quick_replies") or []) if isinstance(q, str) and q.strip()][:4]
     cleaned = _clean_actions(raw.get("actions"), audited, intent, known_items)
-    if intent in ("ask", "other") and looked_at:
+    # Reading an item is only done to answer a question: a model that labelled the turn as an interview answer still opens it.
+    if intent in ("ask", "other", "interview") and looked_at:
         cleaned.actions = _open_what_was_read(cleaned.actions, looked_at)
     reply = _clean_text(raw.get("reply"), 3000) or "Sorry, I lost my train of thought. Could you say that again?"
     notes = []
@@ -328,6 +368,14 @@ def turn(req: ChatTurnRequest):
     if req.session_id:
         system += orchestrator.tools_prompt()  # tools only exist for a loaded session
     user = _user_prompt(req, audited, pending)
+    named = _named_item(req.messages[-1].content, req.session_id)
+    if named:
+        # The model otherwise tends to say "I'll open the page" and leave the explaining for the next message.
+        tool, item_id, name = named
+        user += (
+            f"\n\nNOTE: the PM's last message is about \"{name}\" (id {item_id}). If it asks about it, call {tool} with "
+            f"id \"{item_id}\" first and explain it in this same answer, in the order given above."
+        )
     ctx = chat_tools.ToolContext(req.session_id) if req.session_id else None
     try:
         result = orchestrator.run_turn(system, user, _ask_model, ctx)
@@ -340,7 +388,9 @@ def turn(req: ChatTurnRequest):
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"Chat LLM error: {exc}") from exc
     asked = [m.content for m in req.messages if m.role == "user"]
-    return _normalise(raw, req.state, audited, pending, _known_items(req.session_id), unverified, asked, result.looked_at)
+    response = _normalise(raw, req.state, audited, pending, _known_items(req.session_id), unverified, asked, result.looked_at)
+    response["actions"] = _open_what_was_named(response["actions"], asked[-1] if asked else "", req.session_id)
+    return response
 
 
 # --------------------------------------------------------------------------- interview record
