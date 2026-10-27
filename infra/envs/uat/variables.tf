@@ -587,3 +587,15 @@ variable "bedrock_prompt_ids" {
   type        = map(string)
   default     = {}
 }
+
+variable "enable_swp" {
+  description = "Connect the backend to the SensiWatch (SWP) API: creates the secret container and injects its values into the container."
+  type        = bool
+  default     = false
+}
+
+variable "swp_secret_keys" {
+  description = "Keys inside the SWP secret that become container environment variables. Add SWP_TRIP_KEY_2 here only after putting a second key in the secret."
+  type        = list(string)
+  default     = ["SWP_BASE_URL", "SWP_PROGRAM_ID", "SWP_SECURITY_KEY", "SWP_TRIP_KEY", "SWP_USER", "SWP_PASS"]
+}

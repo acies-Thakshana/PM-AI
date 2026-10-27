@@ -84,6 +84,8 @@ module "secrets" {
   openrouter_secret_arn      = var.openrouter_secret_arn
   enable_deepl               = var.enable_deepl
   deepl_secret_arn           = var.deepl_secret_arn
+  enable_swp                 = var.enable_swp
+  swp_secret_keys            = var.swp_secret_keys
 }
 
 # Storage: the S3 data bucket

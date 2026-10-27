@@ -93,3 +93,8 @@ output "amplify_default_domain" {
   description = "Amplify default domain, if Amplify is enabled."
   value       = var.enable_amplify ? module.frontend.default_domain : ""
 }
+
+output "swp_secret_arn" {
+  description = "SensiWatch (SWP) secret ARN, if enabled. Insert the value separately (see the deploy steps)."
+  value       = module.secrets.swp_secret_arn
+}

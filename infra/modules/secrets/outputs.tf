@@ -17,3 +17,8 @@ output "container_secrets" {
   description = "Name + ARN pairs the ECS container receives as secrets."
   value       = local.ecs_container_secrets
 }
+
+output "swp_secret_arn" {
+  description = "SensiWatch (SWP) secret ARN, or empty."
+  value       = local.swp_secret_arn
+}

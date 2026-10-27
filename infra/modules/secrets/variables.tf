@@ -32,3 +32,15 @@ variable "deepl_secret_arn" {
   description = "Existing DeepL secret ARN when enable_deepl=true and create_placeholder_secrets=false."
   type        = string
 }
+
+variable "enable_swp" {
+  description = "Create the SensiWatch (SWP) secret and hand its values to the container as environment variables."
+  type        = bool
+  default     = false
+}
+
+variable "swp_secret_keys" {
+  description = "Keys inside the one SWP secret (a JSON text). Each key becomes an environment variable of the same name in the container. Every key listed here must exist in the secret, or the container does not start."
+  type        = list(string)
+  default     = ["SWP_BASE_URL", "SWP_PROGRAM_ID", "SWP_SECURITY_KEY", "SWP_TRIP_KEY", "SWP_USER", "SWP_PASS"]
+}
