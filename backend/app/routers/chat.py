@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -97,13 +98,14 @@ def _data_block(session_id: str | None) -> str:
             parts.append(
                 f"{meta.get('row_count', '?')} rows. COLUMNS:\n" + _build_columns_block(cols, meta.get("row_count", 0))
             )
+        # The id of each item is in square brackets: the model needs it to point the PM at the item (navigate "open").
         analyses = [
-            f'- {e["name"]} ({e["status"]}, run={e.get("run_status", "not_run")})'
+            f'- [{e["id"]}] {e["name"]} ({e["status"]}, run={e.get("run_status", "not_run")})'
             for e in chat_tools.analyses_of(session_id)
         ]
-        feats = [f'- {e["name"]} ({e["status"]})' for e in feature_repository.get_repository(session_id)]
-        parts.append("EXISTING ANALYSES:\n" + ("\n".join(analyses) or "(none)"))
-        parts.append("EXISTING FEATURES:\n" + ("\n".join(feats) or "(none)"))
+        feats = [f'- [{e["id"]}] {e["name"]} ({e["status"]})' for e in feature_repository.get_repository(session_id)]
+        parts.append("EXISTING ANALYSES ([id] name):\n" + ("\n".join(analyses) or "(none)"))
+        parts.append("EXISTING FEATURES ([id] name):\n" + ("\n".join(feats) or "(none)"))
         return "\n\n".join(parts)
     except Exception as exc:  # noqa: BLE001 - the chat still works without the data block
         log.warning("chat: could not build the data block for %s: %s", session_id, exc)
@@ -173,8 +175,12 @@ PAGE_OF_KIND = {kind: page for page, kind in OPENABLE_KIND.items()}
 def _open_what_was_read(actions: list[dict], looked_at: list[tuple[str, str]]) -> list[dict]:
     """The model is asked to point its navigate action at the item it explains, but it often leaves the id out (or
     writes a wrong one that gets dropped), and then only the page opens. The server knows which item it read: when
-    exactly one item was read, that page's navigate action opens it (and one is added when the model sent none)."""
+    exactly one item was read, that page's navigate action opens it (and one is added when the model sent none).
+    When SEVERAL items were read (the PM asked about an analysis and a calculation together) there is no single item
+    to show, so the answer stays text only: the navigate actions to the Analysis and Features pages are dropped."""
     items = set(looked_at)
+    if len(items) > 1:
+        return [a for a in actions if not (a.get("type") == "navigate" and a.get("page") in OPENABLE_KIND)]
     if len(items) != 1:
         return actions
     kind, item_id = next(iter(items))
@@ -239,6 +245,29 @@ def _refusal_note(refused: list[str], pending: int | None) -> str:
 
 OFF_INTENT_NOTE = "I have not changed anything: tell me if you want that added."
 
+# ---- the parts of a reply the app writes itself, so the format and the "what next" line never depend on the model
+UNDERSTANDING_LABELS = (("goal", "Goal"), ("scope", "Scope"), ("period", "Period"),
+                        ("limits", "Limits"), ("output", "Output"), ("kpis", "Client KPIs"))
+READBACK_REPLIES = ["Yes, that's right", "Not quite"]
+READBACK_CLOSING = 'Reply "yes" to confirm, or tell me what to change.'
+READY_CLOSING = 'Next step: accept or reject the Planner\'s suggestions, then press "Build the report".'
+
+
+def _plain(text: str) -> str:
+    """Plain text for the chat bubble, which shows what it is given: no **bold** marks, bullets as one bullet kind."""
+    return re.sub(r"(?m)^[ \t]*[*\-][ \t]+", "• ", re.sub(r"\*\*|__", "", text))
+
+
+def _readback_reply(understanding: dict[str, str], assumptions: list[dict]) -> str:
+    """The read-back message: always the same six rows in the same order (a blank one says so), then what to do."""
+    rows = [f"• {label}: {understanding.get(key) or 'Not specified'}" for key, label in UNDERSTANDING_LABELS]
+    parts = ["Here is what I understood from the brief:\n" + "\n".join(rows)]
+    if assumptions:
+        n = len(assumptions)
+        parts.append(f"I made {n} assumption{'s' if n > 1 else ''} where the brief was silent (listed above the chat; you can edit or remove them).")
+    parts.append(READBACK_CLOSING)
+    return "\n\n".join(parts)
+
 
 def _unverified_note(figures: list[str]) -> str:
     return f"I could not check these figures against the data, so treat them with care: {', '.join(figures)}."
@@ -272,7 +301,11 @@ def _normalise(
     unverified: list[str] | None = None,
     asked: list[str] | None = None,
     looked_at: list[tuple[str, str]] | None = None,
+<<<<<<< HEAD
     refusals: dict[str, list[str]] | None = None,
+=======
+    has_data: bool = False,
+>>>>>>> 32331cdd49732ec5483084630446f026cccb7219
 ) -> dict:
     """Turn whatever the model returned into the response shape, falling back to the previous state.
     `audited` is whether features and analyses may be added yet (data loaded, audit decisions made).
@@ -282,7 +315,7 @@ def _normalise(
     intent = _intent_of(raw, phase)
     prev_u = state.get("understanding") if isinstance(state.get("understanding"), dict) else {}
     new_u = raw.get("understanding") if isinstance(raw.get("understanding"), dict) else {}
-    understanding = {k: _clean_text(new_u.get(k, prev_u.get(k, "")), 400) for k in UNDERSTANDING_KEYS}
+    understanding = {k: _plain(_clean_text(new_u.get(k, prev_u.get(k, "")), 400)) for k in UNDERSTANDING_KEYS}
 
     assumptions = []
     seen: set[str] = set()
@@ -301,7 +334,14 @@ def _normalise(
     # Reading an item is only done to answer a question: a model that labelled the turn as an interview answer still opens it.
     if intent in ("ask", "other", "interview") and looked_at:
         cleaned.actions = _open_what_was_read(cleaned.actions, looked_at)
-    reply = _clean_text(raw.get("reply"), 3000) or "Sorry, I lost my train of thought. Could you say that again?"
+    reply = _plain(_clean_text(raw.get("reply"), 3000)) or "Sorry, I lost my train of thought. Could you say that again?"
+    # The interview steps look the same every time: the read-back is written here from the structured answers, and
+    # a confirmed interview always ends with what to do next (the model's own wording of these varied from turn to turn).
+    if intent == "interview" and phase == "readback":
+        reply = _readback_reply(understanding, assumptions)
+        quick = list(READBACK_REPLIES)
+    elif intent == "interview" and phase == "ready" and has_data and "Build the report" not in reply:
+        reply = f"{reply}\n\n{READY_CLOSING}"
     notes = []
     if cleaned.needs_audit:
         notes.append(_refusal_note(cleaned.needs_audit, pending))
@@ -415,10 +455,14 @@ def _answer(req: ChatTurnRequest, audited: bool, pending: int | None, recorder: 
         recorder.fail("CHAT_ERROR", 502, str(exc))
         raise HTTPException(status_code=502, detail=f"Chat LLM error: {exc}") from exc
     asked = [m.content for m in req.messages if m.role == "user"]
+<<<<<<< HEAD
     refusals: dict[str, list[str]] = {}
     response = _normalise(
         raw, req.state, audited, pending, _known_items(req.session_id), unverified, asked, result.looked_at, refusals,
     )
+=======
+    response = _normalise(raw, req.state, audited, pending, _known_items(req.session_id), unverified, asked, result.looked_at, bool(req.session_id))
+>>>>>>> 32331cdd49732ec5483084630446f026cccb7219
     response["actions"] = _open_what_was_named(response["actions"], asked[-1] if asked else "", req.session_id)
     recorder.complete(
         response, tools_used=result.tools_used, looked_at=result.looked_at, refusals=refusals, state=req.state,

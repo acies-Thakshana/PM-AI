@@ -75,6 +75,22 @@ class RunTurnTest(unittest.TestCase):
         result = orchestrator.run_turn("S", "U", FakeModel({"tool_calls": calls_[:3]}, final()), CTX)
         self.assertEqual(result.looked_at, [("analysis", "a1"), ("feature", "f1")])
 
+    def test_a_search_with_one_hit_counts_as_the_item_looked_at(self):
+        self.run_tool.side_effect = lambda name, args, ctx: {"matches": [{"kind": "calculation", "id": "f1", "name": "Hours", "score": 1.0}]}
+        model = FakeModel({"tool_calls": [{"name": "find_item", "args": {"query": "hours"}}]}, final())
+        self.assertEqual(orchestrator.run_turn("S", "U", model, CTX).looked_at, [("feature", "f1")])
+
+    def test_a_search_with_several_hits_does_not_pick_one(self):
+        two = [{"kind": "analysis", "id": "a1", "name": "A", "score": 0.8}, {"kind": "analysis", "id": "a2", "name": "B", "score": 0.7}]
+        self.run_tool.side_effect = lambda name, args, ctx: {"matches": two}
+        model = FakeModel({"tool_calls": [{"name": "find_item", "args": {"query": "a"}}]}, final())
+        self.assertEqual(orchestrator.run_turn("S", "U", model, CTX).looked_at, [])
+
+    def test_a_search_with_no_hit_picks_nothing(self):
+        self.run_tool.side_effect = lambda name, args, ctx: {"matches": [], "note": "No analysis or calculation has a similar name."}
+        model = FakeModel({"tool_calls": [{"name": "find_item", "args": {"query": "zz"}}]}, final())
+        self.assertEqual(orchestrator.run_turn("S", "U", model, CTX).looked_at, [])
+
     def test_the_session_comes_from_the_server_not_the_model(self):
         model = FakeModel({"tool_calls": [{"name": "get_analysis", "args": {"id": "a1", "session_id": "someone-else"}}]}, final())
         orchestrator.run_turn("S", "U", model, CTX)

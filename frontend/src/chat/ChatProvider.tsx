@@ -880,10 +880,13 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
         hidden: Boolean(opts.hidden),
       })
         .then(async (res) => {
+          // Was the interview already over before this reply? Questions asked after that must not move the PM again.
+          const wasReady = live.current.phase === "ready";
           // A sentence that promises to open a page gets a button when the model sent no navigate action.
           // The first time something is settled (from a brief typed here or on the Configure page), say what was understood.
+          // (The read-back is written in full by the server, so it is not repeated as a list here.)
           const firstTime = !Object.values(live.current.understanding).some(Boolean);
-          if (firstTime && res.phase !== "ready") {
+          if (firstTime && res.phase !== "ready" && res.phase !== "readback") {
             const summary = understandingReply(res.understanding);
             if (summary) say(summary.text, { facts: summary.facts });
           }
@@ -911,8 +914,11 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
             }
             if (sid) {
               // The Planner plans from the saved answers, so it is only let go once they are saved. It is on the Planner
-              // page already, or the PM is taken there.
+              // page already, or the PM is taken there. The answers are saved again on every reply while the phase stays
+              // "ready" (the PM may have edited an assumption), but the PM is moved only the first time: a question
+              // about an analysis asked later must keep the page the answer opened.
               void persistInterview(sid).then(() => {
+                if (wasReady) return;
                 setInterviewDone(true);
                 if (stageOf(live.current.pathname) === "planner") return;
                 navigate("/planner");
