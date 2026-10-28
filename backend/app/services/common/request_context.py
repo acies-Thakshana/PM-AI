@@ -21,6 +21,12 @@ current_session_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
 current_entry_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("current_entry_id", default=None)
 
 
+# The chat turn being answered right now (set by the chat endpoints), so the events and LLM calls made while
+# answering it can say which turn they belong to (see audit_log.log_event).
+current_chat_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("current_chat_id", default=None)
+current_turn_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("current_turn_id", default=None)
+
+
 # Every request is this one user until sign-in is added (the profiles table is keyed by user id).
 LOCAL_USER_ID = "local"
 

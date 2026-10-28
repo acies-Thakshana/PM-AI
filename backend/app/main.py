@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import config
-from app.routers import analysis, analysis_paths, audit, brief, chat, features, jobs, planner, report, swp
+from app.routers import analysis, analysis_paths, audit, brief, chat, chat_turns, features, jobs, planner, report, swp
 from app.routers.deps import User, get_user
 from app.services.audit.audit_store import SessionConflict
 from app.services.common import doc_store, session_repo, token_usage
@@ -52,6 +52,7 @@ async def _doc_conflict_handler(request: Request, exc: doc_store.VersionConflict
 _auth = [Depends(get_user)]
 app.include_router(brief.router, dependencies=_auth)
 app.include_router(chat.router, dependencies=_auth)
+app.include_router(chat_turns.router, dependencies=_auth)
 app.include_router(audit.router, dependencies=_auth)
 app.include_router(planner.router, dependencies=_auth)
 app.include_router(features.router, dependencies=_auth)

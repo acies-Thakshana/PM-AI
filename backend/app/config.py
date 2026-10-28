@@ -163,12 +163,28 @@ OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "") or "google/gemini-2.5-flash
 OPENROUTER_CALLS = {c.strip() for c in os.getenv("OPENROUTER_CALLS", "*").split(",") if c.strip()}
 
 
+# The chat's calls stay on Bedrock (BEDROCK_STRONG_MODEL) even while OpenRouter / Groq serve the other calls;
+# CHAT_ON_BEDROCK=0 lets them follow OPENROUTER_CALLS / GROQ_CALLS like the rest.
+CHAT_CALLS = {"chat_agent", "chat_tools", "chat_review"}
+CHAT_ON_BEDROCK = os.getenv("CHAT_ON_BEDROCK", "1") != "0"
+
+# The chat's conversation record: one item per PM message (a "turn") and everything that followed it
+# (services/chat/chat_store.py). Partition chat_id, sort turn_id; indexes by-user and by-session. Unset: local
+# files under data/chats/. The rows expire with the audit log by default, so an event can always find its turn.
+DDB_CHATS = os.getenv("DDB_CHATS", "")
+CHAT_TTL_DAYS = int(os.getenv("CHAT_TTL_DAYS", str(AUDIT_LOG_TTL_DAYS)))
+
+
+def _chat_pinned(call_name: str) -> bool:
+    return CHAT_ON_BEDROCK and call_name in CHAT_CALLS
+
+
 def uses_openrouter(call_name: str) -> bool:
-    return bool(OPENROUTER_API_KEY) and ("*" in OPENROUTER_CALLS or call_name in OPENROUTER_CALLS)
+    return bool(OPENROUTER_API_KEY) and not _chat_pinned(call_name) and ("*" in OPENROUTER_CALLS or call_name in OPENROUTER_CALLS)
 
 
 def uses_groq(call_name: str) -> bool:
-    return bool(GROQ_API_KEY) and ("*" in GROQ_CALLS or call_name in GROQ_CALLS)
+    return bool(GROQ_API_KEY) and not _chat_pinned(call_name) and ("*" in GROQ_CALLS or call_name in GROQ_CALLS)
 
 
 # =====================================================================================
@@ -220,7 +236,10 @@ MODEL_BY_CALL: dict[str, str] = {
     "drilldown_agent_more": _D,
 
     # -- Chat assistant: the PM interview and the refine-by-conversation turns ---------------
-    "chat_agent": _D,
+    # The chat's three prompts use the strong model: set BEDROCK_STRONG_MODEL to Sonnet.
+    "chat_agent": _S,       # the interview and refine turns
+    "chat_tools": _S,       # the tool-use instructions added to the chat's system prompt
+    "chat_review": _S,      # the re-check of figures the reply quoted without having seen them
 
     # -- Summaries -----------------------------------------------------------------------------
     "audit_agent": _C,

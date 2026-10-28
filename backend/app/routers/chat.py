@@ -28,6 +28,7 @@ from app.services.analysis import analysis_repository
 from app.services.audit.audit_store import get_or_404
 from app.services.chat import orchestrator
 from app.services.chat import tools as chat_tools
+from app.services.chat.turn_recorder import TurnRecorder
 from app.services.common import audit_log, column_meta, doc_store, llm
 from app.services.features import feature_repository
 from app.services.planner.planner import _build_columns_block
@@ -76,6 +77,11 @@ class ChatTurnRequest(BaseModel):
     messages: list[ChatMessage] = Field(default_factory=list)
     # The chat's own state (phase, understanding, assumptions, page, stage, build status ...).
     state: dict[str, Any] = Field(default_factory=dict)
+    # Made by the browser: the conversation and this turn in it. Without them the turn is simply not recorded.
+    chat_id: str | None = None
+    turn_id: str | None = None
+    # The last message is the app's own prompt (it starts the interview), not something the PM typed.
+    hidden: bool = False
 
 
 def _data_block(session_id: str | None) -> str:
@@ -266,9 +272,12 @@ def _normalise(
     unverified: list[str] | None = None,
     asked: list[str] | None = None,
     looked_at: list[tuple[str, str]] | None = None,
+    refusals: dict[str, list[str]] | None = None,
 ) -> dict:
     """Turn whatever the model returned into the response shape, falling back to the previous state.
-    `audited` is whether features and analyses may be added yet (data loaded, audit decisions made)."""
+    `audited` is whether features and analyses may be added yet (data loaded, audit decisions made).
+    When `refusals` is given it is filled with the action types that were dropped and why ("needs_audit",
+    "off_intent"), for the record of the turn."""
     phase = raw.get("phase") if raw.get("phase") in PHASES else state.get("phase", "interview")
     intent = _intent_of(raw, phase)
     prev_u = state.get("understanding") if isinstance(state.get("understanding"), dict) else {}
@@ -302,6 +311,9 @@ def _normalise(
         notes.append(_unverified_note(unverified))
     if notes:
         reply = "\n\n".join([reply, *notes])
+    if refusals is not None:
+        refusals["needs_audit"] = list(cleaned.needs_audit)
+        refusals["off_intent"] = list(cleaned.off_intent)
     return {
         "reply": reply,
         "intent": intent,
@@ -364,6 +376,18 @@ def turn(req: ChatTurnRequest):
     if not req.messages or req.messages[-1].role != "user":
         raise HTTPException(status_code=400, detail="The last message must be the PM's.")
     audited, pending = _audit_status(req)
+    recorder = TurnRecorder.begin(
+        chat_id=req.chat_id, turn_id=req.turn_id, user_text=req.messages[-1].content,
+        session_id=req.session_id, state=req.state, hidden=req.hidden,
+    )
+    try:
+        return _answer(req, audited, pending, recorder)
+    finally:
+        recorder.close()
+
+
+def _answer(req: ChatTurnRequest, audited: bool, pending: int | None, recorder: TurnRecorder) -> dict:
+    """The model's answer to the PM's last message, cleaned (see `turn`); the turn is recorded as it goes."""
     system = llm.system_prompt("chat_agent", _prompts.SYSTEM_PROMPT)
     if req.session_id:
         system += orchestrator.tools_prompt()  # tools only exist for a loaded session
@@ -382,14 +406,23 @@ def turn(req: ChatTurnRequest):
         raw, unverified = orchestrator.ground(result, system, user, _ask_model)
     except (ValueError, llm.LLMError) as exc:
         log.warning("chat turn failed: %s", exc)
+        recorder.fail("LLM_ERROR", 502, str(exc))
         raise HTTPException(status_code=502, detail=f"The assistant could not answer: {exc}") from exc
     except RuntimeError as exc:
+        recorder.fail("UNAVAILABLE", 503, str(exc))
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
+        recorder.fail("CHAT_ERROR", 502, str(exc))
         raise HTTPException(status_code=502, detail=f"Chat LLM error: {exc}") from exc
     asked = [m.content for m in req.messages if m.role == "user"]
-    response = _normalise(raw, req.state, audited, pending, _known_items(req.session_id), unverified, asked, result.looked_at)
+    refusals: dict[str, list[str]] = {}
+    response = _normalise(
+        raw, req.state, audited, pending, _known_items(req.session_id), unverified, asked, result.looked_at, refusals,
+    )
     response["actions"] = _open_what_was_named(response["actions"], asked[-1] if asked else "", req.session_id)
+    recorder.complete(
+        response, tools_used=result.tools_used, looked_at=result.looked_at, refusals=refusals, state=req.state,
+    )
     return response
 
 

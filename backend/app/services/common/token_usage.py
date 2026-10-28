@@ -5,8 +5,8 @@ Feature Suggester, Audit Agent, Pivot Suggester, Overall Analysis) calls
 `record()` right after getting its Bedrock response, tagged with a
 `call_name` identifying which of the 8 calls it was. Usage is kept in memory
 for the life of the process and also appended to a JSONL file so it survives
-restarts and can be reviewed later. Each call is also written to the audit log as an
-`llm_call` event, attributed to the current user/session (see request_context).
+restarts and can be reviewed later. The chat's calls (config.CHAT_CALLS) are also written to the
+audit log as an `llm_call` event, attributed to the current user/session (see request_context).
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ import time
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from app.config import BACKEND_DIR
+from app.config import BACKEND_DIR, CHAT_CALLS
 from app.services.common import audit_log, request_context
 
 LOG_PATH = BACKEND_DIR / "data" / "token_usage.jsonl"
@@ -95,6 +95,16 @@ def record(call_name: str, model: str, usage: dict[str, Any] | None) -> TokenUsa
         LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
         with LOG_PATH.open("a", encoding="utf-8") as f:
             f.write(json.dumps(asdict(entry)) + "\n")
+
+    if call_name in CHAT_CALLS:
+        # Only the chat's calls reach the audit log for now, so a chat turn shows what it cost (never raises).
+        audit_log.log_event(
+            request_context.current_session_id.get(),
+            user_id,
+            "llm_call",
+            {"call_name": call_name, "model": model, "input_tokens": input_tokens,
+             "output_tokens": output_tokens, "total_tokens": total_tokens},
+        )
 
     return entry
 

@@ -50,6 +50,8 @@ VARIABLES: dict[str, tuple[str, ...]] = {
     "analysis_suggester": ("max_suggestions",),
     "feature_suggester": ("max_suggestions",),
     "drilldown_path": ("max_steps", "max_charts"),
+    "chat_tools": ("per_round", "tools"),
+    "chat_review": ("figures",),
 }
 
 NAME_PREFIX = "pmai-"

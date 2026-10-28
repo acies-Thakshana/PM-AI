@@ -4,10 +4,22 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   EMPTY_UNDERSTANDING,
   chatTurn,
+  finishTurn,
+  markSuggestion,
+  recordTurn,
   rejectEntry,
   saveInterview,
 } from "../api/chat";
-import type { Assumption, ChatAction, ChatPhase, ChatTurnMessage, InterviewRecord, Understanding } from "../api/chat";
+import type {
+  ActionStatus,
+  Assumption,
+  ChatAction,
+  ChatPhase,
+  ChatTurnMessage,
+  HandledBy,
+  InterviewRecord,
+  Understanding,
+} from "../api/chat";
 import {
   acceptAnalysisEntry,
   acceptFeatureEntry,
@@ -32,6 +44,8 @@ import type { PlannerSuggestResponse, PmDecisionValue } from "../api/planner";
 import { hasFormula, plannerDecisionsKey, plannerResultKey } from "../utils/plannerRecs";
 import { PAGE_PATH, canSetBrief, dataGate, explainFailure, looksLikeBrief, pageLabel, pageLinksIn, shortcutFor, shorten, stageOf } from "./rules";
 import { INTERVIEW_DONE_KEY } from "./signals";
+import { activeTurn, beginTurn, endTurn, newChatId } from "./trace";
+import type { TurnTrace } from "./trace";
 import type { ChatLink, Gate } from "./rules";
 
 // The chat assistant: one conversation that interviews the PM about the client brief and, once the PM presses
@@ -53,6 +67,15 @@ export interface ChatMsg {
   links?: ChatLink[];
   /** Label and value rows shown as a neat list inside the bubble (what the assistant understood from the brief). */
   facts?: { label: string; value: string }[];
+}
+
+/** What `say` accepts besides the text. `fromModel` marks the model's own reply, which the server records itself. */
+type SayExtra = Partial<ChatMsg> & { fromModel?: boolean };
+
+/** What became of an action the chat took: whether it was done, and the id of the analysis or calculation it made. */
+interface ActionResult {
+  status: ActionStatus;
+  entry_id?: string;
 }
 
 export type BuildStatus = "idle" | "waiting_data" | "running" | "paused_audit" | "done" | "error";
@@ -295,6 +318,11 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
   const live = useRef({ brief, files, sessionId, auditReport, understanding, assumptions, phase, build, messages, pendingSuggestions, chatFocus, pathname: location.pathname });
   live.current = { brief, files, sessionId, auditReport, understanding, assumptions, phase, build, messages, pendingSuggestions, chatFocus, pathname: location.pathname };
 
+  // The conversation this chat window holds (a new one after "start over" or a reload, which both empty the messages).
+  const chatId = useRef(newChatId());
+  // Which turn made each suggestion, so the PM's accept or reject is written onto that turn.
+  const suggestionOrigin = useRef(new Map<string, { chatId: string; turnId: string }>());
+
   const building = useRef(false);
   // The PM gave the brief in the chat: then it, not the one on the Configure page, is what the Planner plans from.
   const chatBrief = useRef(false);
@@ -323,9 +351,51 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const say = useCallback((text: string, extra?: Partial<ChatMsg>) => {
-    setMessages((prev) => [...prev, { id: nextId(), role: "assistant", text, ...extra }]);
+  const say = useCallback((text: string, extra?: SayExtra) => {
+    const { fromModel, ...shown } = extra ?? {};
+    // What the app says while a turn is open is kept with that turn (the model's own reply is recorded by the server).
+    if (!fromModel) activeTurn()?.notes.push({ content: text, kind: shown.error ? "error" : "notice" });
+    setMessages((prev) => [...prev, { id: nextId(), role: "assistant", text, ...shown }]);
   }, []);
+
+  /** Opens the record of one PM message. The server stores the turns the model answers; the browser stores the rest. */
+  const startTurn = (handledBy: HandledBy, text: string, hidden = false): TurnTrace => {
+    const turn = beginTurn(chatId.current, handledBy);
+    if (handledBy !== "chat_model") {
+      turn.started = recordTurn({
+        chat_id: turn.chatId,
+        turn_id: turn.turnId,
+        user_text: text,
+        handled_by: handledBy,
+        session_id: live.current.sessionId,
+        page: stageOf(live.current.pathname),
+        phase: live.current.phase,
+        hidden,
+      });
+    }
+    return turn;
+  };
+
+  /** Sends what happened after the PM's message (the app's notes, what became of each action, the suggestions). */
+  const finishTurnRecord = (turn: TurnTrace) => {
+    endTurn(turn);
+    void turn.started.then(() =>
+      finishTurn(turn.chatId, turn.turnId, {
+        status: turn.failed ? "failed" : "completed",
+        error_code: turn.failed ?? undefined,
+        notes: turn.notes,
+        outcomes: turn.outcomes,
+        app_actions: turn.appActions,
+        suggestions: turn.suggestions,
+      })
+    );
+  };
+
+  /** The PM accepted or rejected a suggestion: write it onto the turn that made it (nothing when this window did not). */
+  const recordDecision = (entryId: string, status: "accepted" | "rejected") => {
+    const origin = suggestionOrigin.current.get(entryId);
+    if (origin) void markSuggestion(origin.chatId, origin.turnId, entryId, status);
+  };
 
   const setLine = (status: BuildStatus, line: string) => setBuild({ status, line });
 
@@ -586,9 +656,9 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     }
   };
 
-  const addAnalysisAction = async (name: string, description: string, quiet = false): Promise<boolean> => {
+  const addAnalysisAction = async (name: string, description: string, quiet = false): Promise<ActionResult> => {
     const sid = readySession();
-    if (!sid) return false;
+    if (!sid) return { status: "blocked" };
     if (!quiet) say(`Adding "${name}": drafting it, then running it…`);
     try {
       const draft = await draftAnalysis(sid, { name, description });
@@ -618,16 +688,16 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
         );
         navigate(`/analysis?open=${entry.id}`);
       }
-      return true;
+      return { status: "applied", entry_id: entry.id };
     } catch (err) {
       say(`I could not add "${name}": ${explainFailure(errorText(err, ""))}`, { error: true });
-      return false;
+      return { status: "failed" };
     }
   };
 
-  const addFeatureAction = async (name: string, description: string, quiet = false): Promise<boolean> => {
+  const addFeatureAction = async (name: string, description: string, quiet = false): Promise<ActionResult> => {
     const sid = readySession();
-    if (!sid) return false;
+    if (!sid) return { status: "blocked" };
     if (!quiet) say(`Adding the calculation "${name}"…`);
     try {
       const draft = await draftCustomFeature(sid, { name, description });
@@ -654,10 +724,10 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
         );
         navigate(`/features?open=${entry.id}`);
       }
-      return true;
+      return { status: "applied", entry_id: entry.id };
     } catch (err) {
       say(`I could not add "${name}": ${explainFailure(errorText(err, ""))}`, { error: true });
-      return false;
+      return { status: "failed" };
     }
   };
 
@@ -691,7 +761,8 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     }
   };
 
-  const runAction = async (action: ChatAction) => {
+  /** Carries out one action of the model's reply and says what became of it (the turn's record keeps that). */
+  const runAction = async (action: ChatAction): Promise<ActionResult> => {
     switch (action.type) {
       case "set_brief": {
         const lastUser = [...live.current.messages].reverse().find((m) => m.role === "user")?.text ?? "";
@@ -700,31 +771,30 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
           live.current.brief = next;
           chatBrief.current = true;
           onBriefChange(next);
+          return { status: "applied" };
         }
-        break;
+        return { status: "skipped" };
       }
       case "navigate": {
         const path = PAGE_PATH[action.page];
-        if (path) {
-          // With an item id the page opens that analysis or calculation next to the explanation in the chat.
-          navigate(action.open ? `${path}?open=${encodeURIComponent(action.open)}` : path);
-          say(`Opened the ${pageLabel(path)} page.`);
-        }
-        break;
+        if (!path) return { status: "skipped" };
+        // With an item id the page opens that analysis or calculation next to the explanation in the chat.
+        navigate(action.open ? `${path}?open=${encodeURIComponent(action.open)}` : path);
+        say(`Opened the ${pageLabel(path)} page.`);
+        return { status: "applied" };
       }
       case "add_analysis":
-        await addAnalysisAction(action.name, action.description);
-        break;
+        return addAnalysisAction(action.name, action.description);
       case "add_feature":
-        await addFeatureAction(action.name, action.description);
-        break;
+        return addFeatureAction(action.name, action.description);
       case "check_ready":
         await checkReadyAction();
-        break;
+        return { status: "applied" };
       case "continue_build": {
         const status = live.current.build.status;
-        if (status === "error" || status === "idle") void runBuild();
-        break;
+        if (status !== "error" && status !== "idle") return { status: "skipped" };
+        void runBuild();
+        return { status: "applied" };
       }
     }
   };
@@ -748,32 +818,45 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       // "Add another analysis", "Add an analysis: ...": the suggestion and drafting agents do it, no chat-model call.
       // Before the data is loaded there is no interview: a pasted brief is just taken, and the PM is sent on to load.
       if (!opts.hidden && stageOf(live.current.pathname) === "configure" && live.current.phase === "interview" && looksLikeBrief(text)) {
+        const turn = startTurn("brief_local", text);
         const next = { ...live.current.brief, rawText: text, finalText: text, isEnglish: true };
         live.current.brief = next;
         chatBrief.current = true;
         onBriefChange(next);
         say("Got the client brief. Load your data with the button below; I'll go through the brief with you on the Planner page, with examples from your data.");
+        finishTurnRecord(turn);
         return;
       }
       const shortcut = opts.hidden ? null : shortcutFor(text);
       if (shortcut?.type === "suggest") {
+        const turn = startTurn("shortcut_suggest", text);
         if (shortcut.kind === "both") {
           // Both were asked for: the calculations first (the analyses may use them), then the analyses; each is reviewed on its own page.
           void suggestWithAi("feature")
             .then(() => suggestWithAi("analysis"))
-            .then(() => say("The calculations are waiting on the Features page and the analyses here: accept or reject each on its page."));
+            .then(() => say("The calculations are waiting on the Features page and the analyses here: accept or reject each on its page."))
+            .finally(() => finishTurnRecord(turn));
         } else {
-          void suggestWithAi(shortcut.kind);
+          void suggestWithAi(shortcut.kind).finally(() => finishTurnRecord(turn));
         }
         return;
       }
       if (shortcut?.type === "own") {
+        const turn = startTurn("shortcut_own", text);
         const title = shortcut.text.split(/\s+/).slice(0, 7).join(" ").replace(/[.,;:]+$/, "");
         setBusy(true);
-        void (shortcut.kind === "analysis" ? addAnalysisAction(title, shortcut.text) : addFeatureAction(title, shortcut.text)).finally(() => setBusy(false));
+        void (shortcut.kind === "analysis" ? addAnalysisAction(title, shortcut.text) : addFeatureAction(title, shortcut.text))
+          .then((result) =>
+            turn.appActions.push({ type: shortcut.kind === "analysis" ? "add_analysis" : "add_feature", name: title, status: result.status, entry_id: result.entry_id })
+          )
+          .finally(() => {
+            setBusy(false);
+            finishTurnRecord(turn);
+          });
         return;
       }
       setBusy(true);
+      const turn = startTurn("chat_model", text, opts.hidden);
       const gate = gateNow();
       const state = {
         open_item: live.current.chatFocus
@@ -792,6 +875,9 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
         brief: briefText(),
         messages: transcriptOf(opts.hidden ? [...history, userMsg] : history),
         state,
+        chat_id: turn.chatId,
+        turn_id: turn.turnId,
+        hidden: Boolean(opts.hidden),
       })
         .then(async (res) => {
           // A sentence that promises to open a page gets a button when the model sent no navigate action.
@@ -802,7 +888,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
             if (summary) say(summary.text, { facts: summary.facts });
           }
           const promised = res.actions.some((a) => a.type === "navigate") ? [] : pageLinksIn(res.reply);
-          say(res.reply, promised.length ? { links: promised } : undefined);
+          say(res.reply, { fromModel: true, ...(promised.length ? { links: promised } : {}) });
           setPhase(res.phase);
           setUnderstanding(res.understanding);
           setAssumptions(res.assumptions);
@@ -836,10 +922,19 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
               setInterviewDone(true);
             }
           }
-          for (const action of res.actions) await runAction(action);
+          for (const [index, action] of res.actions.entries()) {
+            const result = await runAction(action);
+            turn.outcomes.push({ index, type: action.type, status: result.status, entry_id: result.entry_id });
+          }
         })
-        .catch((err) => say(errorText(err, "I could not reach the assistant. Is the backend running?"), { error: true }))
-        .finally(() => setBusy(false));
+        .catch((err) => {
+          turn.failed = "CHAT_ERROR";
+          say(errorText(err, "I could not reach the assistant. Is the backend running?"), { error: true });
+        })
+        .finally(() => {
+          setBusy(false);
+          finishTurnRecord(turn);
+        });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [busy]
@@ -889,10 +984,17 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       const sid = readySession();
       if (!sid) return;
       const noun = kind === "feature" ? "calculations" : "analyses";
+      const turn = activeTurn(); // the PM's message this answers; none when a button started it
       setBusy(true);
       say(`Asking the AI for ${noun} that fit the brief…`);
       try {
-        await (kind === "feature" ? suggestFeatureEntries(sid) : suggestAnalysisEntries(sid));
+        const made = await (kind === "feature" ? suggestFeatureEntries(sid) : suggestAnalysisEntries(sid));
+        if (turn) {
+          for (const entry of made.entries) {
+            turn.suggestions.push({ kind, entry_id: entry.id, name: entry.name });
+            suggestionOrigin.current.set(entry.id, { chatId: turn.chatId, turnId: turn.turnId });
+          }
+        }
         const items = (await loadReview(sid)).filter((i) => i.kind === kind);
         say(
           items.length
@@ -901,7 +1003,9 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
         );
         if (items.length) setSuggestedFor(kind === "feature" ? "features" : "analysis");
         navigate(kind === "feature" ? "/features" : "/analysis");
+        turn?.appActions.push({ type: "navigate", status: "applied", page: kind === "feature" ? "features" : "analysis" });
       } catch (err) {
+        if (turn) turn.failed = "SUGGEST_FAILED";
         say(`I could not get suggestions: ${errorText(err, "unknown error")}`, { error: true });
       } finally {
         setBusy(false);
@@ -941,6 +1045,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       try {
         if (!accept) {
           await rejectEntry(item.kind, sid, id);
+          recordDecision(id, "rejected");
           setReviewState(id, "rejected");
           announceChatChange();
           return;
@@ -948,6 +1053,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
         if (item.kind === "feature") {
           beginItem(id, item.name, "feature");
           await acceptFeatureEntry(sid, id);
+          recordDecision(id, "accepted");
           await applyFeatures(sid);
           patchItem(id, { state: "done" });
           setReviewState(id, "accepted");
@@ -956,6 +1062,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
           return;
         }
         await acceptAnalysisEntry(sid, id);
+        recordDecision(id, "accepted");
         const outcome = await runAnalysis(sid, id, item.name);
         setReviewState(id, outcome.ok ? "accepted" : "error", outcome.ok ? undefined : outcome.reason);
         announceChatChange();
@@ -1075,6 +1182,8 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     [say]
   );
   const reset = useCallback(() => {
+    chatId.current = newChatId(); // the start of a new conversation
+    suggestionOrigin.current.clear();
     interviewBegan.current = false;
     chatBrief.current = false;
     setInterviewDone(false);

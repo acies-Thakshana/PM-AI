@@ -310,8 +310,10 @@ def get_brief(ctx: ToolContext) -> dict:
 
 
 def get_history(ctx: ToolContext) -> dict:
-    """The newest events of this session: what was uploaded, decided, added or changed, and when."""
-    events = audit_log.events_for_session(ctx.session_id, limit=200)[-MAX_EVENTS:]
+    """The newest events of this session: what was uploaded, decided, added or changed, and when. The chat's own
+    bookkeeping (its messages, tool calls and LLM calls) is left out: it says nothing about the report."""
+    recent = audit_log.events_for_session(ctx.session_id, limit=200)
+    events = [e for e in recent if e.get("category") != "chat" and e.get("event_type") != "llm_call"][-MAX_EVENTS:]
     return {
         "events": [
             {"time": e["ts_event"][:19], "type": e["event_type"], "result": e["result"], "summary": _text(e["summary"], 200)}

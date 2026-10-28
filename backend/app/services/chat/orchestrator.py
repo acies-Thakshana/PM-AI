@@ -30,7 +30,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from app.services.chat import tools
+from app.services.chat import chat_events, tools
+from app.services.common import llm
 from app.services.chat.grounding import ungrounded_figures
 from app.services.chat.tools import ToolContext
 
@@ -45,10 +46,9 @@ TIME_BUDGET_SECONDS = 40.0
 # (system prompt, user prompt) -> the model's JSON text.
 AskModel = Callable[[str, str], str]
 
-TOOLS_PROMPT = """
---- TOOLS ---
-Before you answer you may look things up. To use tools, answer with ONLY {{"tool_calls":[{{"name":"...","args":{{...}}}}]}}: the app runs them and shows you the results, then you answer again. At most {per_round} tool calls at a time and a few rounds in total; when you have what you need, answer with the normal JSON object (without tool_calls). Tools only read: they never change anything, and you cannot name a session (it is fixed).
-{tools}
+TOOLS_PROMPT = """--- TOOLS ---
+Before you answer you may look things up. To use tools, answer with ONLY {"tool_calls":[{"name":"...","args":{...}}]}: the app runs them and shows you the results, then you answer again. At most {{per_round}} tool calls at a time and a few rounds in total; when you have what you need, answer with the normal JSON object (without tool_calls). Tools only read: they never change anything, and you cannot name a session (it is fixed).
+{{tools}}
 """
 
 _ANSWER_NOW = "\n\n---\nYou have what you can get: answer now with the normal JSON object (no tool_calls)."
@@ -58,7 +58,7 @@ _KEEP_YOUR_PROMISE = (
     '{"tool_calls":[...]} for the tools you need, or answer from what you already have. Never answer with only a promise.'
 )
 _REVIEW = (
-    "\n\n---\nREVIEW: your reply contained figures that appear in none of the data you were shown: {figures}. "
+    "REVIEW: your reply contained figures that appear in none of the data you were shown: {{figures}}. "
     "Answer again using only figures from the tool results and data above, or leave the figures out."
 )
 
@@ -81,7 +81,9 @@ def promises_lookup(reply: str) -> bool:
 
 
 def tools_prompt() -> str:
-    return TOOLS_PROMPT.format(per_round=MAX_CALLS_PER_ROUND, tools=tools.describe_tools())
+    """The tool instructions appended to the system prompt: Bedrock Prompt Management's `chat_tools` when configured."""
+    text = llm.system_prompt("chat_tools", TOOLS_PROMPT, per_round=MAX_CALLS_PER_ROUND, tools=tools.describe_tools())
+    return "\n" + text.strip() + "\n"
 
 
 # The tools that read one item, and what kind of item that is (the kinds `known_items` uses).
@@ -166,7 +168,9 @@ def run_turn(
         lines = []
         for call in calls[: MAX_CALLS_TOTAL - len(used)]:
             used.append(call["name"])
+            tool_started = time.monotonic()  # not `clock`: that one is the turn's budget, tests drive it by hand
             result = tools.run_tool(call["name"], call["args"], ctx)
+            chat_events.tool_call(call["name"], call["args"], result, int((time.monotonic() - tool_started) * 1000))
             if call["name"] in _OPENED_BY and not result.get("error") and isinstance(result.get("id"), str):
                 looked_at.append((_OPENED_BY[call["name"]], result["id"]))
             lines.append(_result_text(call["name"], call["args"], result))
@@ -186,8 +190,11 @@ def ground(
         return result.raw, []
     log.warning("chat reply quoted figures not in the data: %s", figures)
     try:
-        retry = _parse(ask_model(system_prompt, user_prompt + result.scratch + _REVIEW.format(figures=", ".join(figures))))
+        review = llm.system_prompt("chat_review", _REVIEW, figures=", ".join(figures))
+        retry = _parse(ask_model(system_prompt, user_prompt + result.scratch + "\n\n---\n" + review))
     except ValueError:
+        chat_events.grounding_review(figures, figures)
         return result.raw, figures
     still = ungrounded_figures(str(retry.get("reply") or ""), result.evidence)
+    chat_events.grounding_review(figures, still)
     return (retry, still) if retry.get("reply") else (result.raw, figures)

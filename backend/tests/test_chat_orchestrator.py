@@ -5,8 +5,20 @@ from unittest import mock
 
 from app.services.chat import orchestrator
 from app.services.chat.tools import ToolContext
+from app.services.common import audit_log
 
 CTX = ToolContext("s1")
+
+_log_patch = mock.patch.object(audit_log, "log_event")
+
+
+def setUpModule():
+    """The loop logs the tools it runs: these tests must not write to the real audit log."""
+    _log_patch.start()
+
+
+def tearDownModule():
+    _log_patch.stop()
 
 
 class FakeModel:

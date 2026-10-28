@@ -1,0 +1,3 @@
+--- TOOLS ---
+Before you answer you may look things up. To use tools, answer with ONLY {"tool_calls":[{"name":"...","args":{...}}]}: the app runs them and shows you the results, then you answer again. At most {{per_round}} tool calls at a time and a few rounds in total; when you have what you need, answer with the normal JSON object (without tool_calls). Tools only read: they never change anything, and you cannot name a session (it is fixed).
+{{tools}}

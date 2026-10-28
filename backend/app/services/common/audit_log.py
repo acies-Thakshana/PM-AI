@@ -8,6 +8,9 @@ docs-table sort key, e.g. "FEATURE#coo"). Indexes: `by-user` (`user_id`, `ts_eve
 "everything this user did", and `by-target` (`target_key`, `ts_event`) for "the history of one
 record". Local mode: one JSON line per event in data/audit_log.jsonl.
 
+An event made while the chat answers a turn also carries `chat_id`, `turn_id` and `turn_key` ("<chat>#<turn>"),
+taken from request_context, so a turn in the chat table can be joined to everything that happened for it.
+
 Callers pass only (session, user, event_type, payload). The category, step, target and summary
 come from EVENT_CATALOG below, so every event is classified the same way and existing call sites
 need no changes. A caller may still pass `target=` or `result=` to override.
@@ -25,6 +28,7 @@ from datetime import datetime, timezone
 from typing import Any, NamedTuple
 
 from app.config import AUDIT_LOG_TTL_DAYS, DATA_DIR, DDB_AUDIT
+from app.services.common import request_context
 from app.services.common.doc_store import dumps
 
 log = logging.getLogger(__name__)
@@ -84,6 +88,13 @@ EVENT_CATALOG: dict[str, EventSpec] = {
     "drilldown_path_rejected": EventSpec("analysis", 5, "DRILL#{entry_id}#{path_id}", "Rejected drill-down path {path_id}"),
     # -- step 6: Report ----------------------------------------------------------------------
     "report_downloaded": EventSpec("report", 6, "OVERALL", "Downloaded the report"),
+    # -- the chat assistant (services/chat/chat_events.py); `target` is set by the caller where an item is involved --
+    "interview_saved": EventSpec("session", 2, "INTERVIEW", "Saved the interview ({assumptions} assumptions)"),
+    "chat_message": EventSpec("chat", 0, None, "Chat message from the {role}"),
+    "chat_tool_call": EventSpec("chat", 0, None, "Chat tool {tool}"),
+    "chat_action": EventSpec("chat", 0, None, "Chat action {action}: {status}"),
+    "chat_grounding_review": EventSpec("chat", 0, None, "Chat reply re-checked for unverified figures"),
+    "chat_error": EventSpec("chat", 0, None, "Chat turn failed ({error_code})"),
 }
 
 # Code-generation events: step and target depend on whether a feature or an analysis was built.
@@ -193,6 +204,11 @@ def log_event(
         if target:
             record["target"] = target
             record["target_key"] = f"{session}#{target}"
+        chat_id, turn_id = request_context.current_chat_id.get(), request_context.current_turn_id.get()
+        if chat_id and turn_id:  # made while answering a chat turn: say which, so the turn can find its events
+            record["chat_id"] = chat_id
+            record["turn_id"] = turn_id
+            record["turn_key"] = f"{chat_id}#{turn_id}"
         if DDB_AUDIT:
             import time
 
