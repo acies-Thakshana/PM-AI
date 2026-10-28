@@ -301,11 +301,8 @@ def _normalise(
     unverified: list[str] | None = None,
     asked: list[str] | None = None,
     looked_at: list[tuple[str, str]] | None = None,
-<<<<<<< HEAD
-    refusals: dict[str, list[str]] | None = None,
-=======
     has_data: bool = False,
->>>>>>> 32331cdd49732ec5483084630446f026cccb7219
+    refusals: dict[str, list[str]] | None = None,
 ) -> dict:
     """Turn whatever the model returned into the response shape, falling back to the previous state.
     `audited` is whether features and analyses may be added yet (data loaded, audit decisions made).
@@ -455,14 +452,11 @@ def _answer(req: ChatTurnRequest, audited: bool, pending: int | None, recorder: 
         recorder.fail("CHAT_ERROR", 502, str(exc))
         raise HTTPException(status_code=502, detail=f"Chat LLM error: {exc}") from exc
     asked = [m.content for m in req.messages if m.role == "user"]
-<<<<<<< HEAD
     refusals: dict[str, list[str]] = {}
     response = _normalise(
-        raw, req.state, audited, pending, _known_items(req.session_id), unverified, asked, result.looked_at, refusals,
+        raw, req.state, audited, pending, _known_items(req.session_id), unverified, asked, result.looked_at,
+        has_data=bool(req.session_id), refusals=refusals,
     )
-=======
-    response = _normalise(raw, req.state, audited, pending, _known_items(req.session_id), unverified, asked, result.looked_at, bool(req.session_id))
->>>>>>> 32331cdd49732ec5483084630446f026cccb7219
     response["actions"] = _open_what_was_named(response["actions"], asked[-1] if asked else "", req.session_id)
     recorder.complete(
         response, tools_used=result.tools_used, looked_at=result.looked_at, refusals=refusals, state=req.state,
