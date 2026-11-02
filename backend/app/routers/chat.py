@@ -30,7 +30,7 @@ from app.services.audit.audit_store import get_or_404
 from app.services.chat import orchestrator
 from app.services.chat import tools as chat_tools
 from app.services.chat.turn_recorder import TurnRecorder
-from app.services.common import audit_log, column_meta, doc_store, llm
+from app.services.common import audit_log, brief_rules, column_meta, doc_store, llm
 from app.services.features import feature_repository
 from app.services.planner.planner import _build_columns_block
 
@@ -249,6 +249,14 @@ OFF_INTENT_NOTE = "I have not changed anything: tell me if you want that added."
 UNDERSTANDING_LABELS = (("goal", "Goal"), ("scope", "Scope"), ("period", "Period"),
                         ("limits", "Limits"), ("output", "Output"), ("kpis", "Client KPIs"))
 READBACK_REPLIES = ["Yes, that's right", "Not quite"]
+# Is the text the PM gave really a client brief? The model only judges ("brief_check"); the app asks the PM and
+# writes the question itself, so a doubtful brief never gets scope questions, whatever the model wrote.
+BRIEF_CHECKS = ("ok", "unsure", "not_brief", "na")
+BRIEF_CONFIRM_REPLIES = ["Yes, that's my brief", "No, I'll rewrite it"]
+BRIEF_NOT_A_BRIEF = (
+    "That doesn't look like a client brief. Please write what the client needs: which shipments to look at and "
+    "what to find out (a sentence or two is enough)."
+)
 READBACK_CLOSING = 'Reply "yes" to confirm, or tell me what to change.'
 READY_CLOSING = 'Next step: accept or reject the Planner\'s suggestions, then press "Build the report".'
 
@@ -271,6 +279,36 @@ def _readback_reply(understanding: dict[str, str], assumptions: list[dict]) -> s
 
 def _unverified_note(figures: list[str]) -> str:
     return f"I could not check these figures against the data, so treat them with care: {', '.join(figures)}."
+
+
+def _brief_verdict(raw: dict, state: dict) -> tuple[str, str]:
+    """(verdict, candidate): whether the text the browser put forward as the brief ("brief_candidate") is one.
+    The verdict is the model's ("ok", "unsure", "not_brief", "na"), kept within what the app can tell for sure:
+    a text with no real words is never a brief, and one under the minimum length is never "ok". Without a
+    candidate there is nothing to judge ("na")."""
+    candidate = _clean_text(state.get("brief_candidate"), 8000)
+    if not candidate:
+        return "na", ""
+    quality = brief_rules.brief_quality(candidate)
+    if quality == "junk":
+        return "not_brief", candidate
+    said = raw.get("brief_check")
+    if said not in BRIEF_CHECKS:
+        said = "ok" if quality == "ok" else "unsure"  # the model did not say: go by the words alone
+    if said == "na" and state.get("brief_candidate_source") == "brief":
+        said = "ok" if quality == "ok" else "unsure"  # the brief itself is always judged
+    if said == "ok" and quality == "short":
+        said = "unsure"
+    return said, candidate
+
+
+def _brief_question(verdict: str, candidate: str) -> str:
+    """The app's own words when the brief is doubtful: ask, or say it is not one."""
+    if verdict == "not_brief":
+        return BRIEF_NOT_A_BRIEF
+    text = re.sub(r"\s+", " ", candidate).strip()
+    shown = text if len(text) <= 240 else text[:240].rsplit(" ", 1)[0] + "…"
+    return f'Is this your client brief?\n\n"{shown}"\n\nIf it is, I will go through it with you. If not, tell me what the client needs.'
 
 
 def _intent_of(raw: dict, phase: str) -> str:
@@ -314,6 +352,23 @@ def _normalise(
     new_u = raw.get("understanding") if isinstance(raw.get("understanding"), dict) else {}
     understanding = {k: _plain(_clean_text(new_u.get(k, prev_u.get(k, "")), 400)) for k in UNDERSTANDING_KEYS}
 
+    brief_check, candidate = _brief_verdict(raw, state)
+    if brief_check in ("unsure", "not_brief"):
+        # Nothing moves on until the PM has said this is the brief: no questions, no read-back, no actions.
+        if refusals is not None:
+            refusals["needs_audit"], refusals["off_intent"] = [], []
+        return {
+            "reply": _brief_question(brief_check, candidate),
+            "intent": "interview",
+            "phase": "interview",
+            "understanding": {k: _plain(_clean_text(prev_u.get(k, ""), 400)) for k in UNDERSTANDING_KEYS},
+            "assumptions": [],
+            "quick_replies": list(BRIEF_CONFIRM_REPLIES) if brief_check == "unsure" else [],
+            "next_questions": [],
+            "actions": [],
+            "brief_check": brief_check,
+        }
+
     assumptions = []
     seen: set[str] = set()
     for i, a in enumerate(raw.get("assumptions") or []):
@@ -328,6 +383,9 @@ def _normalise(
 
     quick = [_clean_text(q, 80) for q in (raw.get("quick_replies") or []) if isinstance(q, str) and q.strip()][:4]
     cleaned = _clean_actions(raw.get("actions"), audited, intent, known_items)
+    if candidate and brief_check != "ok":
+        # Only a text judged to be the brief may be stored as the brief (a question or a greeting never is).
+        cleaned.actions = [a for a in cleaned.actions if a.get("type") != "set_brief"]
     # Reading an item is only done to answer a question: a model that labelled the turn as an interview answer still opens it.
     if intent in ("ask", "other", "interview") and looked_at:
         cleaned.actions = _open_what_was_read(cleaned.actions, looked_at)
@@ -360,6 +418,7 @@ def _normalise(
         "quick_replies": quick,
         "next_questions": [] if intent == "interview" else _clean_questions(raw.get("next_questions"), asked or []),
         "actions": cleaned.actions,
+        "brief_check": brief_check,
     }
 
 

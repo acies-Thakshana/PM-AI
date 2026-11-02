@@ -20,6 +20,7 @@ import type { SwpConfigState } from "../utils/swpTrips";
 import { uploadOnly } from "../api/audit";
 import { finalizeBrief } from "../api/brief";
 import { useChat } from "../chat/ChatProvider";
+import { briefQuality } from "../chat/rules";
 import { CONFIGURE_LOAD_KEY, CONFIGURE_STATUS_KEY, NOT_READY } from "../chat/signals";
 import type { ConfigureStatus } from "../chat/signals";
 import { useStoredState } from "../state/sessionStore";
@@ -143,10 +144,15 @@ export default function UploadPage({
   };
 
   const checkBrief = (): boolean => {
-    const missing = !brief.rawText.trim();
-    setBriefError(missing ? "Client brief is required." : undefined);
-    if (missing) window.scrollTo({ top: 0, behavior: "smooth" });
-    return !missing;
+    // Empty, or nothing a brief could be made of ("xxx"). Whether a short brief is a real one is for the assistant to ask.
+    const problem = !brief.rawText.trim()
+      ? "Client brief is required."
+      : briefQuality(brief.rawText) === "junk"
+        ? "That doesn't look like a client brief. Say what the client needs: which shipments to look at and what to find out."
+        : undefined;
+    setBriefError(problem);
+    if (problem) window.scrollTo({ top: 0, behavior: "smooth" });
+    return !problem;
   };
 
   // API mode: load the chosen arrived trips (from the store, no API calls for trips already fetched) and go on.
@@ -233,17 +239,19 @@ export default function UploadPage({
   // missing when not), and its press comes back here as a counter that goes up.
   const missing = !brief.rawText.trim()
     ? "Add the client brief first."
-    : apiMode
-      ? !tripsForProgram
-        ? "Fetch the program's trips first."
-        : chosen.length === 0
-          ? "No arrived trips are selected yet."
-          : !apiReady
-            ? "Check the sensors and the number of trips."
-            : ""
-      : UPLOAD_SLOTS.some((s) => s.required && !files[s.id])
-        ? "Add the required files first."
-        : "";
+    : briefQuality(brief.rawText) === "junk"
+      ? "The client brief does not look like a brief yet."
+      : apiMode
+        ? !tripsForProgram
+          ? "Fetch the program's trips first."
+          : chosen.length === 0
+            ? "No arrived trips are selected yet."
+            : !apiReady
+              ? "Check the sensors and the number of trips."
+              : ""
+        : UPLOAD_SLOTS.some((s) => s.required && !files[s.id])
+          ? "Add the required files first."
+          : "";
   const [, setConfigureStatus] = useStoredState<ConfigureStatus>(CONFIGURE_STATUS_KEY, NOT_READY);
   useEffect(() => {
     setConfigureStatus({ canContinue: !continueDisabled && !missing, label: uploading ? "Loading…" : continueLabel, hint: uploading ? "" : missing });

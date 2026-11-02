@@ -42,7 +42,7 @@ import { announceChatChange, usePageChangeCount, useStoredRef, useStoredState } 
 import { persistDecisions } from "../api/planner";
 import type { PlannerSuggestResponse, PmDecisionValue } from "../api/planner";
 import { hasFormula, plannerDecisionsKey, plannerResultKey } from "../utils/plannerRecs";
-import { PAGE_PATH, canSetBrief, dataGate, explainFailure, looksLikeBrief, pageLabel, pageLinksIn, shortcutFor, shorten, stageOf } from "./rules";
+import { NOT_A_BRIEF, PAGE_PATH, briefQuality, canSetBrief, dataGate, explainFailure, isBriefNo, isBriefYes, looksLikeBrief, pageLabel, pageLinksIn, shortcutFor, shorten, stageOf } from "./rules";
 import { INTERVIEW_DONE_KEY } from "./signals";
 import { activeTurn, beginTurn, endTurn, newChatId } from "./trace";
 import type { TurnTrace } from "./trace";
@@ -327,6 +327,13 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
   // The PM gave the brief in the chat: then it, not the one on the Configure page, is what the Planner plans from.
   const chatBrief = useRef(false);
   const interviewBegan = useRef(false);
+  // Is the text the PM gave really a brief? The assistant judges it and, when unsure, asks. The text the PM said
+  // "yes" to (or the assistant judged to be a brief) is remembered, so it is not asked about twice; a different
+  // brief text (edited on the Configure page) is judged again. `pendingBrief` is the text a question is open about.
+  const confirmedBrief = useRef("");
+  const pendingBrief = useRef("");
+  // The PM said it is not the brief (or the assistant found it is not one): it keeps being judged (and asked about) until the brief is changed or confirmed.
+  const declinedBrief = useRef("");
 
   const briefText = () => (live.current.brief.rawText || live.current.brief.finalText || "").trim();
 
@@ -770,6 +777,8 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
           const next = { ...live.current.brief, rawText: action.text, finalText: action.text, isEnglish: true };
           live.current.brief = next;
           chatBrief.current = true;
+          confirmedBrief.current = action.text.trim();
+          pendingBrief.current = "";
           onBriefChange(next);
           return { status: "applied" };
         }
@@ -816,8 +825,47 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       setQuickReplies([]);
       setNextQuestions([]);
       // "Add another analysis", "Add an analysis: ...": the suggestion and drafting agents do it, no chat-model call.
+      const stage = stageOf(live.current.pathname);
+      // The answer to "Is this your client brief?" (a button or typed) is dealt with here, with no model call.
+      if (!opts.hidden && pendingBrief.current && (isBriefYes(text) || isBriefNo(text))) {
+        const turn = startTurn("brief_local", text);
+        const asked = pendingBrief.current;
+        pendingBrief.current = "";
+        if (isBriefYes(text)) {
+          confirmedBrief.current = asked;
+          if (!briefText()) {
+            const next = { ...live.current.brief, rawText: asked, finalText: asked, isEnglish: true };
+            live.current.brief = next;
+            chatBrief.current = true;
+            onBriefChange(next);
+          }
+          if (stage === "planner" && live.current.phase === "interview") {
+            finishTurnRecord(turn);
+            send(START_INTERVIEW_TURN, { hidden: true }); // the questions the doubt held back
+            return;
+          }
+          say(
+            stage === "configure"
+              ? "Got the client brief. Load your data with the button below; I'll go through the brief with you on the Planner page, with examples from your data."
+              : "Got it. I'll go through the brief with you on the Planner page."
+          );
+        } else {
+          declinedBrief.current = asked;
+          say("No problem. Put the corrected brief in the Client Brief box on the Configure page.", { links: [{ label: "Open Configure", path: "/upload" }] });
+        }
+        finishTurnRecord(turn);
+        return;
+      }
+      // Nothing to read in it ("xxx"): not a brief, and not worth a question to the assistant.
+      if (!opts.hidden && stage === "configure" && live.current.phase === "interview" && !briefText() && briefQuality(text) === "junk") {
+        const turn = startTurn("brief_local", text);
+        say(NOT_A_BRIEF);
+        finishTurnRecord(turn);
+        return;
+      }
       // Before the data is loaded there is no interview: a pasted brief is just taken, and the PM is sent on to load.
-      if (!opts.hidden && stageOf(live.current.pathname) === "configure" && live.current.phase === "interview" && looksLikeBrief(text)) {
+      // (Only while there is no brief: once one is set it stays, and is changed on the Configure page.)
+      if (!opts.hidden && stage === "configure" && live.current.phase === "interview" && !briefText() && looksLikeBrief(text)) {
         const turn = startTurn("brief_local", text);
         const next = { ...live.current.brief, rawText: text, finalText: text, isEnglish: true };
         live.current.brief = next;
@@ -858,7 +906,22 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       setBusy(true);
       const turn = startTurn("chat_model", text, opts.hidden);
       const gate = gateNow();
+      // The text the assistant must judge to be (or not be) a brief: what the PM just wrote while there is no brief
+      // yet (Configure page), or the brief itself when the interview begins (or a question about it is open).
+      let briefCandidate = "";
+      let candidateSource = "";
+      if (live.current.phase === "interview") {
+        if (stage === "configure" && !briefText() && !opts.hidden) {
+          briefCandidate = text;
+          candidateSource = "message";
+        } else if (briefText() && confirmedBrief.current !== briefText() && (opts.hidden || pendingBrief.current || declinedBrief.current === briefText())) {
+          briefCandidate = briefText();
+          candidateSource = "brief";
+        }
+      }
       const state = {
+        brief_candidate: briefCandidate,
+        brief_candidate_source: candidateSource,
         open_item: live.current.chatFocus
           ? { id: live.current.chatFocus, kind: stageOf(live.current.pathname) === "features" ? "calculation" : "analysis" }
           : null,
@@ -882,6 +945,16 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
         .then(async (res) => {
           // Was the interview already over before this reply? Questions asked after that must not move the PM again.
           const wasReady = live.current.phase === "ready";
+          // Was the text a brief? Yes: it is not asked about again. Unsure: the buttons answer it. Not one: nothing to confirm.
+          if (res.brief_check === "unsure") pendingBrief.current = briefCandidate;
+          else if (res.brief_check === "not_brief") {
+            pendingBrief.current = "";
+            if (candidateSource === "brief") declinedBrief.current = briefCandidate; // still not a brief when the PM skips ahead
+          }
+          else if (res.brief_check === "ok" && briefCandidate) {
+            confirmedBrief.current = briefCandidate;
+            pendingBrief.current = "";
+          }
           // A sentence that promises to open a page gets a button when the model sent no navigate action.
           // The first time something is settled (from a brief typed here or on the Configure page), say what was understood.
           // (The read-back is written in full by the server, so it is not repeated as a list here.)
@@ -891,7 +964,9 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
             if (summary) say(summary.text, { facts: summary.facts });
           }
           const promised = res.actions.some((a) => a.type === "navigate") ? [] : pageLinksIn(res.reply);
-          say(res.reply, { fromModel: true, ...(promised.length ? { links: promised } : {}) });
+          // Not a brief and the PM is past the Configure page: the way back to the box is a click.
+          const links = res.brief_check === "not_brief" && stageOf(live.current.pathname) !== "configure" ? [{ label: "Open Configure", path: "/upload" }] : promised;
+          say(res.reply, { fromModel: true, ...(links.length ? { links } : {}) });
           setPhase(res.phase);
           setUnderstanding(res.understanding);
           setAssumptions(res.assumptions);
@@ -1192,6 +1267,9 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
     suggestionOrigin.current.clear();
     interviewBegan.current = false;
     chatBrief.current = false;
+    confirmedBrief.current = "";
+    pendingBrief.current = "";
+    declinedBrief.current = "";
     setInterviewDone(false);
     setMessages([GREETING]);
     setPhase("interview");
@@ -1226,7 +1304,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
       assumptions,
       // "Skip the questions" belongs to the interview, which happens on the Configure page.
       quickReplies:
-        phase === "interview" && stageOf(location.pathname) === "planner" && !quickReplies.includes(SKIP_REPLY) && messages.length > 1
+        phase === "interview" && stageOf(location.pathname) === "planner" && !quickReplies.includes(SKIP_REPLY) && !pendingBrief.current && messages.length > 1
           ? [...quickReplies, SKIP_REPLY]
           : quickReplies,
       nextQuestions,

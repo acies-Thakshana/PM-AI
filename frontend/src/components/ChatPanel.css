@@ -880,3 +880,88 @@ body.chat-open .modal__overlay {
   white-space: normal;
   min-width: min(100%, 320px);
 }
+
+/* ------------------------------------------------------------------------------------------ small screens */
+/* The panel is its own container, so the header adapts to the width the PM dragged it to, not only to the window. */
+.chat {
+  container: chat / inline-size;
+}
+@container chat (max-width: 520px) {
+  /* One row for the name and the small buttons, the main action ("Start", "Build the report") on its own full-width row
+     below, so it can never be squeezed under the icons. */
+  .chat__header {
+    flex-wrap: wrap;
+    column-gap: 4px;
+    row-gap: 8px;
+    padding: 12px 10px 10px 12px;
+  }
+  .chat__header-actions {
+    display: contents;
+  }
+  .chat__identity {
+    margin-left: 6px;
+  }
+  .chat__role {
+    display: none;
+  }
+  .chat__action {
+    order: 5;
+    flex: 1 1 100%;
+    margin: 0;
+    padding: 9px 14px;
+  }
+  .chat__understanding div,
+  .chat__facts > div {
+    grid-template-columns: minmax(0, 72px) minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  /* A phone: the assistant is the whole screen (there is no room for a page beside it), with no drag handle. */
+  html body .chat {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    border-left: 0;
+  }
+  .chat__resize {
+    display: none;
+  }
+  .chat__icon-btn {
+    width: 36px;
+    height: 36px;
+  }
+  .chat__messages {
+    padding: 14px 10px 8px;
+  }
+  .chat__msg {
+    max-width: 100%;
+  }
+  .chat__composer {
+    margin: 10px 10px max(12px, env(safe-area-inset-bottom));
+  }
+  .chat__loadbar {
+    margin: 10px 10px 0;
+  }
+  .chat__chip {
+    max-width: 100%;
+    white-space: normal;
+    text-align: left;
+    border-radius: 16px;
+  }
+  .chat__summary {
+    max-height: 30vh;
+  }
+  /* The round button: a little smaller, and inside the safe area of phones with a rounded corner or a home bar. */
+  .chat__launcher {
+    width: 54px;
+    height: 54px;
+    right: max(14px, env(safe-area-inset-right));
+    bottom: max(14px, env(safe-area-inset-bottom));
+  }
+  .chat__launcher svg {
+    width: 28px;
+    height: 28px;
+  }
+}

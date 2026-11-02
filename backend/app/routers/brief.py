@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.services.audit.audit_store import get_or_404
-from app.services.common import audit_log, doc_store
+from app.services.common import audit_log, brief_rules, doc_store
 from app.routers.job_route import JobRoute
 
 router = APIRouter(route_class=JobRoute, prefix="/api/brief", tags=["brief"])
@@ -41,6 +41,9 @@ def finalize(req: FinalizeRequest):
     if not req.audit_session_ids:
         raise HTTPException(status_code=400, detail="At least one audit_session_id is required.")
     sessions = [get_or_404(sid) for sid in req.audit_session_ids]
+    # A brief with no real words in it ("xxx") is not a brief; no brief at all is allowed (the planner step is then skipped).
+    if req.raw_brief.strip() and brief_rules.brief_quality(req.raw_brief) == "junk":
+        raise HTTPException(status_code=422, detail="The client brief does not look like a brief. Say what the client needs.")
 
     primary_sid = req.audit_session_ids[0]
 

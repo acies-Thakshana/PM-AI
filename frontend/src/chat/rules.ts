@@ -82,18 +82,49 @@ export function dataGate(input: GateInput): Gate {
 
 // ------------------------------------------------------------------------------------------------ brief
 const squash = (text: string) => text.replace(/\s+/g, " ").trim().toLowerCase();
-const MIN_WORDS_TO_REPLACE_BRIEF = 8;
+
+/** Fewer words than this is too short to be sure it is a brief: the assistant asks the PM. */
+export const MIN_BRIEF_WORDS = 5;
+
+export type BriefQuality = "junk" | "short" | "ok";
+
+/** A run of letters that could be a word: two or more, not one letter repeated, and (Latin letters) with a vowel. */
+const isRealWord = (run: string): boolean => {
+  const letters = [...run.toLowerCase()];
+  if (letters.length < 2 || new Set(letters).size < 2) return false;
+  return !/^[\x00-\x7f]+$/.test(run) || /[aeiouy]/.test(run.toLowerCase());
+};
+
+/**
+ * What can be told about a brief without asking a model: "junk" (no real word in it, e.g. "xxx": never a brief),
+ * "short" (under MIN_BRIEF_WORDS words: the assistant asks the PM) or "ok". The server applies the same rule
+ * (backend/app/services/common/brief_rules.py), so keep the two in step.
+ */
+export function briefQuality(text: string): BriefQuality {
+  if (!(text.match(/\p{L}+/gu) ?? []).some(isRealWord)) return "junk";
+  return text.trim().split(/\s+/).length < MIN_BRIEF_WORDS ? "short" : "ok";
+}
+
+/** Said when a message offered as the brief is not one (the server's BRIEF_NOT_A_BRIEF says the same). */
+export const NOT_A_BRIEF =
+  "That doesn't look like a client brief. Please write what the client needs: which shipments to look at and what to find out (a sentence or two is enough).";
+
+/** The answers to "Is this your client brief?": the server offers "Yes, that's my brief" and "No, I'll rewrite it" as buttons; typing yes or no works too. */
+const YES = /^\s*(yes|yep|yeah|correct|right|it is|it's|that is|that's)\b/i;
+const NO = /^\s*(no|nope|not)\b/i;
+export const isBriefYes = (text: string): boolean => YES.test(text);
+export const isBriefNo = (text: string): boolean => NO.test(text);
 
 /**
  * May the model's `set_brief` action store `text` as the client brief?
- * Only when the text is the PM's own words from the message just sent (never a rewrite). With a brief already on
- * the Configure page it must be a real brief (at least a sentence), so an interview answer cannot replace it.
+ * Only when the text is the PM's own words from the message just sent (never a rewrite) and is not junk. Once a
+ * brief exists it stays the brief: it is changed in the Client Brief box on the Configure page, never from the chat,
+ * so an interview answer (or a second pasted brief) cannot replace it.
  */
 export function canSetBrief(text: string, lastUserMessage: string, currentBrief: string): boolean {
   const brief = squash(text);
   if (!brief || !squash(lastUserMessage).includes(brief)) return false;
-  // A brief given in the chat wins over the one on the Configure page, but a short answer is never a new brief.
-  return !currentBrief.trim() || brief.split(" ").length >= MIN_WORDS_TO_REPLACE_BRIEF;
+  return !currentBrief.trim() && briefQuality(text) !== "junk";
 }
 
 /** Is this message the client brief (a few sentences), rather than a short answer or a question? */

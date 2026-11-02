@@ -78,7 +78,7 @@
 
 .audit-report__issues {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
   gap: 12px;
 }
 
@@ -203,7 +203,7 @@
   position: relative;
   display: flex;
   align-items: center;
-  width: 220px;
+  width: min(220px, 100%);
 }
 
 .audit-report__col-search-icon {
@@ -359,4 +359,22 @@
 .audit-report__tab--active .audit-report__tab-count {
   background: var(--carrier-blue);
   color: #fff;
+}
+
+@media (max-width: 720px) {
+  .audit-report__tabs {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .audit-report__tabs > * {
+    white-space: nowrap;
+  }
+  .audit-report__tab-actions {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .audit-report__col-search {
+    flex: 1 1 100%;
+    width: 100%;
+  }
 }

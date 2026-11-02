@@ -206,7 +206,7 @@
 
 .analysis-page__ai-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
   gap: 12px;
   margin-top: 16px;
 }
@@ -221,7 +221,7 @@
 
 .analysis-page__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
   align-items: stretch;
   gap: 14px;
   margin-bottom: 14px;
@@ -288,7 +288,7 @@
 
 .analysis-page__panels-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
   gap: 16px;
   margin-top: 20px;
   margin-bottom: 20px;

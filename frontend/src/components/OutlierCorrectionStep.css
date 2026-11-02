@@ -224,3 +224,12 @@
 }
 
 
+
+@media (max-width: 720px) {
+  .outlier-step__subtabs {
+    overflow-x: auto;
+  }
+  .outlier-step__subtab {
+    white-space: nowrap;
+  }
+}

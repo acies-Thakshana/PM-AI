@@ -190,3 +190,10 @@
     align-items: stretch;
   }
 }
+
+/* A dropdown opens under its button; on a phone it must stay inside the screen, not run off the right edge. */
+@media (max-width: 720px) {
+  .analysis-toolbar__popover {
+    max-width: calc(100vw - 28px);
+  }
+}

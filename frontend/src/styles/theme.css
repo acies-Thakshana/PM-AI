@@ -209,3 +209,107 @@ a {
   background: var(--carrier-blue);
   color: #fff;
 }
+
+/* ==============================================================================================
+   Responsive base: one place for what every page shares (the page's own file holds the rest).
+   Breakpoints used across the app:  1250px (chat launcher clears the page edge)  ·  900px (tablet)
+   ·  640px (phone)  ·  480px (small phone).
+   Selectors start with "html body" so they win over a page's own file, whatever order the CSS loads in.
+   ============================================================================================== */
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* Safety net: one wide element must never widen the page, because the phone then zooms the whole page out
+     and pushes fixed things (the chat button) off the screen. The real overflows are fixed where they are. */
+  overflow-x: hidden;
+}
+body {
+  overflow-x: clip;
+}
+img,
+canvas,
+video {
+  max-width: 100%;
+}
+
+/* The round chat button floats over the bottom-right corner, so every page keeps clear space under its last row,
+   and the floating action bar stops short of it. */
+@media (max-width: 1250px) {
+  html body:not(.chat-open) [class*="-page__main"] {
+    padding-bottom: 104px;
+  }
+  html body:not(.chat-open) .upload-page__actions {
+    margin-right: 76px;
+  }
+}
+
+@media (max-width: 640px) {
+  html body [class*="-page__main"] {
+    padding-left: 14px;
+    padding-right: 14px;
+    padding-top: 20px;
+  }
+  html body:not(.chat-open) .upload-page__actions {
+    margin-right: 0;
+    bottom: 76px; /* above the chat button, which stays reachable */
+  }
+
+  /* Pop-ups become full-screen sheets: a 24px frame leaves no room for the content on a phone. */
+  html body .modal__overlay,
+  html body .audit-issue__modal-backdrop,
+  html body .issue-rows-modal__backdrop {
+    padding: 0;
+    align-items: stretch;
+  }
+  html body .modal__panel,
+  html body .audit-issue__modal,
+  html body .issue-rows-modal {
+    max-width: 100%;
+    max-height: 100vh;
+    max-height: 100dvh;
+    height: 100vh;
+    height: 100dvh;
+    border-radius: 0;
+  }
+  html body .modal__head,
+  html body .audit-issue__modal-head,
+  html body .issue-rows-modal__head {
+    padding: 12px 14px;
+  }
+  html body .modal__body {
+    padding: 14px;
+  }
+}
+
+/* Back / forward bar: on a small phone the buttons stack and fill the width, so none sits half off the screen. */
+@media (max-width: 520px) {
+  .page-nav {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .page-nav > .btn {
+    justify-content: center;
+  }
+  .page-nav__next {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .page-nav__next > .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+/* Touch screens: 16px text in a field stops iOS from zooming the page when it is tapped; buttons get a finger-sized height. */
+@media (hover: none) and (pointer: coarse) {
+  html body input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  html body select,
+  html body textarea {
+    font-size: 16px;
+  }
+  html body .btn {
+    min-height: 40px;
+  }
+}

@@ -107,3 +107,41 @@
   color: var(--color-text-muted, #8a90ad);
   text-decoration: line-through;
 }
+
+/* Narrow space: six steps with their names do not fit one row. The bar looks at its OWN width (not the window's),
+   because an open chat panel narrows the page on a wide screen too. Every step keeps its number badge (the way to
+   jump back) and only the current step keeps its name, so the bar stays on one line down to a 280px-wide page. */
+.step-indicator {
+  container: steps / inline-size;
+}
+@container steps (max-width: 820px) {
+  .step-indicator__item:not(.step-indicator__item--current) .step-indicator__label {
+    display: none;
+  }
+  .step-indicator__link,
+  .step-indicator__item {
+    gap: 6px;
+  }
+  .step-indicator__label {
+    margin-right: 8px;
+  }
+  .step-indicator__connector {
+    width: 14px;
+    margin-right: 8px;
+  }
+}
+@container steps (max-width: 340px) {
+  .step-indicator__badge {
+    width: 20px;
+    height: 20px;
+    font-size: 10.5px;
+  }
+  .step-indicator__connector {
+    width: 8px;
+    margin-right: 6px;
+  }
+  .step-indicator__label {
+    font-size: 12px;
+    margin-right: 6px;
+  }
+}

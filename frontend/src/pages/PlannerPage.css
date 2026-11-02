@@ -1,5 +1,6 @@
 .planner-page {
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--color-bg);
 }
 
@@ -393,5 +394,35 @@
   }
   100% {
     box-shadow: 0 0 0 0 rgba(0, 120, 200, 0);
+  }
+}
+
+/* Small screens: the tab strip and its bulk buttons wrap onto two rows instead of pushing the page wider. */
+@media (max-width: 720px) {
+  .planner-page__tabs {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .planner-page__tabs-left {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .planner-page__tab {
+    padding: 10px 12px;
+    white-space: nowrap;
+  }
+  .planner-page__card-foot {
+    justify-content: stretch;
+    padding-inline: 14px;
+  }
+  .planner-page__actions {
+    flex: 1 1 100%;
+  }
+  .planner-page__actions .btn {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .planner-page__clarifications {
+    margin-inline: 14px;
   }
 }

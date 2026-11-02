@@ -46,3 +46,26 @@
   font-size: 12.5px;
   color: var(--color-text-muted);
 }
+
+@media (max-width: 640px) {
+  .app-header__inner {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+  .app-header__brand {
+    gap: 10px;
+    min-width: 0;
+  }
+  .app-header__logo {
+    height: 26px;
+  }
+  .app-header__divider {
+    height: 22px;
+  }
+  .app-header__title {
+    min-width: 0;
+  }
+  .app-header__subtitle {
+    display: none;
+  }
+}

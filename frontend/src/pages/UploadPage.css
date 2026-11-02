@@ -455,7 +455,7 @@
 
 .swp-picker__search {
   flex: 1;
-  min-width: 220px;
+  min-width: min(220px, 100%);
 }
 
 .swp-picker__list {
@@ -612,4 +612,22 @@ button.swp-picker__row--button {
 
 button.swp-picker__row--button:hover:not(:disabled) {
   background: #f4f6fa;
+}
+
+/* A small phone: two date boxes side by side are too narrow to show a full date, so they stack. */
+@media (max-width: 480px) {
+  .swp-dates {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+  .swp-dates > :not(input) {
+    justify-self: center;
+  }
+  .upload-page__actions {
+    padding: 10px 12px;
+    gap: 8px 10px;
+  }
+  .upload-page__left {
+    gap: 8px;
+  }
 }

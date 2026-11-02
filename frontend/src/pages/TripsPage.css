@@ -30,7 +30,7 @@
 
 .trips-tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
   gap: 14px;
   margin: 20px 0;
 }
@@ -93,7 +93,7 @@
 }
 
 .trips-filters__search {
-  min-width: 240px;
+  min-width: min(240px, 100%);
 }
 
 .trips-table-wrap {

@@ -269,3 +269,9 @@
 .excel-table__table tr.is-selected td:first-child {
   box-shadow: inset 3px 0 0 #f59e0b;
 }
+
+@media (max-width: 720px) {
+  .excel-menu {
+    max-width: calc(100vw - 24px);
+  }
+}

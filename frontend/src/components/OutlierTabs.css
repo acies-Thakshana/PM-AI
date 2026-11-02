@@ -224,7 +224,7 @@
 
 .outlier-tab__toolbar-row .outlier-tab__hint {
   flex: 1;
-  min-width: 240px;
+  min-width: min(240px, 100%);
 }
 
 .outlier-tab__empty {
@@ -248,12 +248,12 @@
   position: relative;
   display: flex;
   align-items: center;
-  width: 260px;
+  width: min(260px, 100%);
   flex-shrink: 0;
 }
 
 .outlier-tab__search--compact {
-  width: 220px;
+  width: min(220px, 100%);
   margin-bottom: 10px;
 }
 

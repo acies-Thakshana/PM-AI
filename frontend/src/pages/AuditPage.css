@@ -185,3 +185,13 @@
   color: var(--color-text-muted);
   font-size: 14px;
 }
+
+@media (max-width: 720px) {
+  .audit-page__wizard-tabs {
+    overflow-x: auto;
+  }
+  .audit-page__wizard-tab {
+    white-space: nowrap;
+    padding-inline: 8px;
+  }
+}

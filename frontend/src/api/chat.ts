@@ -57,6 +57,8 @@ export interface ChatTurnResponse {
   /** Follow-up questions the PM could ask next (never during the interview). */
   next_questions: string[];
   actions: ChatAction[];
+  /** Whether the text put forward as the brief is one: "unsure" and "not_brief" hold the interview back. */
+  brief_check?: "ok" | "unsure" | "not_brief" | "na";
 }
 
 async function failure(res: Response, what: string): Promise<Error> {

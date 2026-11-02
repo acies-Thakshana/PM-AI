@@ -473,3 +473,15 @@
 .analysis-detail__paths-toggle[aria-expanded="true"] {
   background: var(--accent-purple-bg);
 }
+
+@media (max-width: 720px) {
+  .analysis-detail__tabs,
+  .analysis-detail__modal-tabs {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .analysis-detail__tab,
+  .analysis-detail__modal-tab {
+    white-space: nowrap;
+  }
+}
