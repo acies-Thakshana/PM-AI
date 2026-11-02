@@ -31,6 +31,15 @@ locals {
     { name = "BEDROCK_DEFAULT_MODEL", value = var.bedrock_default_model_id },
     { name = "BEDROCK_STRONG_MODEL", value = var.bedrock_strong_model_id }
     ] : [],
+    # SensiWatch API: the URL and program are plain settings, the credentials arrive as secrets (container_secrets).
+    # SWP_CACHE=0: no trip data is kept on the container's disk (the client does not allow storing their data).
+    var.enable_swp ? concat(
+      [
+        { name = "SWP_BASE_URL", value = var.swp_base_url },
+        { name = "SWP_CACHE", value = "0" }
+      ],
+      var.swp_program_id != "" ? [{ name = "SWP_PROGRAM_ID", value = var.swp_program_id }] : []
+    ) : [],
     var.allow_anon ? [{ name = "ALLOW_ANON", value = "1" }] : [],
     var.entra_tenant_id != "" && var.entra_client_id != "" ? [
       { name = "ENTRA_TENANT_ID", value = var.entra_tenant_id },
@@ -155,6 +164,13 @@ resource "aws_ecs_task_definition" "backend" {
       }
     }
   ])
+
+  lifecycle {
+    precondition {
+      condition     = !var.enable_swp || var.swp_base_url != ""
+      error_message = "enable_swp is true but swp_base_url is empty: set swp_base_url (the SensiWatch API address) in terraform.tfvars."
+    }
+  }
 
   tags = {
     Name = "${var.project}-task-ecs-${var.environment}"

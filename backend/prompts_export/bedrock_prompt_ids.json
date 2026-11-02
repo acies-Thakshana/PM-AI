@@ -1,24 +1,3 @@
 {
-  "planner_agent": "8DBE2WI9FO:3",
-  "drilldown_path": "6UL0FSAT59:3",
-  "feature_agent_think": "2IM936UH9P:3",
-  "feature_agent_write_code": "A2FYQ8K4CG:3",
-  "feature_agent_validate": "PUFTNPNB54:3",
-  "feature_suggester": "H3EPIZ7NIP:3",
-  "analysis_agent_think": "N8HR6ATR60:3",
-  "analysis_agent_write_code": "Q2Q371FEKT:3",
-  "analysis_agent_chart_suggestion": "EC7LSY02QR:3",
-  "analysis_agent_interpret": "FSZC2XYIGR:3",
-  "analysis_agent_drilldown": "HPLYFJOPF7:3",
-  "analysis_designer_template_match": "SP5RSZVKJ0:3",
-  "analysis_designer_chart": "NSE77L2OQI:3",
-  "analysis_suggester": "T55QEVWPGQ:3",
-  "drilldown_agent": "L9OOWU040Z:3",
-  "drilldown_agent_more": "KQHBQPEJVZ:3",
-  "chat_agent": "8HH74IYA9Z:2",
-  "chat_tools": "YW8NBKOAU3:2",
-  "chat_review": "PIWG1YVN61:2",
-  "audit_agent": "BBEA7GIIBA:4",
-  "overall_analysis_agent": "WQLYTHR71Q:3",
-  "report_final_summary_agent": "908YYO0K5S:3"
+  "chat_agent": "8HH74IYA9Z:3"
 }

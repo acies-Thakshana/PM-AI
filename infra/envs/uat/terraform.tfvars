@@ -94,13 +94,19 @@ create_placeholder_secrets = true
 enable_openrouter = false
 enable_deepl      = false
 
+# SensiWatch (SWP) API, the source of the trip data. The credentials are NOT here: they live in the Secrets Manager
+# secret that OpenTofu creates (<project>-swp-api-<environment>); put them in with the AWS CLI after the first apply.
+enable_swp     = true
+swp_base_url   = "https://api.sensiwatch.com" # REVIEW: the SensiWatch API address, https://<API Management host> (required while enable_swp = true)
+swp_program_id = "" # optional default program id; empty = the PM types it in the app
+
 # Bedrock + Translate added for the new version.
-enable_bedrock           = true
-enable_translate         = true
+enable_bedrock   = true
+enable_translate = true
 # bedrock_cheap_model_id   = "us.amazon.nova-pro-v1:0"
 # bedrock_default_model_id = "us.anthropic.claude-haiku-4-5-20251001"
 # bedrock_strong_model_id  = "us.anthropic.claude-sonnet-4-6"
-bedrock_model_arns       = ["*"] # REVIEW: list the approved model ARN(s)
+bedrock_model_arns = ["*"] # REVIEW: list the approved model ARN(s)
 
 bedrock_cheap_model_id   = "openai.gpt-oss-20b-1:0"
 bedrock_default_model_id = "openai.gpt-oss-20b-1:0"
@@ -146,5 +152,6 @@ bedrock_prompt_ids = {
   "chat_review" : "PIWG1YVN61:2",
   "audit_agent" : "BBEA7GIIBA:4",
   "overall_analysis_agent" : "WQLYTHR71Q:3",
-  "report_final_summary_agent" : "908YYO0K5S:3"
+  "report_final_summary_agent" : "908YYO0K5S:3",
+  "chat_agent" : "8HH74IYA9Z:3"
 }

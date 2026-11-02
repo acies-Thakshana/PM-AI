@@ -386,6 +386,33 @@ variable "deepl_secret_arn" {
 }
 
 # -----------------------------
+# SensiWatch (SWP) API: the source of the trip data
+# -----------------------------
+variable "enable_swp" {
+  description = "Wire the SensiWatch API into the backend: a secret for its credentials plus the container settings."
+  type        = bool
+  default     = false
+}
+
+variable "swp_secret_arn" {
+  description = "Existing SWP secret ARN when enable_swp=true and create_placeholder_secrets=false."
+  type        = string
+  default     = ""
+}
+
+variable "swp_base_url" {
+  description = "SensiWatch API address (the API Management host), for example https://<host>. Required when enable_swp=true."
+  type        = string
+  default     = ""
+}
+
+variable "swp_program_id" {
+  description = "Default SWP program id. Empty = the PM types the program id in the app."
+  type        = string
+  default     = ""
+}
+
+# -----------------------------
 # Bedrock / Translate
 # -----------------------------
 variable "enable_bedrock" {

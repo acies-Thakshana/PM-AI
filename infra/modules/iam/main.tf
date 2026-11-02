@@ -49,7 +49,7 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_managed" {
 }
 
 data "aws_iam_policy_document" "ecs_execution_secrets" {
-  count = var.create_iam_roles && length(var.secret_arns) > 0 ? 1 : 0
+  count = var.create_iam_roles && var.has_secrets ? 1 : 0
 
   statement {
     effect    = "Allow"
@@ -59,7 +59,7 @@ data "aws_iam_policy_document" "ecs_execution_secrets" {
 }
 
 resource "aws_iam_role_policy" "ecs_execution_secrets" {
-  count = var.create_iam_roles && length(var.secret_arns) > 0 ? 1 : 0
+  count = var.create_iam_roles && var.has_secrets ? 1 : 0
 
   name   = "${var.project}-execution-secrets-${var.environment}"
   role   = aws_iam_role.ecs_execution[0].id
@@ -116,7 +116,7 @@ data "aws_iam_policy_document" "app_permissions" {
   }
 
   dynamic "statement" {
-    for_each = length(var.secret_arns) > 0 ? [1] : []
+    for_each = var.has_secrets ? [1] : []
     content {
       sid       = "SecretsRead"
       effect    = "Allow"

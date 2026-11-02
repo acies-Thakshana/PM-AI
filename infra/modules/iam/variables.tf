@@ -23,6 +23,11 @@ variable "secret_arns" {
   type        = list(string)
 }
 
+variable "has_secrets" {
+  description = "true when at least one secret is wired in. Decided from settings known before apply, because secret_arns holds ARNs that do not exist yet on the first run and a count cannot depend on those."
+  type        = bool
+}
+
 variable "aws_region" {
   description = "AWS region where resources are deployed."
   type        = string
