@@ -2,6 +2,8 @@
 
 The model is never called in the greeting tests: if it were, the test would fail, because _ask_model is made to blow up.
 """
+from types import SimpleNamespace
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -13,12 +15,12 @@ from app.routers import chat, deps
 def client(monkeypatch):
     monkeypatch.setattr(deps, "AUTH_ENABLED", False)
     monkeypatch.setattr(deps, "USE_AWS_STORAGE", False)
-
-    def no_model(*a, **k):
-        raise AssertionError("the model must not be called for a greeting")
-
-    monkeypatch.setattr(chat, "_ask_model", no_model)
+    monkeypatch.setattr(chat.orchestrator, "run_turn", lambda *a, **k: SimpleNamespace(looked_at=[], tools_used=[]))
+    monkeypatch.setattr(chat.orchestrator, "ground", lambda result, *a, **k: (MODEL_SAYS["raw"], []))
     return TestClient(app, raise_server_exceptions=False)
+
+
+MODEL_SAYS = {"raw": {}}
 
 
 def _say(client, text, brief="", state=None, hidden=False):
@@ -26,45 +28,13 @@ def _say(client, text, brief="", state=None, hidden=False):
     return client.post("/api/chat/turn", json=body)
 
 
-@pytest.mark.parametrize("text", ["Hi", "hi", "HI!", "Hello", "hello.", "Hey there", "good morning", "Hi Polar", "hiii", "  hello  "])
-def test_greeting_gets_hi_and_asks_for_the_brief(client, text):
-    """Happy path: a bare greeting is answered with a greeting that asks for the client brief."""
-    r = _say(client, text)
-    assert r.status_code == 200
-    body = r.json()
-    assert body["reply"].startswith("Hi!")
-    assert "client brief" in body["reply"]
-    assert body["actions"] == [] and body["brief_check"] == "na"
-
-
-@pytest.mark.parametrize("text", [
-    "Hi, compare carriers by excursion rate for all shipments last quarter",
-    "hello world",
-    "Hi what can you do?",
-    "high",
-    "compare carriers by excursion rate",
-])
-def test_more_than_a_greeting_is_not_short_circuited(monkeypatch, text):
-    """Negative: only a bare greeting is intercepted; anything else still goes to the model."""
-    assert chat._greeting_response(chat.ChatTurnRequest(messages=[chat.ChatMessage(role="user", content=text)])) is None
-
-
-def test_greeting_with_a_brief_already_set_goes_to_the_model():
-    """Edge case: once a brief exists the greeting is a normal chat message (the brief stays; no 'enter your brief')."""
-    req = chat.ChatTurnRequest(brief="Compare carriers by excursion rate for Acme", messages=[chat.ChatMessage(role="user", content="Hi")])
-    assert chat._greeting_response(req) is None
-
-
-def test_greeting_after_the_interview_started_goes_to_the_model():
-    """Edge case: in the build/refine phases the greeting is not a request for the brief."""
-    req = chat.ChatTurnRequest(state={"phase": "refine"}, messages=[chat.ChatMessage(role="user", content="Hi")])
-    assert chat._greeting_response(req) is None
-
-
-def test_hidden_app_prompt_is_never_a_greeting():
-    """Edge case: the app's own hidden turn that starts the interview is not answered as a greeting."""
-    req = chat.ChatTurnRequest(hidden=True, messages=[chat.ChatMessage(role="user", content="Hi")])
-    assert chat._greeting_response(req) is None
+@pytest.mark.parametrize("text", ["Hi", "hello", "Hey there", "good morning", "What should I do?", "How does this app work?"])
+def test_greetings_and_app_questions_are_answered_by_the_model(client, text):
+    """The reply is whatever the assistant wrote for this message: no stock sentence from the app, and no 'is this your brief?'."""
+    MODEL_SAYS["raw"] = {"reply": f"model answer to: {text}", "intent": "other", "phase": "interview", "brief_check": "unsure"}
+    body = _say(client, text, state={"brief_candidate": text, "brief_candidate_source": "message"}).json()
+    assert body["reply"] == f"model answer to: {text}"
+    assert body["brief_check"] == "na" and body["quick_replies"] == []
 
 
 @pytest.mark.parametrize("text", ["xxx", "....", "qwrtp"])
@@ -88,3 +58,86 @@ def test_short_brief_is_asked_about_not_accepted():
     assert out["brief_check"] == "unsure"
     assert out["reply"].startswith("Is this your client brief?")
     assert out["quick_replies"] == chat.BRIEF_CONFIRM_REPLIES
+
+
+# ---------------------------------------------------------------- questions about the app are answered, not treated as a brief
+
+@pytest.mark.parametrize("text", [
+    "What should I do?",
+    "what should i do now",
+    "How does this app work",
+    "What can you do",
+    "How do I use this tool?",
+    "Can you help me",
+    "Explain the planner page",
+    "who are you",
+    "what next",
+])
+def test_app_questions_are_recognised(text):
+    assert chat.is_app_question(text)
+
+
+@pytest.mark.parametrize("text", [
+    "Compare carriers by excursion rate for Acme last quarter",
+    "We need to know which lanes have the most temperature excursions and why",
+    "reduce manufacturing emissions",
+])
+def test_real_briefs_are_not_taken_for_app_questions(text):
+    assert not chat.is_app_question(text)
+
+
+def test_question_about_the_app_is_not_sent_to_the_brief_check():
+    """Happy path: 'What should I do?' on the Configure page is answered (brief_check 'na'), not queried as a brief."""
+    out = chat._normalise(
+        {"reply": "Load your data, then press Load & continue.", "brief_check": "unsure"},
+        {"brief_candidate": "What should I do?", "brief_candidate_source": "message"}, has_data=False,
+    )
+    assert out["brief_check"] == "na"
+    assert out["reply"] == "Load your data, then press Load & continue."
+
+
+def test_same_question_text_as_the_brief_itself_is_still_judged():
+    """Edge case: only a typed MESSAGE is exempt; a stored brief text is always judged."""
+    out = chat._normalise({"brief_check": "ok"}, {"brief_candidate": "What should I do?", "brief_candidate_source": "brief"}, has_data=True)
+    assert out["brief_check"] == "unsure"
+
+
+@pytest.mark.parametrize("text", [
+    "thanks", "Thank you!", "thx", "ok", "okay", "cool", "hmm", "lol", "bye", "how are you", "How's it going?", "what's up",
+    "Hi", "hello there", "good morning", "What should I do?", "how does this work",
+])
+def test_small_talk_is_recognised(text):
+    assert chat.is_small_talk(text)
+
+
+@pytest.mark.parametrize("text", [
+    "Compare carriers by excursion rate for Acme last quarter",
+    "reduce manufacturing emissions",
+    "Show lanes with the most temperature excursions",
+    "xxx",
+    "write me a poem about the sea",
+])
+def test_briefs_and_non_briefs_are_not_small_talk(text):
+    assert not chat.is_small_talk(text)
+
+
+@pytest.mark.parametrize("text", ["thx", "hmm", "lol", "k"])
+def test_small_talk_that_looks_like_junk_is_not_called_a_bad_brief(text):
+    """'thx' has no vowel so the word rule calls it junk; as small talk it must reach the assistant instead."""
+    out = chat._normalise({"reply": "You're welcome."}, {"brief_candidate": text, "brief_candidate_source": "message"}, has_data=False)
+    assert out["brief_check"] == "na" and out["reply"] == "You're welcome."
+
+
+def test_junk_that_is_not_small_talk_is_still_not_a_brief():
+    out = chat._normalise({}, {"brief_candidate": "xxx", "brief_candidate_source": "message"}, has_data=False)
+    assert out["brief_check"] == "not_brief"
+
+
+def test_prompt_tells_the_assistant_to_explain_only_what_exists():
+    """The assistant's instructions carry a guide of the real pages and forbid inventing features."""
+    from app.prompts import chat_agent
+
+    text = chat_agent.SYSTEM_PROMPT
+    assert "EXPLAINING A FEATURE OR PART OF THE APP" in text and "Never invent a feature" in text
+    for page in ("Configure page", "Planner page", "Audit page", "Features page", "Analysis page", "Report page"):
+        assert page in text

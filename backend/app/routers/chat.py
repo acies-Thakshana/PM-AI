@@ -262,16 +262,42 @@ BRIEF_ENTER_AGAIN = (
     "That doesn't look like a client brief, so I am taking you back to the Configure page. Please enter the client brief "
     "again: which shipments to look at and what to find out (a sentence or two is enough)."
 )
-# A message that is only a greeting. Answered by the app itself (no model call), so it is always the same and always asks for the brief.
+# A message that is only a greeting: it goes to the assistant like any chat message (never judged as a brief).
 GREETING = re.compile(
     r"^\s*(hi+|hello+|hey+|hiya|howdy|greetings|good\s+(morning|afternoon|evening)|hi\s+there|hello\s+there|hey\s+there)"
     r"(\s+(polar|there|team|all|everyone))?\s*[!.,?]*\s*$",
     re.IGNORECASE,
 )
-GREETING_REPLY = (
-    "Hi! Please enter your client brief: which shipments to look at and what the client wants to find out. "
-    "You can type it here or put it in the Client Brief box on the Configure page."
+# A question about the app itself ("what should I do?", "how does this work?", "what can you do?"): never a brief,
+# so the assistant answers it, instead of the app asking "Is this your client brief?".
+APP_QUESTION = re.compile(
+    r"\b(?:what\s+(?:should|can|do|shall)\s+(?:i|we|you)\b|what\s+(?:is|are|does)\s+(?:this|that|the|polar|these)\b|what'?s\s+(?:this|next|polar)\b|how\s+(?:do|does|can|should|to)\s+(?:i|we|this|it|the|you|use)\b|how\s+to\s+use\b|who\s+are\s+you\b|where\s+(?:do|should|can)\s+(?:i|we)\b|(?:can|could|will)\s+you\s+(?:help|explain|tell|show|guide)|help\b|guide\s+me\b|explain\b|what\s+next\b|next\s+step\b)",
+    re.IGNORECASE,
 )
+
+
+def is_app_question(text: str) -> bool:
+    """True for a short message that asks about the app or what to do next rather than describing what a client needs."""
+    clean = text.strip()
+    return len(clean.split()) <= 25 and bool(APP_QUESTION.search(clean))
+
+
+# Small talk: thanks, acknowledgements, "how are you", goodbyes. Short, and nothing about shipments. It is never a brief.
+SMALL_TALK = re.compile(
+    r"^\s*(thanks?(\s+(you|a\s+lot|so\s+much))?|thank\s+you(\s+(so\s+much|very\s+much))?|thx|ty|ok(ay)?|k|kk|cool|great|nice|awesome|perfect|"
+    r"good|fine|sure|alright|got\s+it|understood|hmm+|hm+|ah+|oh+|lol|haha+|wow|bye|goodbye|see\s+you|good\s+night|"
+    r"how\s+are\s+you|how'?s\s+it\s+going|how\s+is\s+it\s+going|what'?s\s+up|sup|yes|no|yep|nope|please|sorry|never\s*mind)"
+    r"(\s+(polar|there|team|all))?\s*[!.,?]*\s*$",
+    re.IGNORECASE,
+)
+
+
+def is_small_talk(text: str) -> bool:
+    """A greeting, thanks, an acknowledgement or a question about the app: chat, not a client brief."""
+    clean = text.strip()
+    return bool(GREETING.match(clean) or SMALL_TALK.match(clean) or is_app_question(clean))
+
+
 READBACK_CLOSING = 'Reply "yes" to confirm, or tell me what to change.'
 READY_CLOSING = 'Next step: accept or reject the Planner\'s suggestions, then press "Build the report".'
 
@@ -304,6 +330,8 @@ def _brief_verdict(raw: dict, state: dict) -> tuple[str, str]:
     candidate = _clean_text(state.get("brief_candidate"), 8000)
     if not candidate:
         return "na", ""
+    if state.get("brief_candidate_source") == "message" and is_small_talk(candidate):
+        return "na", ""  # a greeting or a question to the assistant, not a brief: the assistant answers it in its own words
     quality = brief_rules.brief_quality(candidate)
     if quality == "junk":
         return "not_brief", candidate
@@ -499,33 +527,8 @@ def turn(req: ChatTurnRequest):
         recorder.close()
 
 
-def _greeting_response(req: ChatTurnRequest) -> dict | None:
-    """The reply to a bare "Hi" / "Hello" while there is no client brief yet: say hi back and ask for the brief.
-    None when the message is more than a greeting, the app wrote it, or a brief already exists."""
-    if req.hidden or req.brief.strip() or not GREETING.match(req.messages[-1].content):
-        return None
-    if req.state.get("phase", "interview") != "interview":
-        return None
-    prev_u = req.state.get("understanding") if isinstance(req.state.get("understanding"), dict) else {}
-    return {
-        "reply": GREETING_REPLY,
-        "intent": "other",
-        "phase": "interview",
-        "understanding": {k: _plain(_clean_text(prev_u.get(k, ""), 400)) for k in UNDERSTANDING_KEYS},
-        "assumptions": [],
-        "quick_replies": [],
-        "next_questions": [],
-        "actions": [],
-        "brief_check": "na",
-    }
-
-
 def _answer(req: ChatTurnRequest, audited: bool, pending: int | None, recorder: TurnRecorder) -> dict:
     """The model's answer to the PM's last message, cleaned (see `turn`); the turn is recorded as it goes."""
-    greeting = _greeting_response(req)
-    if greeting is not None:
-        recorder.complete(greeting, tools_used=[], looked_at=[], refusals={}, state=req.state)
-        return greeting
     system = llm.system_prompt("chat_agent", _prompts.SYSTEM_PROMPT)
     if req.session_id:
         system += orchestrator.tools_prompt()  # tools only exist for a loaded session

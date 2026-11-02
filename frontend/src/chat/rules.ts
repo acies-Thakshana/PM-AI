@@ -127,10 +127,20 @@ export function canSetBrief(text: string, lastUserMessage: string, currentBrief:
   return !currentBrief.trim() && briefQuality(text) !== "junk";
 }
 
+/** A short message that asks about the app ("what should I do?", "how does this work?"): never a brief, always answered (keep in step with APP_QUESTION in backend/app/routers/chat.py). */
+const APP_QUESTION =
+  /\b(what\s+(should|can|do|shall)\s+(i|we|you)\b|what\s+(is|are|does)\s+(this|that|the|polar|these)\b|what'?s\s+(this|next|polar)\b|how\s+(do|does|can|should|to)\s+(i|we|this|it|the|you|use)\b|how\s+to\s+use\b|who\s+are\s+you\b|where\s+(do|should|can)\s+(i|we)\b|(can|could|will)\s+you\s+(help|explain|tell|show|guide)|help\b|guide\s+me\b|explain\b|what\s+next\b|next\s+step\b)/i;
+export const isAppQuestion = (text: string): boolean => text.trim().split(/\s+/).length <= 25 && APP_QUESTION.test(text);
+
+/** Thanks, acknowledgements, "how are you", goodbyes, greetings: chat, never a brief (keep in step with is_small_talk in backend/app/routers/chat.py). */
+const SMALL_TALK =
+  /^\s*(thanks?(\s+(you|a\s+lot|so\s+much))?|thank\s+you(\s+(so\s+much|very\s+much))?|thx|ty|ok(ay)?|k|kk|cool|great|nice|awesome|perfect|good|fine|sure|alright|got\s+it|understood|hmm+|hm+|ah+|oh+|lol|haha+|wow|bye|goodbye|see\s+you|good\s+night|how\s+are\s+you|how'?s\s+it\s+going|how\s+is\s+it\s+going|what'?s\s+up|sup|yes|no|yep|nope|please|sorry|never\s*mind|hi+|hello+|hey+|hiya|howdy|greetings|good\s+(morning|afternoon|evening))(\s+(polar|there|team|all))?\s*[!.,?]*\s*$/i;
+export const isSmallTalk = (text: string): boolean => SMALL_TALK.test(text) || isAppQuestion(text);
+
 /** Is this message the client brief (a few sentences), rather than a short answer or a question? */
 export function looksLikeBrief(text: string): boolean {
   const clean = text.trim();
-  return clean.split(/\s+/).length >= 12 && !clean.endsWith("?");
+  return clean.split(/\s+/).length >= 12 && !clean.endsWith("?") && !isAppQuestion(clean);
 }
 
 // ------------------------------------------------------------------------------------------ page links

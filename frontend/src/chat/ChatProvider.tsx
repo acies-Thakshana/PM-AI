@@ -42,7 +42,7 @@ import { announceChatChange, usePageChangeCount, useStoredRef, useStoredState } 
 import { persistDecisions } from "../api/planner";
 import type { PlannerSuggestResponse, PmDecisionValue } from "../api/planner";
 import { hasFormula, plannerDecisionsKey, plannerResultKey } from "../utils/plannerRecs";
-import { NOT_A_BRIEF, PAGE_PATH, briefQuality, canSetBrief, dataGate, explainFailure, isBriefNo, isBriefYes, looksLikeBrief, pageLabel, pageLinksIn, shortcutFor, shorten, stageOf } from "./rules";
+import { NOT_A_BRIEF, PAGE_PATH, briefQuality, canSetBrief, dataGate, explainFailure, isBriefNo, isBriefYes, isSmallTalk, looksLikeBrief, pageLabel, pageLinksIn, shortcutFor, shorten, stageOf } from "./rules";
 import { INTERVIEW_DONE_KEY } from "./signals";
 import { activeTurn, beginTurn, endTurn, newChatId } from "./trace";
 import type { TurnTrace } from "./trace";
@@ -858,7 +858,7 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
         return;
       }
       // Nothing to read in it ("xxx"): not a brief, and not worth a question to the assistant.
-      if (!opts.hidden && stage === "configure" && live.current.phase === "interview" && !briefText() && briefQuality(text) === "junk") {
+      if (!opts.hidden && stage === "configure" && live.current.phase === "interview" && !briefText() && briefQuality(text) === "junk" && !isSmallTalk(text)) {
         const turn = startTurn("brief_local", text);
         say(NOT_A_BRIEF);
         finishTurnRecord(turn);
