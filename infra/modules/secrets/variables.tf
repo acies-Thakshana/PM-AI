@@ -32,3 +32,13 @@ variable "deepl_secret_arn" {
   description = "Existing DeepL secret ARN when enable_deepl=true and create_placeholder_secrets=false."
   type        = string
 }
+
+variable "enable_swp" {
+  description = "Enable the SensiWatch (SWP) API secret wiring: its credentials reach the container as secrets."
+  type        = bool
+}
+
+variable "swp_secret_arn" {
+  description = "Existing SWP secret ARN when enable_swp=true and create_placeholder_secrets=false."
+  type        = string
+}

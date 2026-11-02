@@ -45,9 +45,11 @@ class SwpError(Exception):
     """The SWP API is not configured, or it refused / failed a call."""
 
 
-def missing_settings(program_id: str | None = None) -> list[str]:
+def missing_settings(program_id: str | None = None, need_program: bool = True) -> list[str]:
+    """The settings still to be given. The program id may come from the page, so a call that is already past the route's
+    own check (the login, a trip call) passes need_program=False and asks only for the credentials."""
     missing = [name for name in _REQUIRED if not getattr(config, name)]
-    if not (program_id or config.SWP_PROGRAM_ID):
+    if need_program and not (program_id or config.SWP_PROGRAM_ID):
         missing.append("SWP_PROGRAM_ID")
     return missing
 
@@ -115,7 +117,7 @@ def _checked(response: requests.Response, method: str, path: str) -> dict:
 
 def _trip_call(method: str, path: str, token: str, **kwargs) -> dict:
     """A trip call on whichever key is free; if a key is told to slow down it rests and the call goes to the next free one."""
-    missing = missing_settings()
+    missing = missing_settings(need_program=False)
     if missing:
         raise SwpError("The SWP API is not configured. Set in backend/.env: " + ", ".join(missing))
     for attempt in range(4):
@@ -145,7 +147,7 @@ def get_token() -> str:
     with _token_lock:
         if _token["value"] and time.time() < _token["expires"]:
             return _token["value"]
-        missing = missing_settings()
+        missing = missing_settings(need_program=False)
         if missing:
             raise SwpError("The SWP API is not configured. Set in backend/.env: " + ", ".join(missing))
         path = "/api/security-external/external/auth/connect/token"

@@ -74,6 +74,12 @@ create_placeholder_secrets = true
 enable_openrouter = false
 enable_deepl      = false
 
+# SensiWatch (SWP) API, the source of the trip data. The credentials are NOT here: they live in the Secrets Manager
+# secret that OpenTofu creates (<project>-swp-api-<environment>); put them in with the AWS CLI after the first apply.
+enable_swp     = false
+swp_base_url   = "" # REVIEW: the SensiWatch API address, https://<API Management host> (required while enable_swp = true)
+swp_program_id = "" # optional default program id; empty = the PM types it in the app
+
 # Bedrock + Translate added for the new version.
 enable_bedrock           = true
 enable_translate         = true

@@ -207,3 +207,18 @@ variable "entra_client_id" {
   description = "Microsoft Entra API app (client) ID. Set together with entra_tenant_id. Empty = not set."
   type        = string
 }
+
+variable "enable_swp" {
+  description = "Pass the SensiWatch (SWP) API settings to the container (its credentials come in as secrets)."
+  type        = bool
+}
+
+variable "swp_base_url" {
+  description = "SensiWatch API address, passed to the container as SWP_BASE_URL. Required when enable_swp is true."
+  type        = string
+}
+
+variable "swp_program_id" {
+  description = "Default SWP program id, passed as SWP_PROGRAM_ID. Empty = the PM types it in the app."
+  type        = string
+}

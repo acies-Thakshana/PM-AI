@@ -53,6 +53,13 @@ resource "aws_amplify_app" "frontend" {
     AMPLIFY_MONOREPO_APP_ROOT = "frontend"
   }
 
+  # The GitHub token only connects the app to the repository once. Amplify never returns it, so
+  # OpenTofu cannot tell whether it changed, and sending it again (or an empty one) makes Amplify
+  # redo the repository setup and fail if the token is gone. Rotate it in the Amplify console.
+  lifecycle {
+    ignore_changes = [access_token]
+  }
+
   tags = {
     Name = "${var.project}-frontend-${var.environment}"
   }

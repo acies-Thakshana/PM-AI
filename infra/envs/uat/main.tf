@@ -84,6 +84,8 @@ module "secrets" {
   openrouter_secret_arn      = var.openrouter_secret_arn
   enable_deepl               = var.enable_deepl
   deepl_secret_arn           = var.deepl_secret_arn
+  enable_swp                 = var.enable_swp
+  swp_secret_arn             = var.swp_secret_arn
 }
 
 # Storage: the S3 data bucket
@@ -127,6 +129,7 @@ module "iam" {
   s3_bucket_arn                   = module.storage.s3_bucket_arn
   dynamodb_table_arns             = module.database.dynamodb_table_arns
   secret_arns                     = module.secrets.secret_arns
+  has_secrets                     = var.enable_openrouter || var.enable_deepl || var.enable_swp
   aws_region                      = var.aws_region
   create_iam_roles                = var.create_iam_roles
   existing_ecs_execution_role_arn = var.existing_ecs_execution_role_arn
@@ -178,6 +181,9 @@ module "compute" {
   bedrock_default_model_id         = var.bedrock_default_model_id
   bedrock_strong_model_id          = var.bedrock_strong_model_id
   bedrock_prompt_ids               = var.bedrock_prompt_ids
+  enable_swp                       = var.enable_swp
+  swp_base_url                     = var.swp_base_url
+  swp_program_id                   = var.swp_program_id
   allow_anon                       = var.allow_anon
   entra_tenant_id                  = var.entra_tenant_id
   entra_client_id                  = var.entra_client_id
