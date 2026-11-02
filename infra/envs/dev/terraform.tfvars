@@ -77,9 +77,10 @@ enable_deepl      = false
 # Bedrock + Translate added for the new version.
 enable_bedrock           = true
 enable_translate         = true
-bedrock_cheap_model_id   = "us.amazon.nova-pro-v1:0"
-bedrock_default_model_id = "us.anthropic.claude-haiku-4-5-20251001"
-bedrock_strong_model_id  = "us.anthropic.claude-sonnet-4-6"
+# OpenAI's open-weight gpt-oss models, the ChatGPT family that Bedrock serves (backend/app/config.py defaults).
+bedrock_cheap_model_id   = "openai.gpt-oss-20b-1:0"
+bedrock_default_model_id = "openai.gpt-oss-20b-1:0"
+bedrock_strong_model_id  = "openai.gpt-oss-120b-1:0"
 bedrock_model_arns       = ["*"]
 
 # API sign-in. With AWS storage on, the backend needs Entra OR allow_anon.
