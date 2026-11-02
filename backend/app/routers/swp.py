@@ -17,6 +17,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app import config
+from app.routers._errors import upstream_error
 from app.routers.job_route import JobRoute
 from app.services.audit.audit_store import get_or_404, store
 from app.services.common import audit_log, column_meta, file_store, request_context
@@ -39,16 +40,15 @@ MAX_MAP_POINTS = 600
 def _guard(program_id: str | None = None) -> None:
     missing = client.missing_settings(program_id)
     if missing:
-        raise HTTPException(
-            status_code=503, detail="The SWP API is not configured. Set in backend/.env: " + ", ".join(missing)
-        )
+        log.error("SWP is not configured, missing: %s", ", ".join(missing))
+        raise HTTPException(status_code=503, detail="The SWP connection is not configured on the server.")
 
 
 def _swp_call(fn, *args):
     try:
         return fn(*args)
     except client.SwpError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        raise upstream_error(502, "The SWP service could not be reached or refused the request. Please try again.", exc) from exc
 
 
 class TripSummary(BaseModel):

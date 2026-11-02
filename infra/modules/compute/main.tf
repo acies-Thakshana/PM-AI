@@ -17,6 +17,8 @@ locals {
   # without it the backend falls back to local files.
   ecs_environment = concat([
     { name = "CORS_ORIGINS", value = join(",", var.cors_origins) },
+    # Only the frontend's own origin may call the API from a browser: no localhost ports in a deployed environment.
+    { name = "CORS_ALLOW_LOCALHOST", value = "0" },
     { name = "BEDROCK_PROMPT_IDS", value = jsonencode(var.bedrock_prompt_ids) },
     { name = "AWS_REGION", value = var.aws_region },
     { name = "TRANSLATE_REGION", value = var.aws_region },

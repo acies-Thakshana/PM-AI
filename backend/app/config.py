@@ -106,6 +106,11 @@ CORS_ORIGINS = [
 # port is accepted too. Set CORS_ALLOW_LOCALHOST=0 in production to turn this off.
 CORS_ALLOW_LOCALHOST = os.getenv("CORS_ALLOW_LOCALHOST", "1") != "0"
 
+# The interactive API docs (/docs, /redoc) and the schema (/openapi.json) list every endpoint and parameter.
+# On by default only in local development (no sign-in, local storage); off whenever sign-in or AWS storage is on.
+# ENABLE_API_DOCS=1 / 0 overrides either way.
+API_DOCS_ENABLED = os.getenv("ENABLE_API_DOCS", "0" if (AUTH_ENABLED or USE_AWS_STORAGE) else "1") == "1"
+
 # =====================================================================================
 # AMAZON BEDROCK
 #

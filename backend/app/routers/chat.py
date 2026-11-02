@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 
 from app.config import model_for
 from app.prompts import chat_agent as _prompts
+from app.routers._errors import upstream_error
 from app.routers.job_route import JobRoute
 from app.services.analysis import analysis_repository
 from app.services.audit.audit_store import get_or_404
@@ -257,6 +258,20 @@ BRIEF_NOT_A_BRIEF = (
     "That doesn't look like a client brief. Please write what the client needs: which shipments to look at and "
     "what to find out (a sentence or two is enough)."
 )
+BRIEF_ENTER_AGAIN = (
+    "That doesn't look like a client brief, so I am taking you back to the Configure page. Please enter the client brief "
+    "again: which shipments to look at and what to find out (a sentence or two is enough)."
+)
+# A message that is only a greeting. Answered by the app itself (no model call), so it is always the same and always asks for the brief.
+GREETING = re.compile(
+    r"^\s*(hi+|hello+|hey+|hiya|howdy|greetings|good\s+(morning|afternoon|evening)|hi\s+there|hello\s+there|hey\s+there)"
+    r"(\s+(polar|there|team|all|everyone))?\s*[!.,?]*\s*$",
+    re.IGNORECASE,
+)
+GREETING_REPLY = (
+    "Hi! Please enter your client brief: which shipments to look at and what the client wants to find out. "
+    "You can type it here or put it in the Client Brief box on the Configure page."
+)
 READBACK_CLOSING = 'Reply "yes" to confirm, or tell me what to change.'
 READY_CLOSING = 'Next step: accept or reject the Planner\'s suggestions, then press "Build the report".'
 
@@ -354,18 +369,20 @@ def _normalise(
 
     brief_check, candidate = _brief_verdict(raw, state)
     if brief_check in ("unsure", "not_brief"):
-        # Nothing moves on until the PM has said this is the brief: no questions, no read-back, no actions.
+        # Nothing moves on until the PM has said this is the brief: no questions, no read-back, no actions
+        # (except sending the PM back to Configure when the data is already loaded and the brief is not one).
         if refusals is not None:
             refusals["needs_audit"], refusals["off_intent"] = [], []
+        back = brief_check == "not_brief" and has_data
         return {
-            "reply": _brief_question(brief_check, candidate),
+            "reply": BRIEF_ENTER_AGAIN if back else _brief_question(brief_check, candidate),
             "intent": "interview",
             "phase": "interview",
             "understanding": {k: _plain(_clean_text(prev_u.get(k, ""), 400)) for k in UNDERSTANDING_KEYS},
             "assumptions": [],
             "quick_replies": list(BRIEF_CONFIRM_REPLIES) if brief_check == "unsure" else [],
             "next_questions": [],
-            "actions": [],
+            "actions": [{"type": "navigate", "page": "upload"}] if back else [],
             "brief_check": brief_check,
         }
 
@@ -482,8 +499,33 @@ def turn(req: ChatTurnRequest):
         recorder.close()
 
 
+def _greeting_response(req: ChatTurnRequest) -> dict | None:
+    """The reply to a bare "Hi" / "Hello" while there is no client brief yet: say hi back and ask for the brief.
+    None when the message is more than a greeting, the app wrote it, or a brief already exists."""
+    if req.hidden or req.brief.strip() or not GREETING.match(req.messages[-1].content):
+        return None
+    if req.state.get("phase", "interview") != "interview":
+        return None
+    prev_u = req.state.get("understanding") if isinstance(req.state.get("understanding"), dict) else {}
+    return {
+        "reply": GREETING_REPLY,
+        "intent": "other",
+        "phase": "interview",
+        "understanding": {k: _plain(_clean_text(prev_u.get(k, ""), 400)) for k in UNDERSTANDING_KEYS},
+        "assumptions": [],
+        "quick_replies": [],
+        "next_questions": [],
+        "actions": [],
+        "brief_check": "na",
+    }
+
+
 def _answer(req: ChatTurnRequest, audited: bool, pending: int | None, recorder: TurnRecorder) -> dict:
     """The model's answer to the PM's last message, cleaned (see `turn`); the turn is recorded as it goes."""
+    greeting = _greeting_response(req)
+    if greeting is not None:
+        recorder.complete(greeting, tools_used=[], looked_at=[], refusals={}, state=req.state)
+        return greeting
     system = llm.system_prompt("chat_agent", _prompts.SYSTEM_PROMPT)
     if req.session_id:
         system += orchestrator.tools_prompt()  # tools only exist for a loaded session
@@ -503,13 +545,13 @@ def _answer(req: ChatTurnRequest, audited: bool, pending: int | None, recorder: 
     except (ValueError, llm.LLMError) as exc:
         log.warning("chat turn failed: %s", exc)
         recorder.fail("LLM_ERROR", 502, str(exc))
-        raise HTTPException(status_code=502, detail=f"The assistant could not answer: {exc}") from exc
+        raise upstream_error(502, "The assistant could not answer right now. Please try again.", exc) from exc
     except RuntimeError as exc:
         recorder.fail("UNAVAILABLE", 503, str(exc))
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        raise upstream_error(503, "The assistant is not available right now.", exc) from exc
     except Exception as exc:  # noqa: BLE001
         recorder.fail("CHAT_ERROR", 502, str(exc))
-        raise HTTPException(status_code=502, detail=f"Chat LLM error: {exc}") from exc
+        raise upstream_error(502, "The assistant could not answer right now. Please try again.", exc) from exc
     asked = [m.content for m in req.messages if m.role == "user"]
     refusals: dict[str, list[str]] = {}
     response = _normalise(

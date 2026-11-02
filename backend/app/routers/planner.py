@@ -6,6 +6,7 @@ from app.services.audit.audit_store import get_or_404
 from app.services.common import audit_log
 from app.services.features import feature_repository
 from app.services.planner import planner as planner_service, planner_store
+from app.routers._errors import upstream_error
 from app.routers.job_route import JobRoute
 
 router = APIRouter(route_class=JobRoute, prefix="/api/planner", tags=["planner"])
@@ -58,11 +59,11 @@ def suggest(req: SuggestRequest):
         )
         return result
     except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise upstream_error(404, "No data found for this session.", exc) from exc
     except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        raise upstream_error(503, "The planner is not available right now.", exc) from exc
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Planner LLM error: {exc}") from exc
+        raise upstream_error(502, "The planner could not answer right now. Please try again.", exc) from exc
 
 
 @router.post("/save", response_model=SaveResponse)

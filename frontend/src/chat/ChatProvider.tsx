@@ -851,7 +851,8 @@ export function ChatProvider({ brief, onBriefChange, files, sessionId, auditRepo
           );
         } else {
           declinedBrief.current = asked;
-          say("No problem. Put the corrected brief in the Client Brief box on the Configure page.", { links: [{ label: "Open Configure", path: "/upload" }] });
+          say("No problem. Please enter the client brief again in the Client Brief box on the Configure page.", { links: [{ label: "Open Configure", path: "/upload" }] });
+          if (stage !== "configure") navigate("/upload"); // back to Configure so the brief can be entered again
         }
         finishTurnRecord(turn);
         return;

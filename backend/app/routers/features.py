@@ -16,6 +16,7 @@ from app.services.audit.audit_store import get_or_404, store as audit_store
 from app.services.common.audit_log import log_event
 from app.services.features import feature_definitions_store as defs_store
 from app.services.features import feature_designer, feature_repository, feature_suggester
+from app.routers._errors import upstream_error
 from app.routers.job_route import JobRoute
 
 router = APIRouter(route_class=JobRoute, prefix="/api/features", tags=["features"])
@@ -93,7 +94,7 @@ def suggest_features(session_id: str) -> SuggestFeatureEntriesResponse:
     try:
         suggestions = feature_suggester.suggest_features(base_df, feature_repository.get_repository(session_id))
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Feature suggestion agent (Bedrock) is unavailable: {exc}") from exc
+        raise upstream_error(502, "Feature suggestions are unavailable right now. Please try again.", exc) from exc
     new_entries = feature_repository.add_ai_suggested_entries(session_id, suggestions)
     log_event(session_id, session.user_id, "feature_suggested", {"count": len(new_entries)})
     return SuggestFeatureEntriesResponse(session_id=session_id, entries=[FeatureRepositoryEntry(**e) for e in new_entries])

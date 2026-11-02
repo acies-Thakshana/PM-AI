@@ -9,7 +9,13 @@ from app.routers.deps import User, get_user
 from app.services.audit.audit_store import SessionConflict
 from app.services.common import doc_store, session_repo, token_usage
 
-app = FastAPI(title="Cold Chain Data Audit API")
+app = FastAPI(
+    title="Cold Chain Data Audit API",
+    # Not public when deployed: they list every endpoint (see config.API_DOCS_ENABLED).
+    docs_url="/docs" if config.API_DOCS_ENABLED else None,
+    redoc_url="/redoc" if config.API_DOCS_ENABLED else None,
+    openapi_url="/openapi.json" if config.API_DOCS_ENABLED else None,
+)
 
 # Browsers may call this API from the origins in CORS_ORIGINS (the deployed frontend, set
 # explicitly). In local development Vite's dev server auto-increments past a taken port

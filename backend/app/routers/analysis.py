@@ -40,6 +40,7 @@ from app.services.audit.audit_store import AuditSession, get_or_404, store
 from app.services.common import request_context
 from app.services.common.audit_log import log_event
 from app.services.features import feature_repository
+from app.routers._errors import upstream_error
 from app.routers.job_route import JobRoute
 
 router = APIRouter(route_class=JobRoute, prefix="/api/analysis", tags=["analysis"])
@@ -677,9 +678,7 @@ def get_overall_analysis(session_id: str) -> OverallAnalysisReport:
     try:
         narrative = overall_analysis_agent.generate_narrative(len(session.df), highlights)
     except Exception as exc:
-        raise HTTPException(
-            status_code=502, detail=f"Overall analysis narrative agent (Bedrock) is unavailable: {exc}"
-        ) from exc
+        raise upstream_error(502, "The analysis narrative could not be written right now. Please try again.", exc) from exc
     report = OverallAnalysisReport(
         session_id=session_id, row_count=len(session.df), highlights=highlights, narrative=narrative
     )

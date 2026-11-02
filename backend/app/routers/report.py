@@ -23,6 +23,7 @@ from app.services.audit.audit_store import get_or_404
 from app.services.common import ai_cache, file_store
 from app.services.common.audit_log import log_event
 from app.services.report import final_summary_agent, report_generator, translation_service
+from app.routers._errors import upstream_error
 from app.routers.job_route import JobRoute
 
 router = APIRouter(route_class=JobRoute, prefix="/api/report", tags=["report"])
@@ -86,7 +87,7 @@ def get_report_summary(session_id: str, entry_id: list[str] | None = Query(defau
             session_id, "REPORT_SUMMARY", _summary_inputs(entries), lambda: final_summary_agent.generate_summary(entries),
         )
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Report summary agent (Bedrock) is unavailable: {exc}") from exc
+        raise upstream_error(502, "The report summary is unavailable right now. Please try again.", exc) from exc
     return ReportSummaryResponse(session_id=session_id, bullets=bullets)
 
 

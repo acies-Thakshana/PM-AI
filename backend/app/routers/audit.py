@@ -16,6 +16,7 @@ from app.services.audit import outlier_audit
 from app.services.audit.excel_parser import load_spreadsheet
 from app.services.common import ai_cache, audit_log, column_meta, file_store, request_context, session_repo
 from app.services.features import feature_engineering, feature_repository
+from app.routers._errors import upstream_error
 from app.routers.job_route import JobRoute
 
 router = APIRouter(route_class=JobRoute, prefix="/api/audit", tags=["audit"])
@@ -247,9 +248,7 @@ def run_audit_agent(session_id: str) -> AuditReport:
             session.source, session.filename, len(session.df), len(session.df.columns), issues
         )
     except Exception as exc:
-        raise HTTPException(
-            status_code=502, detail=f"Data audit agent (Bedrock) is unavailable: {exc}"
-        ) from exc
+        raise upstream_error(502, "The data audit assistant is unavailable right now. Please try again.", exc) from exc
 
     for issue in issues:
         action, note = recommendations.get(issue.id, (None, None))
